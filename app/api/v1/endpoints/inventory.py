@@ -1,13 +1,10 @@
 from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-
-from app.core.deps import get_db, get_current_active_user
-from app.models.inventory import Material, Location, InventoryMovement
-from app.models.user import User
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.deps import get_current_active_user
+from app.core.supabase import supabase
 from app.schemas.inventory import (
     MaterialCreate, MaterialUpdate, MaterialResponse,
-    LocationCreate, LocationUpdate, LocationResponse
+    LocationCreate, LocationResponse
 )
 from app.schemas.inventory_movement import InventoryMovementCreate, InventoryMovementResponse
 from app.services.inventory_service import InventoryService
@@ -18,151 +15,135 @@ router = APIRouter()
 
 @router.get("/locations", response_model=List[LocationResponse])
 def read_locations(
-    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Retrieve locations.
     """
-    locations = db.query(Location).offset(skip).limit(limit).all()
-    return locations
+    res = supabase.table('locations').select('*').range(skip, skip + limit - 1).execute()
+    return res.data
 
 @router.post("/locations", response_model=LocationResponse)
 def create_location(
     *,
-    db: Session = Depends(get_db),
     location_in: LocationCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Create new location.
     """
-    location = db.query(Location).filter(Location.code == location_in.code).first()
-    if location:
+    # Check existence
+    existing = supabase.table('locations').select('code').eq('code', location_in.code).execute()
+    if existing.data:
         raise HTTPException(
             status_code=400,
             detail="The location with this code already exists.",
         )
-    location = Location(**location_in.dict())
-    db.add(location)
-    db.commit()
-    db.refresh(location)
-    return location
+    
+    res = supabase.table('locations').insert(location_in.dict()).execute()
+    return res.data[0]
 
 # --- Materials ---
 
 @router.get("/materials", response_model=List[MaterialResponse])
 def read_materials(
-    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Retrieve materials.
     """
-    materials = db.query(Material).offset(skip).limit(limit).all()
-    return materials
+    res = supabase.table('materials').select('*').range(skip, skip + limit - 1).execute()
+    return res.data
 
 @router.post("/materials", response_model=MaterialResponse)
 def create_material(
     *,
-    db: Session = Depends(get_db),
     material_in: MaterialCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Create new material.
     """
-    material = db.query(Material).filter(Material.sku == material_in.sku).first()
-    if material:
-        raise HTTPException(
+    # Check SKU
+    existing = supabase.table('materials').select('sku').eq('sku', material_in.sku).execute()
+    if existing.data:
+         raise HTTPException(
             status_code=400,
             detail="The material with this SKU already exists.",
         )
     
-    # Verify location if provided
+    # Verify location
     if material_in.location_id:
-        location = db.query(Location).filter(Location.id == material_in.location_id).first()
-        if not location:
-            raise HTTPException(
-                status_code=404,
-                detail="Location not found",
-            )
-
-    material = Material(**material_in.dict())
-    db.add(material)
-    db.commit()
-    db.refresh(material)
-    return material
+        loc = supabase.table('locations').select('id').eq('id', material_in.location_id).execute()
+        if not loc.data:
+            raise HTTPException(status_code=404, detail="Location not found")
+            
+    res = supabase.table('materials').insert(material_in.dict()).execute()
+    return res.data[0]
 
 @router.get("/materials/{material_id}", response_model=MaterialResponse)
 def read_material(
     material_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Get material by ID.
     """
-    material = db.query(Material).filter(Material.id == material_id).first()
-    if not material:
+    res = supabase.table('materials').select('*').eq('id', material_id).single().execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="Material not found")
-    return material
+    return res.data
 
 @router.put("/materials/{material_id}", response_model=MaterialResponse)
 def update_material(
     *,
-    db: Session = Depends(get_db),
     material_id: int,
     material_in: MaterialUpdate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Update a material.
     """
-    material = db.query(Material).filter(Material.id == material_id).first()
-    if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
-    
-    update_data = material_in.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(material, field, value)
+    updates = material_in.dict(exclude_unset=True)
+    if not updates:
+        return read_material(material_id, current_user)
         
-    db.add(material)
-    db.commit()
-    db.refresh(material)
-    return material
+    res = supabase.table('materials').update(updates).eq('id', material_id).execute()
+    if not res.data:
+         raise HTTPException(status_code=404, detail="Material not found")
+    return res.data[0]
 
 # --- Inventory Movements (Kardex) ---
 
 @router.post("/movements", response_model=InventoryMovementResponse)
 def create_movement(
     *,
-    db: Session = Depends(get_db),
     movement_in: InventoryMovementCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
-    Register a new inventory movement (IN, OUT, ADJUSTMENT).
+    Register a new inventory movement.
     """
-    return InventoryService.create_movement(db=db, movement_in=movement_in, user_id=current_user.id)
+    # user_id should be string UUID now
+    return InventoryService.create_movement(movement_in=movement_in, user_id=str(current_user.id))
 
 @router.get("/movements/{material_id}", response_model=List[InventoryMovementResponse])
 def read_kardex(
     material_id: int,
-    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
+    current_user = Depends(get_current_active_user),
 ) -> Any:
     """
     Get inventory history (Kardex) for a specific material.
     """
-    movements = db.query(InventoryMovement).filter(
-        InventoryMovement.material_id == material_id
-    ).order_by(InventoryMovement.timestamp.desc()).offset(skip).limit(limit).all()
-    
-    return movements
+    res = supabase.table('inventory_movements').select('*')\
+        .eq('material_id', material_id)\
+        .order('timestamp', desc=True)\
+        .range(skip, skip + limit - 1)\
+        .execute()
+    return res.data

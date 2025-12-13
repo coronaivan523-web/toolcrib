@@ -1,68 +1,70 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from datetime import timedelta
-from app.core.deps import get_db, get_current_user
-from app.core.security import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from app.schemas.user import Token, UserResponse, UserLogin
-# Import from base to ensure all models are loaded
-from app.db import base
-from app.models.user import User
-
+from app.core.deps import get_current_user
+from app.core.supabase import supabase
+from app.schemas.user import Token, UserResponse
 
 router = APIRouter()
 
 @router.post("/login", response_model=Token)
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """
-    Login con username y password.
-    Retorna un token JWT de acceso.
+    Login using Supabase Auth.
     """
-    # Buscar usuario por username
-    user = db.query(User).filter(User.username == form_data.username).first()
-    
-    if not user:
+    try:
+        # Supabase sign in
+        res = supabase.auth.sign_in_with_password({
+            "email": form_data.username, # Assuming username field receives email
+            "password": form_data.password
+        })
+        
+        if not res.session:
+            raise Exception("Login failed")
+
+        return {
+            "access_token": res.session.access_token,
+            "token_type": "bearer"
+        }
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    # Verificar contraseña
-    if not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Verificar que el usuario esté activo
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    
-    # Crear token de acceso
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
-    )
-    
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserResponse)
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user = Depends(get_current_user)):
     """
-    Obtener información del usuario actual autenticado.
+    Get current user details.
     """
+    # Fetch additional details from profiles if not present in current_user wrapper
+    # For now, current_user from deps is a wrapper around Supabase user
+    
+    # If we need the real profile from DB:
+    try:
+        profile_res = supabase.table('profiles').select('*').eq('id', current_user.id).single().execute()
+        if profile_res.data:
+            data = profile_res.data
+            return UserResponse(
+                id=str(current_user.id), # UUID
+                username=data.get('username') or current_user.username,
+                email=current_user.email,
+                full_name=data.get('full_name') or current_user.full_name,
+                employee_number=data.get('employee_number'),
+                is_active=current_user.is_active,
+                role_name=data.get('role', 'user'),
+                role_id=0 # Legacy field comp
+            )
+    except Exception:
+        pass # Fallback to auth metadata
+
     return UserResponse(
-        id=current_user.id,
+        id=str(current_user.id),
         username=current_user.username,
         email=current_user.email,
         full_name=current_user.full_name,
-        employee_number=current_user.employee_number,
+        employee_number="",
         is_active=current_user.is_active,
-        role_id=current_user.role_id,
-        role_name=current_user.role.name if current_user.role else None
+        role_name=current_user.role.name,
+        role_id=0
     )

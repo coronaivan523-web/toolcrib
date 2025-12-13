@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from app.models.inventory import MovementType
+from app.core.enums import MovementType
 
 class InventoryMovementBase(BaseModel):
     material_id: int
@@ -16,7 +16,7 @@ class InventoryMovementCreate(InventoryMovementBase):
 
 class InventoryMovementResponse(InventoryMovementBase):
     id: int
-    user_id: int
+    user_id: str
     timestamp: datetime
     
     class Config:

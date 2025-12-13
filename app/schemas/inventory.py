@@ -2,6 +2,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
 from enum import Enum
+from app.core.enums import MovementType
 
 # Location Schemas
 class LocationBase(BaseModel):
@@ -22,21 +23,31 @@ class LocationResponse(LocationBase):
 
 # Material Schemas
 class MaterialBase(BaseModel):
-    sku: str
+    part_number: str
     name: str
     description: Optional[str] = None
     category: str
     unit_of_measure: str
     min_stock: int = 0
     max_stock: int = 0
-    location_id: Optional[int] = None
+    location: Optional[str] = None
+    location_id: Optional[int] = None # Deprecated? Keeping for compatibility if needed or remove. User wants text.
     image_url: Optional[str] = None
+    process: Optional[str] = None
+    Area: Optional[str] = None
+    material_type: Optional[str] = 'spare_part'
+    abc_class: Optional[str] = 'B'
+    origin_country: Optional[str] = 'MX'
+    requested_by: Optional[str] = None
+    requested_by_position: Optional[str] = None
+    registered_by: Optional[str] = None
+    status: Optional[str] = 'active'
 
 class MaterialCreate(MaterialBase):
     pass
 
 class MaterialUpdate(MaterialBase):
-    sku: Optional[str] = None
+    part_number: Optional[str] = None
     name: Optional[str] = None
     category: Optional[str] = None
     unit_of_measure: Optional[str] = None
@@ -53,12 +64,8 @@ class MaterialResponse(MaterialBase):
         from_attributes = True
 
 # Movement Schemas
-class MovementType(str, Enum):
-    IN = "IN"
-    OUT = "OUT"
-    RETURN = "RETURN"
-    ADJUSTMENT_POS = "ADJUSTMENT_POS"
-    ADJUSTMENT_NEG = "ADJUSTMENT_NEG"
+# Movement Schemas
+# MovementType imported from app.core.enums
 
 class InventoryMovementBase(BaseModel):
     material_id: int

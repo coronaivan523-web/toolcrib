@@ -1,17 +1,7 @@
-from typing import List, Optional
 from pydantic import BaseModel
+from typing import List, Optional, Any
 from datetime import datetime
-from enum import Enum
 
-class TicketStatus(str, Enum):
-    CREATED = "CREATED"
-    APPROVED = "APPROVED"
-    PREPARING = "PREPARING"
-    READY_FOR_PICKUP = "READY_FOR_PICKUP"
-    DELIVERED = "DELIVERED"
-    CANCELLED = "CANCELLED"
-
-# Ticket Item Schemas
 class TicketItemBase(BaseModel):
     material_id: int
     quantity_requested: int
@@ -19,33 +9,32 @@ class TicketItemBase(BaseModel):
 class TicketItemCreate(TicketItemBase):
     pass
 
-class TicketItemResponse(TicketItemBase):
+class TicketItem(TicketItemBase):
     id: int
     ticket_id: int
-    quantity_fulfilled: int
+    quantity_fulfilled: int = 0
     
     class Config:
         from_attributes = True
 
-# Ticket Schemas
 class TicketBase(BaseModel):
-    pass
+    status: Optional[str] = "CREATED"
 
 class TicketCreate(TicketBase):
     items: List[TicketItemCreate]
 
 class TicketUpdate(TicketBase):
-    status: Optional[TicketStatus] = None
-    assigned_to: Optional[int] = None
+    status: Optional[str] = None
+    assigned_to: Optional[str] = None # UUID
 
 class TicketResponse(TicketBase):
     id: int
-    requester_id: int
-    assigned_to: Optional[int] = None
-    status: TicketStatus
+    requester_id: str # UUID
+    assigned_to: Optional[str] = None # UUID
     created_at: datetime
     updated_at: datetime
-    items: List[TicketItemResponse]
+    items: List[TicketItem] = []
+    # requester: Optional[Any] = None # Include if we want nested requester info
     
     class Config:
         from_attributes = True

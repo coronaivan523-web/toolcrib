@@ -7,27 +7,28 @@ class Token(BaseModel):
     token_type: str
 
 class TokenData(BaseModel):
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None # UUID
 
 # User schemas
 class UserBase(BaseModel):
-    username: str
+    username: Optional[str] = None
     email: EmailStr
-    full_name: str
+    full_name: Optional[str] = None
     employee_number: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
-    role_id: int
+    role_id: Optional[int] = 0 # Deprecated or used for role mapping
+    role_name: Optional[str] = 'user'
 
 class UserLogin(BaseModel):
     username: str
     password: str
 
 class UserResponse(UserBase):
-    id: int
+    id: str # UUID
     is_active: bool
-    role_id: int
+    role_id: Optional[int] = 0
     role_name: Optional[str] = None
     
     class Config:
@@ -38,4 +39,4 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     employee_number: Optional[str] = None
     is_active: Optional[bool] = None
-    role_id: Optional[int] = None
+    role_name: Optional[str] = None

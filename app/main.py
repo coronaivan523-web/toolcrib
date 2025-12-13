@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.endpoints import auth, users, inventory, tickets
+from app.core.supabase import supabase
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -11,7 +12,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,8 +25,26 @@ app.include_router(tickets.router, prefix=f"{settings.API_V1_STR}/tickets", tags
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Tool Crib API"}
+    return {"message": "Welcome to Tool Crib API (Supabase Edition)"}
 
+@app.get("/health/supabase")
+def health_supabase():
+    try:
+        # Simple query to check if we can reach Supabase
+        # We can query 'locations' or just check auth status (though auth is client side mostly)
+        # Checking a public table or just a simple rpc if available.
+        # Let's try selecting from 'locations' (limit 1)
+        res = supabase.table('locations').select('id').limit(1).execute()
+        return {"status": "ok", "supabase": "connected"}
+    except Exception as e:
+        return {"status": "error", "supabase": "disconnected", "detail": str(e)}
+
+        return {"status": "error", "supabase": "disconnected", "detail": str(e)}
+
+@app.get("/health/db")
+def health_db():
+    return health_supabase()
+    
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
