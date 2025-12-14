@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './layouts/Layout'
 import Login from './pages/Login'
+
 import Inventory from './pages/Inventory'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // Placeholders
 const Dashboard = () => <div className="p-4 bg-white rounded-lg shadow">Dashboard Content Coming Soon</div>
@@ -15,7 +17,11 @@ function App() {
 
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/inventory" element={
+            <ErrorBoundary>
+              <Inventory />
+            </ErrorBoundary>
+          } />
           <Route path="/tickets" element={<Tickets />} />
         </Route>
 

@@ -42,6 +42,8 @@ class MaterialBase(BaseModel):
     requested_by_position: Optional[str] = None
     registered_by: Optional[str] = None
     status: Optional[str] = 'active'
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class MaterialCreate(MaterialBase):
     pass
@@ -54,6 +56,10 @@ class MaterialUpdate(MaterialBase):
     min_stock: Optional[int] = None
     max_stock: Optional[int] = None
     current_stock: Optional[int] = None
+    created_at: Optional[datetime] = None # Allow overwriting for traceability "reset"
+    registered_by: Optional[str] = None
+    requested_by: Optional[str] = None
+    status: Optional[str] = None
 
 class MaterialResponse(MaterialBase):
     id: int
