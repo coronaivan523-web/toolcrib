@@ -140,21 +140,23 @@ export default function Inventory() {
     // RBAC: User Role State
     const [userRole, setUserRole] = useState(null)
     const [currentUser, setCurrentUser] = useState(null) // Added state for user object
+    const [userProfile, setUserProfile] = useState(null) // NEW: State for full profile (name, avatar)
 
     const fetchUserRole = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) setCurrentUser(user) // Save user to state
             if (user) {
-                // Fetch role from profiles
+                // Fetch role and profile details
                 const { data, error } = await supabase
                     .from('profiles')
-                    .select('role')
+                    .select('role, full_name, avatar_url')
                     .eq('id', user.id)
                     .single()
 
                 if (data) {
                     setUserRole(data.role)
+                    setUserProfile(data) // Save full profile
                     console.log("Current User Role:", data.role)
                 }
             }
@@ -698,18 +700,39 @@ export default function Inventory() {
         <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
             {/* Unified Header & Toolbar - Full Width Banner - Fixed */}
             <div className="bg-primary-900 shadow-md z-30 shrink-0" style={{ backgroundColor: '#1e3a8a' }}>
-                <div className="px-8 py-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="relative px-8 py-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="w-80 flex flex-col items-center">
                         <img src="/wasion_logo_large.png" alt="Wasion Logo" className="w-full object-contain" />
                         <div className="text-white text-[10px] font-bold tracking-[0.8em] uppercase opacity-90 mt-0 text-center w-full leading-none">
                             Made in Mexico
                         </div>
                     </div>
-                    <div className="text-right">
-                        <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">
-                            Inventory Management
+
+                    {/* User Profile Section - Large Photo & Name - Center aligned absolutely */}
+                    {(userProfile || currentUser) && (
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden sm:flex items-center gap-4 bg-primary-800/40 rounded-full pr-6 pl-2 py-1.5 border border-primary-700/50 shadow-sm">
+                            <div className="h-12 w-12 rounded-full ring-2 ring-white/20 overflow-hidden bg-primary-700 flex items-center justify-center shrink-0">
+                                {userProfile?.avatar_url ? (
+                                    <img src={userProfile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
+                                ) : (
+                                    <User className="h-7 w-7 text-primary-300" />
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-white font-bold text-sm tracking-wide leading-tight">
+                                    {userProfile?.full_name || currentUser?.email?.split('@')[0] || 'User'}
+                                </span>
+                                <span className="text-primary-300 text-[10px] font-medium uppercase tracking-wider">
+                                    {userRole || 'User'}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    <div className="text-center">
+                        <h1 className="text-2xl font-extrabold text-white tracking-widest leading-tight uppercase">
+                            Material Master
                         </h1>
-                        <p className="text-primary-200 mt-0 text-sm font-medium">Track items, stock levels, and locations.</p>
+                        <p className="text-primary-200 mt-0 text-sm font-medium tracking-wide">Track items, stock levels, and locations.</p>
                     </div>
                 </div>
 

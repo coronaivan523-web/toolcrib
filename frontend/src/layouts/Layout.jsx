@@ -39,7 +39,7 @@ export default function Layout() {
 
     const navigation = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-        { name: 'Inventory', href: '/inventory', icon: Package },
+        { name: 'Material Master', href: '/inventory', icon: Package },
         { name: 'Tickets', href: '/tickets', icon: Ticket },
     ]
 
@@ -90,14 +90,20 @@ export default function Layout() {
                                 key={item.name}
                                 to={item.href}
                                 className={clsx(
-                                    "flex items-center space-x-3 rounded-lg px-4 py-3 transition-colors",
+                                    "flex items-center space-x-3 rounded-lg px-4 py-3 transition-colors relative group",
                                     isActive
                                         ? "bg-primary-700 text-white shadow-sm"
                                         : "text-primary-200 hover:bg-primary-800 hover:text-white"
                                 )}
                             >
                                 <Icon size={24} />
-                                {sidebarOpen && <span className="text-lg">{item.name}</span>}
+                                {sidebarOpen ? (
+                                    <span className="text-lg">{item.name}</span>
+                                ) : (
+                                    <div className="absolute left-full top-1/2 ml-4 -translate-y-1/2 px-2 py-1 bg-primary-600 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                        {item.name}
+                                    </div>
+                                )}
                             </Link>
                         )
                     })}
@@ -106,10 +112,16 @@ export default function Layout() {
                 <div className="border-t border-primary-800 p-4">
                     <button
                         onClick={handleLogout}
-                        className="flex w-full items-center space-x-3 rounded-lg px-4 py-2 text-primary-200 hover:bg-primary-800 hover:text-white"
+                        className="flex w-full items-center space-x-3 rounded-lg px-4 py-2 text-primary-200 hover:bg-primary-800 hover:text-white relative group"
                     >
                         <LogOut size={24} />
-                        {sidebarOpen && <span className="text-lg">Logout</span>}
+                        {sidebarOpen ? (
+                            <span className="text-lg">Logout</span>
+                        ) : (
+                            <div className="absolute left-full top-1/2 ml-4 -translate-y-1/2 px-2 py-1 bg-primary-600 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                                Logout
+                            </div>
+                        )}
                     </button>
                 </div>
             </div>
