@@ -5,9 +5,10 @@ import Login from './pages/Login'
 import Inventory from './pages/Inventory'
 import ErrorBoundary from './components/ErrorBoundary'
 
-// Placeholders
-const Dashboard = () => <div className="p-4 bg-white rounded-lg shadow">Dashboard Content Coming Soon</div>
-const Tickets = () => <div className="p-4 bg-white rounded-lg shadow">Ticket System Coming Soon</div>
+import Stock from './pages/Stock'
+import Tickets from './pages/Tickets'
+
+import Dashboard from './pages/Dashboard'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
               <Inventory />
             </ErrorBoundary>
           } />
+          <Route path="/stock" element={<Stock />} />
           <Route path="/tickets" element={<Tickets />} />
         </Route>
 

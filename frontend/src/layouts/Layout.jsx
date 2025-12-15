@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Ticket, LogOut, Menu } from 'lucide-react'
+import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function Layout() {
@@ -40,6 +40,7 @@ export default function Layout() {
     const navigation = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Material Master', href: '/inventory', icon: Package },
+        { name: 'Inventario', href: '/stock', icon: Box }, // Using Box icon for Stock
         { name: 'Tickets', href: '/tickets', icon: Ticket },
     ]
 

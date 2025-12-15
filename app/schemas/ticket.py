@@ -10,15 +10,15 @@ class TicketItemCreate(TicketItemBase):
     pass
 
 class TicketItem(TicketItemBase):
-    id: int
-    ticket_id: int
+    id: str # UUID
+    ticket_id: str # UUID
     quantity_fulfilled: int = 0
     
     class Config:
         from_attributes = True
 
 class TicketBase(BaseModel):
-    status: Optional[str] = "CREATED"
+    status: Optional[str] = "PENDIENTE"
 
 class TicketCreate(TicketBase):
     items: List[TicketItemCreate]
@@ -28,7 +28,7 @@ class TicketUpdate(TicketBase):
     assigned_to: Optional[str] = None # UUID
 
 class TicketResponse(TicketBase):
-    id: int
+    id: str # UUID
     requester_id: str # UUID
     assigned_to: Optional[str] = None # UUID
     created_at: datetime

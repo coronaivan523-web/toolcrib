@@ -15,15 +15,13 @@ def read_tickets(
     """
     Retrieve tickets.
     """
-    query = supabase.table('tickets').select('*, items:ticket_items(*), requester:profiles!requester_id(*)').range(skip, skip + limit - 1)
+    # Fetch tickets with nested items and requester profile
+    query = supabase.table('tickets').select('*, items:ticket_items(*), requester:profiles!requester_id(*)').order('created_at', desc=True).range(skip, skip + limit - 1)
     
-    # Filter by user if not admin
-    # Assuming role is loaded in current_user wrapper or we fetch it.
-    # The current_user from deps.py is a wrapper. Let's check role name.
     role_name = getattr(current_user.role, 'name', 'user')
     
-    if role_name != "admin": # Check actual role name in Supabase/App
-         # Use eq on client side query builder
+    # If not admin, only show own tickets
+    if role_name != "admin":
          query = query.eq('requester_id', current_user.id)
          
     res = query.execute()
@@ -41,7 +39,7 @@ def create_ticket(
     # 1. Create Ticket
     ticket_data = {
         "requester_id": str(current_user.id),
-        "status": "CREATED"
+        "status": "PENDIENTE"
     }
     
     res = supabase.table('tickets').insert(ticket_data).execute()
@@ -53,11 +51,14 @@ def create_ticket(
     
     # 2. Create Items
     items_data = []
+    # Deduplicate items if necessary or validate
+    
     for item in ticket_in.items:
-        # Verify material
+        # Check if material exists
         mat = supabase.table('materials').select('id').eq('id', item.material_id).execute()
         if not mat.data:
-             # Delete ticket? - Cleanup handled manually or ignore
+             # Rollback ticket creation if possible? Or just fail this item.
+             # Ideally we should rollback. For now, we will delete the ticket.
              supabase.table('tickets').delete().eq('id', ticket_id).execute()
              raise HTTPException(status_code=404, detail=f"Material {item.material_id} not found")
              
@@ -74,108 +75,74 @@ def create_ticket(
     else:
         ticket['items'] = []
         
-    # Fetch requester logic if needed for response? Response model might need it.
-    # Just return what we have, usually requester is not mandatory in response if it's the current user?
-    # But schema might expect it.
-    # Let's attach requester info manually if needed
+    # Attach requester ID for response model validation
     ticket['requester_id'] = str(current_user.id)
-    # The response validation might expect 'requester' object or just ID?
-    # Let's wait for schema check result before finalizing if this fails validation.
-    # Actually I am writing this concurrently. I'll make a best guess:
-    # return ticket (dict)
     
-    return ticket 
+    return ticket
 
-@router.get("/{ticket_id}", response_model=TicketResponse)
-def read_ticket(
-    ticket_id: int,
+@router.post("/{ticket_id}/close", response_model=TicketResponse)
+def close_ticket(
+    ticket_id: str,
     current_user = Depends(get_current_active_user),
 ) -> Any:
     """
-    Get ticket by ID.
+    Approve and Close ticket.
+    TRIGGERS STOCK DEDUCTION.
+    Only Admins or Tool Crib Managers should do this.
     """
-    res = supabase.table('tickets').select('*, items:ticket_items(*), requester:profiles!requester_id(*)')\
-        .eq('id', ticket_id).single().execute()
-        
+    role_name = getattr(current_user.role, 'name', 'user')
+    if role_name != "admin": # Add other roles if needed
+        raise HTTPException(status_code=403, detail="Not authorized to close tickets")
+
+    # 1. Fetch Ticket & Items
+    res = supabase.table('tickets').select('*, items:ticket_items(*)').eq('id', ticket_id).single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
     ticket = res.data
-    
-    # Access Control
-    role_name = getattr(current_user.role, 'name', 'user')
-    if role_name != "admin" and ticket.get('requester_id') != str(current_user.id):
-         raise HTTPException(status_code=403, detail="Not enough permissions")
-         
-    return ticket
-
-@router.put("/{ticket_id}", response_model=TicketResponse)
-def update_ticket(
-    *,
-    ticket_id: int,
-    ticket_in: TicketUpdate,
-    current_user = Depends(get_current_active_user),
-) -> Any:
-    """
-    Update a ticket.
-    """
-    updates = ticket_in.dict(exclude_unset=True)
-    if not updates:
-        return read_ticket(ticket_id, current_user)
+    if ticket['status'] in ['ENTREGADO', 'RECHAZADO']:
+        raise HTTPException(status_code=400, detail="Ticket already processed")
         
-    # We might need to handle nested updates separately? 
-    # For now assume updates are top-level ticket fields (status, etc.)
-    # If items update is needed, it's more complex.
+    items = ticket.get('items', [])
     
-    # Remove items from updates if present to avoid error
-    if 'items' in updates:
-        del updates['items']
-
-    res = supabase.table('tickets').update(updates).eq('id', ticket_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+    # 2. Process Stock Deduction
+    for item in items:
+        wanted = item['quantity_requested']
+        mat_id = item['material_id']
         
-    # Return full object with items
-    return read_ticket(ticket_id, current_user)
+        # Lock/Get material
+        mat_res = supabase.table('materials').select('current_stock, name').eq('id', mat_id).single().execute()
+        if not mat_res.data:
+             continue # Skip if deleted?
+             
+        current = mat_res.data['current_stock'] or 0
+        new_stock = current - wanted
+        
+        # We allow negative stock? Requirements didn't specify. Assuming NO for strict control, 
+        # but often ToolCribs need to issue anyway. Let's allow it but warn? 
+        # For this iteration, let's allow it to go negative or 0.
+        
+        # Update Material
+        supabase.table('materials').update({'current_stock': new_stock}).eq('id', mat_id).execute()
+        
+        # Update Item Fulfilled
+        supabase.table('ticket_items').update({'quantity_fulfilled': wanted}).eq('id', item['id']).execute()
+        
+        # Log Event (Optional but recommended)
+        event_data = {
+            "material_id": mat_id,
+            "event_type": "TICKET_FULFILLMENT",
+            "performed_by": str(current_user.id),
+            "requested_by": ticket['requester_id'],
+            "notes": f"Ticket {ticket_id} fulfilled. Qty: {wanted}"
+        }
+        supabase.table('material_events').insert(event_data).execute()
 
-@router.post("/{ticket_id}/items", response_model=TicketResponse)
-def create_ticket_item(
-    *,
-    ticket_id: int,
-    item_in: TicketItemCreate,
-    current_user = Depends(get_current_active_user),
-) -> Any:
-    """
-    Add an item to an existing ticket.
-    """
-    # Check ticket access
-    ticket_res = supabase.table('tickets').select('requester_id').eq('id', ticket_id).single().execute()
-    if not ticket_res.data:
-         raise HTTPException(status_code=404, detail="Ticket not found")
-         
-    # Check permission
-    ticket_data = ticket_res.data
-    role_name = getattr(current_user.role, 'name', 'user')
-    if role_name != "admin" and ticket_data.get('requester_id') != str(current_user.id):
-         raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    # Verify material exists
-    mat = supabase.table('materials').select('id').eq('id', item_in.material_id).execute()
-    if not mat.data:
-         raise HTTPException(status_code=404, detail="Material not found")
-
-    # Insert Item
-    data = {
-        "ticket_id": ticket_id,
-        "material_id": item_in.material_id,
-        "quantity_requested": item_in.quantity_requested,
-        "quantity_fulfilled": 0
-    }
+    # 3. Update Ticket Status
+    update_res = supabase.table('tickets').update({
+        'status': 'ENTREGADO', 
+        'assigned_to': str(current_user.id),
+        'updated_at': 'now()'
+    }).eq('id', ticket_id).select('*, items:ticket_items(*), requester:profiles!requester_id(*)').single().execute()
     
-    try:
-        res = supabase.table('ticket_items').insert(data).execute()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-        
-    # Return updated ticket
-    return read_ticket(ticket_id, current_user)
+    return update_res.data

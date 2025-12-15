@@ -486,7 +486,7 @@ export default function Inventory() {
                 current_stock: newMaterial.current_stock,
                 location: newMaterial.location,
                 process: newMaterial.process,
-                Area: newMaterial.Area,
+                area: newMaterial.Area,
                 requested_by: newMaterial.requested_by,
                 requested_by_position: newMaterial.requested_by_position,
                 machine_asset: newMaterial.machine_asset,
