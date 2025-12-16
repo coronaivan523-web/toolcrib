@@ -4,8 +4,7 @@ import psycopg2
 # Connection string manually extracted from .env
 DB_URL = "postgresql://postgres.bykumuizmxsclsazeych:Changos3.3@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
-MIGRATION_FILE_1 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241214_add_event_evidence.sql"
-MIGRATION_FILE_2 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241214_add_modifier_details.sql"
+MIGRATION_FILE_1 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241216_create_notifications_table.sql"
 
 def run_migration():
     try:
@@ -13,7 +12,7 @@ def run_migration():
         conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         
-        for migration_file in [MIGRATION_FILE_1, MIGRATION_FILE_2]:
+        for migration_file in [MIGRATION_FILE_1]:
             if os.path.exists(migration_file):
                 print(f"Reading migration file: {migration_file}")
                 with open(migration_file, 'r') as f:
