@@ -46,6 +46,7 @@ export default function Inventory() {
     const [filterRequestedBy, setFilterRequestedBy] = useState('') // NEW
     const [filterMachine, setFilterMachine] = useState('all') // NEW
     const [filterAction, setFilterAction] = useState('all') // NEW
+    const [filterFactory, setFilterFactory] = useState('all') // NEW - Factory Filter
 
     const [newMaterial, setNewMaterial] = useState({
         part_number: '',
@@ -61,7 +62,8 @@ export default function Inventory() {
         current_stock: 0,
         location: '',
         process: '',
-        Area: '',
+        area: '',
+        plant: '', // Factory
         requested_by: '',
         requested_by_position: '',
         machine_asset: '',
@@ -148,17 +150,34 @@ export default function Inventory() {
             if (user) setCurrentUser(user) // Save user to state
             if (user) {
                 // Fetch role and profile details
-                const { data, error } = await supabase
+                // Fetch role and profile details
+                let { data, error } = await supabase
                     .from('profiles')
                     .select('role, full_name, avatar_url')
                     .eq('id', user.id)
                     .single()
 
+                if (error || !data) {
+                    console.warn("Inventory: Standard fetch failed, trying secure RPC...", error)
+                    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_profile').single()
+                    if (rpcData) {
+                        data = rpcData
+                        console.log("Inventory: Profile fetched via RPC:", data)
+                    } else {
+                        console.error("Inventory: RPC also failed", rpcError)
+                    }
+                }
+
                 if (data) {
                     setUserRole(data.role)
                     setUserProfile(data) // Save full profile
                     console.log("Current User Role:", data.role)
+                    console.log("Full Profile Data:", data)
+                } else {
+                    console.error("No profile data found for user:", user.id)
                 }
+            } else {
+                console.log("No active session user found.")
             }
         } catch (error) {
             console.error("Error fetching user role:", error)
@@ -316,11 +335,12 @@ export default function Inventory() {
         const matchesOrigin = filterOrigin === 'all' || m.origin_country === filterOrigin
         const matchesCategory = filterCategory === 'all' || m.category === filterCategory
         const matchesProcess = filterProcess === 'all' || m.process === filterProcess
-        const matchesArea = filterArea === 'all' || m.Area === filterArea
+        const matchesArea = filterArea === 'all' || (m.area || m.Area) === filterArea
         const matchesMachine = filterMachine === 'all' || m.machine_asset === filterMachine
         const matchesAction = filterAction === 'all' || m.action_type === filterAction
+        const matchesFactory = filterFactory === 'all' || m.plant === filterFactory
 
-        return matchesName && matchesRequested && matchesStatus && matchesType && matchesABC && matchesOrigin && matchesCategory && matchesProcess && matchesArea && matchesMachine && matchesAction
+        return matchesName && matchesRequested && matchesStatus && matchesType && matchesABC && matchesOrigin && matchesCategory && matchesProcess && matchesArea && matchesMachine && matchesAction && matchesFactory
     })
 
     useEffect(() => {
@@ -486,7 +506,8 @@ export default function Inventory() {
                 current_stock: newMaterial.current_stock,
                 location: newMaterial.location,
                 process: newMaterial.process,
-                area: newMaterial.Area,
+                area: newMaterial.area,
+                plant: newMaterial.plant, // NEW
                 requested_by: newMaterial.requested_by,
                 requested_by_position: newMaterial.requested_by_position,
                 machine_asset: newMaterial.machine_asset,
@@ -517,7 +538,7 @@ export default function Inventory() {
                 notes: 'Initial creation of material',
                 modifier_name: newMaterial.requested_by || 'System', // Use requestor as initial modifier contact
                 modifier_position: newMaterial.requested_by_position,
-                modifier_area: newMaterial.Area,
+                modifier_area: newMaterial.area,
                 chinese_authorizer_name: null,
                 evidence_image_path: uploadedImagePath
             })
@@ -538,7 +559,8 @@ export default function Inventory() {
                 current_stock: 0,
                 location: '',
                 process: '',
-                Area: '',
+                area: '',
+                plant: '',
                 requested_by: '',
                 requested_by_position: '',
                 machine_asset: '',
@@ -694,6 +716,7 @@ export default function Inventory() {
         setFilterRequestedBy('')
         setFilterMachine('all')
         setFilterAction('all')
+        setFilterFactory('all')
     }
 
     return (
@@ -737,7 +760,7 @@ export default function Inventory() {
                 </div>
 
                 {/* Toolbar inside Header */}
-                <div className="px-8 pb-2 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-primary-800/50 mt-1">
+                <div className="px-6 pb-0 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1 bg-primary-900 text-white">
                     <div className="relative max-w-xs w-full mt-1">
                         <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                             <Search className="h-3.5 w-3.5 text-primary-300" />
@@ -803,15 +826,15 @@ export default function Inventory() {
 
             {/* Table with Integrated Filters - Full Width - Scrollable Area */}
             <div className="flex-1 p-0 overflow-auto relative">
-                <div className="bg-white shadow-none border-t border-slate-200 min-h-full">
+                <div className="bg-white shadow-none min-h-full">
 
                     <div className="">
                         <table className="w-full text-center text-[10px]">
-                            <thead className="bg-primary-600 text-white font-medium shadow-sm sticky top-0 z-20 text-[10px] uppercase tracking-wider">
+                            <thead className="bg-primary-600 text-white font-medium shadow-sm sticky top-0 z-20 text-[10px] tracking-wider">
                                 <tr>
 
                                     <th className="px-6 py-1 align-top min-w-[200px] text-center">
-                                        Part Number / Name
+                                        Part number / name
                                     </th>
                                     <th className="px-6 py-1 align-top w-24">
                                         <div className="flex flex-col gap-1">
@@ -836,7 +859,19 @@ export default function Inventory() {
                                             </select>
                                         </div>
                                     </th>
-                                    <th className="px-6 py-1 align-top min-w-[160px]">
+                                    <th className="px-2 py-1 align-top min-w-[100px]">
+                                        <select
+                                            value={filterFactory}
+                                            onChange={(e) => setFilterFactory(e.target.value)}
+                                            className="w-full bg-transparent border-none p-0 text-[10px] font-medium text-white focus:ring-0 cursor-pointer text-center"
+                                        >
+                                            <option value="all" className="text-slate-900">Factory</option>
+                                            {[...new Set(materials.map(m => m?.plant).filter(Boolean))].sort().map(plant => (
+                                                <option key={plant} value={plant} className="text-slate-900">{plant}</option>
+                                            ))}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-1 align-top min-w-[130px]">
                                         <div className="flex flex-col gap-1">
                                             <select
                                                 value={filterProcess}
@@ -854,19 +889,20 @@ export default function Inventory() {
                                                 className="w-full bg-transparent border-none p-0 text-[10px] font-medium text-white focus:ring-0 cursor-pointer text-center"
                                             >
                                                 <option value="all" className="text-slate-900">Area</option>
-                                                {[...new Set(materials.map(m => m?.Area).filter(Boolean))].sort().map(area => (
+                                                {[...new Set(materials.map(m => m?.area || m?.Area).filter(Boolean))].sort().map(area => (
                                                     <option key={area} value={area} className="text-slate-900">{area}</option>
                                                 ))}
                                             </select>
                                         </div>
                                     </th>
+
                                     <th className="px-6 py-1 align-top min-w-[150px]">
                                         <select
                                             value={filterMachine}
                                             onChange={(e) => setFilterMachine(e.target.value)}
                                             className="w-full bg-transparent border-none p-0 text-[10px] font-medium text-white focus:ring-0 cursor-pointer"
                                         >
-                                            <option value="all">Machine / Asset</option>
+                                            <option value="all">Machine / asset</option>
                                             {[...new Set(materials.map(m => m?.machine_asset).filter(Boolean))].sort().map(asset => (
                                                 <option key={asset} value={asset} className="text-slate-900">{asset}</option>
                                             ))}
@@ -874,7 +910,7 @@ export default function Inventory() {
                                     </th>
                                     <th className="px-6 py-1 align-top w-24">
                                         {isArchiveView ? (
-                                            <span className="block py-1">Archive Reason</span>
+                                            <span className="block py-1">Archive reason</span>
                                         ) : (
                                             <select
                                                 value={filterAction}
@@ -912,7 +948,7 @@ export default function Inventory() {
                                             </select>
                                         </div>
                                     </th>
-                                    <th className="px-6 py-1 align-top min-w-[260px]">
+                                    <th className="px-2 py-1 align-top min-w-[140px]">
                                         {isArchiveView ? (
                                             <span className="block py-1">Authorizations</span>
                                         ) : (
@@ -924,13 +960,13 @@ export default function Inventory() {
                                             type="text"
                                             value={filterRequestedBy}
                                             onChange={(e) => setFilterRequestedBy(e.target.value)}
-                                            placeholder="Requested By"
+                                            placeholder="Requested by"
                                             className="w-full bg-transparent border-none p-0 text-[10px] font-medium placeholder-white text-white focus:ring-0 text-center"
                                         />
                                     </th>
                                     <th className="px-6 py-1 align-top min-w-[140px]">
                                         {isArchiveView ? (
-                                            <span className="block py-1">Archived At</span>
+                                            <span className="block py-1">Archived at</span>
                                         ) : (
                                             <div className="flex flex-col gap-1">
                                                 <select
@@ -1004,9 +1040,12 @@ export default function Inventory() {
                                                     {item.material_type === 'consumable' ? 'Consumable' : 'Spare Part'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-2.5 align-middle">
+                                            <td className="px-2 py-2.5 align-middle text-center">
+                                                <div className="text-[11px] font-medium text-slate-700">{item.plant || '-'}</div>
+                                            </td>
+                                            <td className="px-2 py-2.5 align-middle">
                                                 <div className="text-[11px] font-medium text-slate-700">{item.process || '-'}</div>
-                                                <div className="text-[9px] text-slate-400 mt-0.5">{item.Area || '-'}</div>
+                                                <div className="text-[9px] text-slate-400 mt-0.5">{item.area || item.Area || '-'}</div>
                                             </td>
                                             <td className="px-6 py-2.5 align-middle">
                                                 <div className="text-[11px] text-slate-600">{item.machine_asset || '-'}</div>
@@ -1335,6 +1374,19 @@ export default function Inventory() {
                                                 </div>
                                                 <div className="p-6 space-y-4">
                                                     <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1.5">
+                                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Factory <span className="text-red-500">*</span></label>
+                                                            <select
+                                                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all cursor-pointer text-slate-700"
+                                                                value={newMaterial.plant}
+                                                                onChange={e => setNewMaterial({ ...newMaterial, plant: e.target.value })}
+                                                            >
+                                                                <option value="">- Select -</option>
+                                                                <option value="Planta 1">Planta 1</option>
+                                                                <option value="Planta 2">Planta 2</option>
+                                                                <option value="Planta 3">Planta 3</option>
+                                                            </select>
+                                                        </div>
                                                         <div className="space-y-1.5">
                                                             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Physical Location <span className="text-red-500">*</span></label>
                                                             <input required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all font-mono text-slate-700" value={newMaterial.location} onChange={e => setNewMaterial({ ...newMaterial, location: e.target.value })} placeholder="A1-05" />

@@ -20,8 +20,16 @@ export default function Stock() {
         const { data: { user } } = await supabase.auth.getUser()
         setCurrentUser(user)
         if (user) {
-            const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-            setUserProfile(profile)
+            // Try standard fetch
+            let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+
+            // Fallback to RPC if RLS blocks standard fetch
+            if (error || !profile) {
+                const { data: rpcProfile } = await supabase.rpc('get_my_profile').single()
+                if (rpcProfile) profile = rpcProfile
+            }
+
+            if (profile) setUserProfile(profile)
         }
     }
 
@@ -30,27 +38,7 @@ export default function Stock() {
         // Select all requested columns
         const { data, error } = await supabase
             .from('materials')
-            .select(`
-                id, 
-                part_number, 
-                name, 
-                current_stock, 
-                min_stock, 
-                max_stock, 
-                location, 
-                category, 
-                material_type, 
-                process, 
-                area, 
-                machine_asset, 
-                cost_center,
-                unit_cost,
-                currency,
-                origin_country, 
-                abc_class, 
-                status,
-                has_requisition
-            `)
+            .select('*')
             .eq('status', 'active')
             .order('part_number')
 
@@ -69,7 +57,7 @@ export default function Stock() {
         <div className="flex flex-col h-screen bg-slate-50">
             {/* Header */}
             <PageHeader
-                title="Inventario"
+                title="Inventory"
                 subtitle="Live view of current stock levels and locations."
                 user={currentUser}
                 profile={userProfile}
@@ -100,9 +88,9 @@ export default function Stock() {
             {/* Content - Full Width Table View */}
             <div className="flex-1 overflow-auto bg-white flex flex-col">
                 <table className="w-full text-left text-xs text-slate-600 whitespace-nowrap border-collapse">
-                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-300 sticky top-0 z-40 shadow-sm">
+                    <thead className="bg-slate-100 text-slate-700 font-medium tracking-wider border-b border-slate-300 sticky top-0 z-40 shadow-sm">
                         <tr>
-                            <th className="px-4 py-3 border-r border-slate-200 w-36 min-w-[9rem] max-w-[9rem] sticky left-0 z-50 bg-slate-100">Part Number</th>
+                            <th className="px-4 py-3 border-r border-slate-200 w-36 min-w-[9rem] max-w-[9rem] sticky left-0 z-50 bg-slate-100">Part number</th>
                             <th className="px-4 py-3 border-r border-slate-200 w-[400px] min-w-[400px] max-w-[400px] sticky left-36 z-50 bg-slate-100">Name</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200 sticky left-[calc(9rem+400px)] z-50 bg-slate-100 shadow-[4px_0_8px_-4px_rgba(0,0,0,0.1)]">Stock</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200">Max</th>
@@ -110,10 +98,11 @@ export default function Stock() {
                             <th className="px-4 py-3 border-r border-slate-200">Location</th>
                             <th className="px-4 py-3 border-r border-slate-200">Category</th>
                             <th className="px-4 py-3 border-r border-slate-200">Type</th>
+                            <th className="px-4 py-3 border-r border-slate-200">Factory</th>
                             <th className="px-4 py-3 border-r border-slate-200">Process</th>
                             <th className="px-4 py-3 border-r border-slate-200">Area</th>
                             <th className="px-4 py-3 border-r border-slate-200">Machine</th>
-                            <th className="px-4 py-3 border-r border-slate-200">Cost Center</th>
+                            <th className="px-4 py-3 border-r border-slate-200">Cost center</th>
                             <th className="px-4 py-3 text-right border-r border-slate-200">Cost</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200">Currency</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200">Origin</th>
@@ -160,8 +149,9 @@ export default function Stock() {
 
                                     <td className="px-4 py-2 border-r border-slate-100">{item.category || '-'}</td>
                                     <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.material_type || '-'}</td>
+                                    <td className="px-4 py-2 border-r border-slate-100">{item.plant || '-'}</td>
                                     <td className="px-4 py-2 border-r border-slate-100">{item.process || '-'}</td>
-                                    <td className="px-4 py-2 border-r border-slate-100">{item.area || '-'}</td>
+                                    <td className="px-4 py-2 border-r border-slate-100">{item.area || item.Area || '-'}</td>
                                     <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.machine_asset || '-'}</td>
                                     <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.cost_center || '-'}</td>
                                     <td className="px-4 py-2 text-right font-mono text-slate-600 border-r border-slate-100">

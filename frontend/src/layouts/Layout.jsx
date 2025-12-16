@@ -40,7 +40,7 @@ export default function Layout() {
     const navigation = [
         { name: 'Dashboard', href: '/', icon: LayoutDashboard },
         { name: 'Material Master', href: '/inventory', icon: Package },
-        { name: 'Inventario', href: '/stock', icon: Box }, // Using Box icon for Stock
+        { name: 'Inventory', href: '/stock', icon: Box }, // Using Box icon for Stock
         { name: 'Tickets', href: '/tickets', icon: Ticket },
     ]
 
