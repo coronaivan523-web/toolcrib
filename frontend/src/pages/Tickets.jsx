@@ -141,6 +141,7 @@ function TicketsContent() {
     }) : []
 
     // Unique options for Selects
+    // Unique options for Selects (Independent to prevent "elimination" perception)
     const uniqueProcesses = [...new Set(materials.map(m => m.process).filter(Boolean))].sort()
     const uniqueAreas = [...new Set(materials.map(m => m.area || m.Area).filter(Boolean))].sort()
     const uniqueMachines = [...new Set(materials.map(m => m.machine_asset).filter(Boolean))].sort()
@@ -459,16 +460,16 @@ function TicketsContent() {
                             <div className="w-2/3 flex flex-col border-r border-slate-200 bg-slate-50/50">
                                 {/* Search Bar */}
                                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
-                                    <h4 className="font-bold text-slate-700 flex items-center gap-2 mb-4">
+                                    <h4 className="font-medium text-slate-800 text-lg flex items-center gap-2 mb-4 tracking-tight">
                                         <Search size={20} /> Search Materials
                                     </h4>
                                     <div className="space-y-3">
                                         <div className="flex gap-4">
                                             <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-bold text-slate-600 text-sm w-24 text-right">Description:</label>
+                                                <label className="font-normal text-slate-600 text-sm w-24 text-right">Description:</label>
                                                 <input
                                                     type="text"
-                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-700 font-medium"
+                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
                                                     value={searchDesc}
                                                     onChange={e => {
                                                         if (cartItems.some(i => !i.confirmed)) {
@@ -476,18 +477,15 @@ function TicketsContent() {
                                                             return
                                                         }
                                                         setSearchDesc(e.target.value)
-                                                        setSearchPart('')
-                                                        setFilterProcess('all')
-                                                        setFilterArea('all')
-                                                        setFilterMachine('all')
+                                                        // Allow combining filters
                                                     }}
                                                 />
                                             </div>
                                             <div className="w-80 flex items-center gap-2">
-                                                <label className="font-bold text-slate-600 text-sm w-24 text-right leading-tight">Part Number:</label>
+                                                <label className="font-normal text-slate-600 text-sm w-24 text-right leading-tight">Part Number:</label>
                                                 <input
                                                     type="text"
-                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-700 font-medium"
+                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
                                                     value={searchPart}
                                                     onChange={e => {
                                                         if (cartItems.some(i => !i.confirmed)) {
@@ -495,19 +493,16 @@ function TicketsContent() {
                                                             return
                                                         }
                                                         setSearchPart(e.target.value)
-                                                        setSearchDesc('')
-                                                        setFilterProcess('all')
-                                                        setFilterArea('all')
-                                                        setFilterMachine('all')
+                                                        // Allow combining filters
                                                     }}
                                                 />
                                             </div>
                                         </div>
                                         <div className="flex gap-4">
                                             <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-bold text-slate-600 text-sm w-24 text-right">Process:</label>
+                                                <label className="font-normal text-slate-600 text-sm w-24 text-right">Process:</label>
                                                 <select
-                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-700 font-medium bg-white"
+                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
                                                     value={filterProcess}
                                                     onChange={e => {
                                                         if (cartItems.some(i => !i.confirmed)) {
@@ -515,11 +510,6 @@ function TicketsContent() {
                                                             return
                                                         }
                                                         setFilterProcess(e.target.value)
-                                                        setSearchDesc('')
-                                                        setSearchPart('')
-                                                        // Keep Area/Machine? Usually Process dictates Area/Machine so maybe strict reset:
-                                                        setFilterArea('all')
-                                                        setFilterMachine('all')
                                                     }}
                                                 >
                                                     <option value="all">- Select -</option>
@@ -527,9 +517,9 @@ function TicketsContent() {
                                                 </select>
                                             </div>
                                             <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-bold text-slate-600 text-sm w-24 text-right">Area:</label>
+                                                <label className="font-normal text-slate-600 text-sm w-24 text-right">Area:</label>
                                                 <select
-                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-700 font-medium bg-white"
+                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
                                                     value={filterArea}
                                                     onChange={e => {
                                                         if (cartItems.some(i => !i.confirmed)) {
@@ -537,9 +527,6 @@ function TicketsContent() {
                                                             return
                                                         }
                                                         setFilterArea(e.target.value)
-                                                        setSearchDesc('')
-                                                        setSearchPart('')
-                                                        setFilterMachine('all')
                                                     }}
                                                 >
                                                     <option value="all">- Select -</option>
@@ -547,9 +534,9 @@ function TicketsContent() {
                                                 </select>
                                             </div>
                                             <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-bold text-slate-600 text-sm w-24 text-right">Machine:</label>
+                                                <label className="font-normal text-slate-600 text-sm w-24 text-right">Machine:</label>
                                                 <select
-                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-700 font-medium bg-white"
+                                                    className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
                                                     value={filterMachine}
                                                     onChange={e => {
                                                         if (cartItems.some(i => !i.confirmed)) {
@@ -557,11 +544,6 @@ function TicketsContent() {
                                                             return
                                                         }
                                                         setFilterMachine(e.target.value)
-                                                        if (e.target.value !== 'all') {
-                                                            setFilterArea('all')
-                                                            setSearchDesc('')
-                                                            setSearchPart('')
-                                                        }
                                                     }}
                                                 >
                                                     <option value="all">- Select -</option>
@@ -602,37 +584,57 @@ function TicketsContent() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filteredMaterials.map(material => (
-                                                <tr key={material.id} className="hover:bg-blue-50/50 transition-colors group">
-                                                    <td className="p-3 border-b border-slate-100 font-mono text-sm text-slate-600 bg-white group-hover:bg-blue-50/50">{material.part_number}</td>
-                                                    <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.name}</td>
-                                                    <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.process}</td>
-                                                    <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.area || material.Area}</td>
-                                                    <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.machine_asset}</td>
-                                                    <td className={`p-3 border-b border-slate-100 text-center font-bold text-sm bg-white group-hover:bg-blue-50/50 ${material.current_stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                        {material.current_stock}
-                                                    </td>
-                                                    <td className="p-3 border-b border-slate-100 bg-white group-hover:bg-blue-50/50">
-                                                        <input
-                                                            type="number"
-                                                            className="w-16 px-2 py-1 bg-slate-100 rounded border border-slate-200 text-center focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
-                                                            min="1"
-                                                            value={qtyInputs[material.id] || ''}
-                                                            onChange={e => setQtyInputs({ ...qtyInputs, [material.id]: e.target.value })}
-                                                            placeholder="1"
-                                                        />
-                                                    </td>
-                                                    <td className="p-3 border-b border-slate-100 text-center bg-white group-hover:bg-blue-50/50">
+                                            {filteredMaterials.length > 0 ? (
+                                                filteredMaterials.map(material => (
+                                                    <tr key={material.id} className="hover:bg-blue-50/50 transition-colors group">
+                                                        <td className="p-3 border-b border-slate-100 font-mono text-sm text-slate-600 bg-white group-hover:bg-blue-50/50">{material.part_number}</td>
+                                                        <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.name}</td>
+                                                        <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.process}</td>
+                                                        <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.area || material.Area}</td>
+                                                        <td className="p-3 border-b border-slate-100 text-sm text-slate-500 bg-white group-hover:bg-blue-50/50">{material.machine_asset}</td>
+                                                        <td className={`p-3 border-b border-slate-100 text-center font-bold text-sm bg-white group-hover:bg-blue-50/50 ${material.current_stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                            {material.current_stock}
+                                                        </td>
+                                                        <td className="p-3 border-b border-slate-100 bg-white group-hover:bg-blue-50/50">
+                                                            <input
+                                                                type="number"
+                                                                className="w-16 px-2 py-1 bg-slate-100 rounded border border-slate-200 text-center focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all"
+                                                                min="1"
+                                                                value={qtyInputs[material.id] || ''}
+                                                                onChange={e => setQtyInputs({ ...qtyInputs, [material.id]: e.target.value })}
+                                                                placeholder="1"
+                                                            />
+                                                        </td>
+                                                        <td className="p-3 border-b border-slate-100 text-center bg-white group-hover:bg-blue-50/50">
+                                                            <button
+                                                                onClick={() => handleAddToCart(material)}
+                                                                disabled={material.current_stock <= 0}
+                                                                className="p-2 bg-primary-100 text-primary-600 rounded-lg hover:bg-primary-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                <Plus size={18} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colspan="8" className="p-8 text-center text-slate-400">
+                                                        <p className="font-medium">No materials found matching your filters.</p>
                                                         <button
-                                                            onClick={() => handleAddToCart(material)}
-                                                            disabled={material.current_stock <= 0}
-                                                            className="p-2 bg-primary-100 text-primary-600 rounded-lg hover:bg-primary-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            onClick={() => {
+                                                                setSearchDesc('')
+                                                                setSearchPart('')
+                                                                setFilterProcess('all')
+                                                                setFilterArea('all')
+                                                                setFilterMachine('all')
+                                                            }}
+                                                            className="text-primary-600 hover:text-primary-800 text-sm font-bold mt-2 underline"
                                                         >
-                                                            <Plus size={18} />
+                                                            Clear Filters
                                                         </button>
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -641,7 +643,7 @@ function TicketsContent() {
                             {/* Right Side: Cart & Details */}
                             <div className="w-1/3 flex flex-col bg-slate-50 border-l border-slate-200">
                                 <div className="p-4 bg-white shadow-sm z-10 flex justify-between items-center">
-                                    <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                                    <h4 className="font-medium text-slate-800 text-lg flex items-center gap-2 tracking-tight">
                                         <FileText size={18} className="text-primary-600" />
                                         Order Request
                                     </h4>
