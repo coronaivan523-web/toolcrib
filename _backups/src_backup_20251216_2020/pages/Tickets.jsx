@@ -138,7 +138,6 @@ function TicketsContent() {
                 (payload) => {
                     console.log('Realtime change received!', payload)
                     fetchUserAndTickets(true) // Background refresh
-                    fetchMaterials() // Refresh stock counts
                 }
             )
             .subscribe()
@@ -230,10 +229,13 @@ function TicketsContent() {
     const [editingItemIndex, setEditingItemIndex] = useState(null)
 
     const fetchMaterials = async () => {
-        // Fetch extended fields including pending_stock
+        // Fetch extended fields for filtering and display
+        // Try to fetch 'area' first, if empty/null, we might need to handle 'Area' fallback in logic, 
+        // but typically the frontend should read what's available. 
+        // We select both just in case, or rely on the fix applied previously to DB.
         const { data } = await supabase
             .from('materials')
-            .select('*')
+            .select('*') // Added plant
             .eq('status', 'active')
             .order('name')
 
@@ -277,12 +279,9 @@ function TicketsContent() {
         const qtyToOrder = parseInt(qtyInputs[material.id] || 1)
         if (qtyToOrder <= 0) return
 
-        // Check if quantity exceeds available stock (Current - Pending)
-        const pendingStock = material.pending_stock || 0
-        const availableStock = Math.max(0, (material.current_stock || 0) - pendingStock)
-
-        if ((material.current_stock || 0) <= 0 || qtyToOrder > availableStock) {
-            showNotification(`Cannot request ${qtyToOrder} units. Only ${availableStock} units available (${pendingStock} pending in other requests).`, 'error')
+        // Check if quantity exceeds available stock
+        if (qtyToOrder > material.current_stock) {
+            showNotification(`Cannot request ${qtyToOrder} units. Only ${material.current_stock} units available in stock for ${material.part_number}.`, 'error')
             return
         }
 
@@ -426,8 +425,6 @@ function TicketsContent() {
             setNotification(null) // Clear any persistent errors
 
             fetchUserAndTickets()
-            fetchUserAndTickets()
-            fetchMaterials() // Refresh stock to update pending counts
             // Optional: User toast for success on main screen, but simpler here just to close
 
         } catch (error) {
@@ -544,10 +541,7 @@ function TicketsContent() {
 
             if (error) throw error
 
-            if (error) throw error
-
             fetchUserAndTickets(true)
-            fetchMaterials() // Refresh logic
             showNotification('Ticket marked as READY for pickup', 'success')
         } catch (error) {
             console.error('Error updating ticket:', error)
@@ -592,16 +586,11 @@ function TicketsContent() {
                     // Get current stock
                     const { data: material, error: materialError } = await supabase
                         .from('materials')
-                        .select('current_stock, name')
+                        .select('current_stock')
                         .eq('id', item.material_id)
                         .single()
 
                     if (materialError) throw materialError
-
-                    // Check for sufficient stock before deducting
-                    if ((material.current_stock || 0) < item.quantity_requested) {
-                        throw new Error(`Insufficient stock for ${material.name}. Requesting ${item.quantity_requested} but only ${material.current_stock || 0} available.`)
-                    }
 
                     // Calculate new stock
                     const newStock = (material.current_stock || 0) - item.quantity_requested
