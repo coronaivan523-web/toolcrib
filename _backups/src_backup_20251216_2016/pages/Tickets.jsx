@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2 } from 'lucide-react'
+import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
@@ -127,26 +127,6 @@ function TicketsContent() {
         fetchUserAndTickets()
         fetchMaterials()
     }, [adminViewMode]) // Reload when view mode changes
-
-    // REALTIME SUBSCRIPTION
-    useEffect(() => {
-        const channel = supabase
-            .channel('tickets-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'tickets' },
-                (payload) => {
-                    console.log('Realtime change received!', payload)
-                    fetchUserAndTickets(true) // Background refresh
-                }
-            )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [])
-
 
     const fetchUserAndTickets = async (isBackgroundRefresh = false) => {
         if (!isBackgroundRefresh) setLoading(true)
