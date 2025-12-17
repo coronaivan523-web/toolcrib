@@ -774,7 +774,7 @@ export default function Inventory() {
                         />
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                        {!isArchiveView && (
+                        {!isArchiveView && userRole !== 'toolroom_staff' && (
                             <>
                                 <button
                                     onClick={() => setIsModalOpen(true)}
@@ -1103,6 +1103,16 @@ export default function Inventory() {
                                                             {new Date(item.archived_at).toLocaleTimeString()}
                                                         </span>
                                                     </div>
+                                                ) : userRole === 'toolroom_staff' ? (
+                                                    <span className={clsx(
+                                                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border",
+                                                        item.status === 'active'
+                                                            ? "bg-white text-green-700 border-green-200"
+                                                            : "bg-white text-slate-400 border-slate-200"
+                                                    )}>
+                                                        <span className={clsx("w-2 h-2 rounded-full", item.status === 'active' ? "bg-green-500" : "bg-slate-300")}></span>
+                                                        {item.status === 'active' ? 'Active' : 'Inactive'}
+                                                    </span>
                                                 ) : (
                                                     <button
                                                         onClick={(e) => {

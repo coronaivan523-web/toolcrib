@@ -103,6 +103,7 @@ export default function Stock() {
                             <th className="px-4 py-3 border-r border-slate-200">Area</th>
                             <th className="px-4 py-3 border-r border-slate-200">Machine</th>
                             <th className="px-4 py-3 border-r border-slate-200">Cost center</th>
+                            <th className="px-4 py-3 border-r border-slate-200">Supplier</th>
                             <th className="px-4 py-3 text-right border-r border-slate-200">Cost</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200">Currency</th>
                             <th className="px-4 py-3 text-center border-r border-slate-200">Origin</th>
@@ -114,7 +115,7 @@ export default function Stock() {
                     <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="14" className="px-4 py-8 text-center text-slate-400">Loading inventory data...</td>
+                                <td colSpan="15" className="px-4 py-8 text-center text-slate-400">Loading inventory data...</td>
                             </tr>
                         ) : filteredMaterials.map((item, idx) => {
                             const rowBg = idx % 2 === 0 ? "bg-white" : "bg-slate-50";
@@ -154,6 +155,7 @@ export default function Stock() {
                                     <td className="px-4 py-2 border-r border-slate-100">{item.area || item.Area || '-'}</td>
                                     <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.machine_asset || '-'}</td>
                                     <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.cost_center || '-'}</td>
+                                    <td className="px-4 py-2 text-slate-500 border-r border-slate-100">{item.supplier || '-'}</td>
                                     <td className="px-4 py-2 text-right font-mono text-slate-600 border-r border-slate-100">
                                         ${Number(item.unit_cost || 0).toFixed(2)}
                                     </td>

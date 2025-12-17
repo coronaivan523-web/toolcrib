@@ -9,6 +9,8 @@ import Stock from './pages/Stock'
 import Tickets from './pages/Tickets'
 
 import Dashboard from './pages/Dashboard'
+import ProtectedRoute from './components/ProtectedRoute'
+import RoleBasedHome from './components/RoleBasedHome'
 
 function App() {
   return (
@@ -17,13 +19,24 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/inventory" element={
-            <ErrorBoundary>
-              <Inventory />
-            </ErrorBoundary>
+          <Route path="/" element={<RoleBasedHome />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
+              <Dashboard />
+            </ProtectedRoute>
           } />
-          <Route path="/stock" element={<Stock />} />
+          <Route path="/inventory" element={
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
+              <ErrorBoundary>
+                <Inventory />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } />
+          <Route path="/stock" element={
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
+              <Stock />
+            </ProtectedRoute>
+          } />
           <Route path="/tickets" element={<Tickets />} />
         </Route>
 
