@@ -521,23 +521,7 @@ function TicketsContent() {
         }
     }
 
-    const handleCloseTicket = async (ticketId, items) => {
-        if (!isAdmin) return
 
-        // 1. Deduct Stock
-        for (const item of items) {
-            const { data: mat } = await supabase.from('materials').select('current_stock').eq('id', item.material_id).single()
-            const current = mat?.current_stock || 0
-            const newStock = current - item.quantity_requested
-
-            await supabase.from('materials').update({ current_stock: newStock }).eq('id', item.material_id)
-            await supabase.from('ticket_items').update({ quantity_fulfilled: item.quantity_requested }).eq('id', item.id)
-        }
-
-        // 2. Update Ticket
-        await supabase.from('tickets').update({ status: 'ENTREGADO', assigned_to: currentUser.id }).eq('id', ticketId)
-        fetchUserAndTickets()
-    }
 
     const handleItemClick = (item) => {
         setNotification(null)
@@ -886,7 +870,15 @@ function TicketsContent() {
 
             if (allItemsProcessed) {
                 const allFulfilled = Object.values(itemStatuses).every(item => item.status === 'fulfilled')
-                ticketUpdate.status = allFulfilled ? 'READY' : 'PARTIALLY_FULFILLED'
+                const allCancelled = Object.values(itemStatuses).every(item => item.status === 'cancelled')
+
+                if (allCancelled) {
+                    ticketUpdate.status = 'CANCELLED'
+                } else if (allFulfilled) {
+                    ticketUpdate.status = 'READY'
+                } else {
+                    ticketUpdate.status = 'PARTIALLY_FULFILLED'
+                }
             }
 
             const { error: ticketError } = await supabase
@@ -1397,7 +1389,7 @@ function TicketsContent() {
                                 className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                                 <option value="active">Active (Pending/In Process/Ready)</option>
-                                <option value="closed">Delivered/Closed</option>
+                                <option value="closed">Delivered/Closed/Cancelled</option>
                                 <option value="all">All Tickets</option>
                             </select>
                         </div>
@@ -1571,6 +1563,15 @@ function TicketsContent() {
                                                                         </span>
                                                                     )}
                                                                 </p>
+                                                                {item.item_status === 'cancelled' && (
+                                                                    <div className="mt-1.5 flex items-start gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-100">
+                                                                        <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-[9px] font-black uppercase tracking-wider leading-none mb-0.5">Cancelled</span>
+                                                                            <span className="text-xs leading-tight">{item.cancellation_reason || 'No reason provided'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="flex flex-col items-center justify-start bg-white px-3 py-2 rounded shadow-sm border border-slate-100 min-h-[60px]">
@@ -1586,12 +1587,7 @@ function TicketsContent() {
 
                                 </div>
 
-                                {isAdmin && ticket.status === 'PENDIENTE' && (
-                                    <div className="md:w-40 flex flex-col justify-center gap-2 pl-4 border-l border-slate-100">
-                                        <button onClick={() => handleCloseTicket(ticket.id, ticket.items)} className="w-full bg-green-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-green-700 flex items-center justify-center gap-2 shadow-sm"><Check size={16} /> Approve</button>
-                                        <button className="w-full bg-white border border-slate-200 text-slate-600 py-2 rounded-lg font-bold text-sm hover:bg-slate-50 flex items-center justify-center gap-2 shadow-sm"><X size={16} /> Reject</button>
-                                    </div>
-                                )}
+
 
                                 {ticket.status === 'CLOSED' && (
                                     <div className="md:w-40 flex flex-col justify-center animate-in fade-in pl-4 border-l border-slate-100">
