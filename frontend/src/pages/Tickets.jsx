@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2 } from 'lucide-react'
+import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2, FileWarning } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
@@ -75,11 +75,11 @@ function TicketsContent() {
     const [showExitConfirm, setShowExitConfirm] = useState(false)
 
     // Helper to show notifications
-    const showNotification = (message, type = 'error') => {
+    const showNotification = (message, type = 'error', autoClose = false) => {
         setNotification({ message, type })
-        // Auto-clear success/info messages, keep errors until fixed or dismissed
-        if (type !== 'error') {
-            setTimeout(() => setNotification(null), 4000)
+        // Auto-clear success/info messages, keep errors until fixed unless autoClose is true
+        if (type !== 'error' || autoClose) {
+            setTimeout(() => setNotification(null), type === 'error' ? 2000 : 4000)
         }
     }
 
@@ -97,6 +97,7 @@ function TicketsContent() {
     const [cancellingItemId, setCancellingItemId] = useState(null)
     const [cancellationReason, setCancellationReason] = useState('')
     const [actionProcessingId, setActionProcessingId] = useState(null) // New state for tracking button loading
+    const [realtimeStatus, setRealtimeStatus] = useState('CONNECTING') // CONNECTING, SUBSCRIBED, CLOSED, CHANNEL_ERROR
 
     // Quality Report States
     const [isQualityReportModalOpen, setIsQualityReportModalOpen] = useState(false)
@@ -112,6 +113,10 @@ function TicketsContent() {
     // Filter States
     const [statusFilter, setStatusFilter] = useState('active') // 'active', 'closed', 'all'
     const [folioSearch, setFolioSearch] = useState('')
+
+    // Report Notifications State
+    const [reports, setReports] = useState([])
+    const [isReportListModalOpen, setIsReportListModalOpen] = useState(false)
 
     // Get adminViewMode from Layout context
     const context = useOutletContext() || {}
@@ -129,6 +134,7 @@ function TicketsContent() {
     }, [adminViewMode]) // Reload when view mode changes
 
     // REALTIME SUBSCRIPTION
+    // REALTIME SUBSCRIPTION
     useEffect(() => {
         const channel = supabase
             .channel('tickets-realtime')
@@ -136,12 +142,24 @@ function TicketsContent() {
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'tickets' },
                 (payload) => {
-                    console.log('Realtime change received!', payload)
-                    fetchUserAndTickets(true) // Background refresh
-                    fetchMaterials() // Refresh stock counts
+                    console.log('Realtime change received (tickets)!', payload)
+                    fetchUserAndTickets(true)
+                    fetchMaterials()
                 }
             )
-            .subscribe()
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'ticket_items' },
+                (payload) => {
+                    console.log('Realtime change received (ticket_items)!', payload)
+                    fetchUserAndTickets(true)
+                    fetchMaterials()
+                }
+            )
+            .subscribe((status) => {
+                console.log('Realtime Status:', status)
+                setRealtimeStatus(status)
+            })
 
         return () => {
             supabase.removeChannel(channel)
@@ -151,25 +169,26 @@ function TicketsContent() {
 
     const fetchUserAndTickets = async (isBackgroundRefresh = false) => {
         if (!isBackgroundRefresh) setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        setCurrentUser(user)
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            setCurrentUser(user)
 
-        if (user) {
-            // Get full profile with RPC fallback
-            let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+            if (user) {
+                // Get full profile with RPC fallback
+                let { data: profile, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
 
-            if (error || !profile) {
-                const { data: rpcProfile } = await supabase.rpc('get_my_profile').single()
-                if (rpcProfile) profile = rpcProfile
-            }
+                if (error || !profile) {
+                    const { data: rpcProfile } = await supabase.rpc('get_my_profile').single()
+                    if (rpcProfile) profile = rpcProfile
+                }
 
-            setUserProfile(profile)
-            const isAdminRole = profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'toolroom_staff'
-            setIsAdmin(isAdminRole)
+                setUserProfile(profile)
+                const isAdminRole = profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'toolroom_staff'
+                setIsAdmin(isAdminRole)
 
-            // Fetch Tickets
-            let query = supabase.from('tickets')
-                .select(`
+                // Fetch Tickets
+                let query = supabase.from('tickets')
+                    .select(`
                     *, 
                     items:ticket_items(
                         *, 
@@ -187,45 +206,111 @@ function TicketsContent() {
                     ), 
                     requester:profiles!tickets_requester_id_fkey(email, full_name)
                 `)
-                .order('created_at', { ascending: false })
+                    .order('created_at', { ascending: false })
 
-            // Filter based on role (not view mode - filtering will be done in render)
-            if (profile?.role === 'user') {
-                // Regular users - show only their own tickets
-                query = query.eq('requester_id', user.id)
-            }
-            // Admin/Toolroom/Supervisor - fetch all tickets
+                // Filter based on role (not view mode - filtering will be done in render)
+                if (profile?.role === 'user') {
+                    // Regular users - show only their own tickets
+                    query = query.eq('requester_id', user.id)
+                }
+                // Admin/Toolroom/Supervisor - fetch all tickets
 
-            const { data, error: queryError } = await query
+                const { data, error: queryError } = await query
+                if (queryError) {
+                    console.error("Error fetching tickets:", queryError)
+                    setError(queryError)
+                }
 
-            // Generate signed URLs for material images
-            if (data) {
-                for (const ticket of data) {
-                    if (ticket.items) {
-                        for (const item of ticket.items) {
-                            if (item.material?.image_url) {
-                                const { data: signedData } = await supabase.storage
-                                    .from('material-images')
-                                    .createSignedUrl(item.material.image_url, 3600)
+                // Generate signed URLs for material images in parallel
+                if (data) {
+                    const ticketsWithSignedUrls = await Promise.all(
+                        data.map(async (ticket) => {
+                            if (!ticket.items) return ticket;
 
-                                if (signedData) {
-                                    item.material.signed_image_url = signedData.signedUrl
-                                }
+                            const itemsWithUrls = await Promise.all(
+                                ticket.items.map(async (item) => {
+                                    if (item.material?.image_url) {
+                                        try {
+                                            const { data: signedData } = await supabase.storage
+                                                .from('material-images')
+                                                .createSignedUrl(item.material.image_url, 3600)
+
+                                            if (signedData?.signedUrl) {
+                                                item.material.signed_image_url = signedData.signedUrl
+                                            }
+                                        } catch (e) {
+                                            console.warn("Failed to sign URL for item", item.id, e)
+                                        }
+                                    }
+                                    return item
+                                })
+                            )
+                            return { ...ticket, items: itemsWithUrls }
+                        })
+                    )
+                    setTickets(ticketsWithSignedUrls)
+                }
+
+                // Fetch Notifications for Tool Room Staff
+                // Fetch Notifications for Tool Room Staff
+                // Manual Fetch & Join (Since FKs might be missing on notifications table)
+                if (isAdminRole) {
+                    // 1. Fetch raw notifications
+                    const { data: notifs, error: notifError } = await supabase
+                        .from('notifications')
+                        .select('*')
+                        .eq('type', 'low_stock_alert')
+                        .eq('status', 'unread') // Only show unread/active reports
+                        .order('created_at', { ascending: false })
+
+                    if (notifs && notifs.length > 0) {
+                        // 2. Extract IDs
+                        const senderIds = [...new Set(notifs.map(n => n.sender_id).filter(Boolean))]
+                        const materialIds = [...new Set(notifs.map(n => n.material_id).filter(Boolean))]
+
+                        // 3. Fetch Senders
+                        let sendersMap = {}
+                        if (senderIds.length > 0) {
+                            const { data: senders } = await supabase.from('profiles').select('id, full_name, email').in('id', senderIds)
+                            if (senders) {
+                                senders.forEach(s => sendersMap[s.id] = s)
                             }
                         }
+
+                        // 4. Fetch Materials
+                        let materialsMap = {}
+                        if (materialIds.length > 0) {
+                            const { data: mats } = await supabase.from('materials').select('id, name, part_number').in('id', materialIds)
+                            if (mats) {
+                                mats.forEach(m => materialsMap[m.id] = m)
+                            }
+                        }
+
+                        // 5. Map Data
+                        const enrichedReports = notifs.map(n => ({
+                            ...n,
+                            sender: sendersMap[n.sender_id] || { full_name: 'Unknown User', email: '' },
+                            material: materialsMap[n.material_id] || { name: 'Unknown Material', part_number: 'N/A' }
+                        }))
+
+                        setReports(enrichedReports)
+                    } else {
+                        setReports([])
+                    }
+
+                    if (notifError) {
+                        console.error("Error fetching notifications:", notifError)
+                        // Optional: show error toast, but maybe too noisy
                     }
                 }
-                setTickets(data)
             }
-
-            if (queryError) {
-                console.error("Error fetching tickets:", queryError)
-                setError(queryError) // Show on screen
-            }
+        } catch (err) {
+            console.error("CRITICAL ERROR in fetchUserAndTickets:", err)
+            setError(err)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
-
 
     const [editingItemIndex, setEditingItemIndex] = useState(null)
 
@@ -455,6 +540,7 @@ function TicketsContent() {
     }
 
     const handleItemClick = (item) => {
+        setNotification(null)
         // Only allow selection of low stock items
         if (isItemLowStock(item.material)) {
             setSelectedTicketItem(item)
@@ -566,8 +652,9 @@ function TicketsContent() {
             return
         }
 
+        setActionProcessingId(ticketId)
+
         try {
-            setActionProcessingId(ticketId)
             // 1. Get ticket with items to deduct stock
             const { data: ticket, error: fetchError } = await supabase
                 .from('tickets')
@@ -587,8 +674,10 @@ function TicketsContent() {
 
             // 2. Deduct stock for each fulfilled item
             for (const item of ticket.items) {
-                // Only deduct stock for fulfilled items
-                if (item.item_status === 'fulfilled') {
+                // Determine if item should be processed (fulfilled or pending/implicit)
+                const shouldProcess = item.item_status === 'fulfilled' || !item.item_status || item.item_status === 'pending';
+
+                if (shouldProcess) {
                     // Get current stock
                     const { data: material, error: materialError } = await supabase
                         .from('materials')
@@ -596,7 +685,10 @@ function TicketsContent() {
                         .eq('id', item.material_id)
                         .single()
 
-                    if (materialError) throw materialError
+                    if (materialError) {
+                        console.error('Error fetching material stock:', materialError)
+                        throw materialError
+                    }
 
                     // Check for sufficient stock before deducting
                     if ((material.current_stock || 0) < item.quantity_requested) {
@@ -612,7 +704,18 @@ function TicketsContent() {
                         .update({ current_stock: newStock })
                         .eq('id', item.material_id)
 
-                    if (updateError) throw updateError
+                    if (updateError) {
+                        console.error('Error updating material stock (RLS?):', updateError)
+                        throw updateError
+                    }
+
+                    // Also ensure line item is marked fulfilled if it wasn't
+                    if (item.item_status !== 'fulfilled') {
+                        await supabase.from('ticket_items').update({
+                            item_status: 'fulfilled',
+                            fulfilled_at: new Date().toISOString()
+                        }).eq('id', item.id)
+                    }
                 }
             }
 
@@ -632,9 +735,10 @@ function TicketsContent() {
             showNotification('Ticket delivered and stock updated', 'success')
         } catch (error) {
             console.error('Error closing ticket:', error)
-            showNotification('Error closing ticket: ' + error.message, 'error')
+            showNotification('Error closing ticket: ' + error.message, 'error', true)
         } finally {
-            setActionProcessingId(null)
+            // Force reset to ensure UI unlocks
+            setTimeout(() => setActionProcessingId(null), 100)
         }
     }
 
@@ -855,7 +959,32 @@ function TicketsContent() {
 
             setIsQualityReportModalOpen(false)
             showNotification('Quality report submitted successfully', 'success')
-            fetchUserAndTickets() // Refresh to show report indicator
+
+            // If reporting during processing flow, we need to exit the processing state cleanly
+            if (reportStage === 'processing') {
+                // Revert ticket to CANCELLED (as per user request)
+                const { error: updateError } = await supabase
+                    .from('tickets')
+                    .update({
+                        status: 'CANCELLED',
+                        processing_by: null,
+                        processing_started_at: null
+                    })
+                    .eq('id', reportingTicket.id)
+
+                if (updateError) {
+                    console.error('Error reverting ticket status:', updateError)
+                }
+
+                // Close all related modals and clear state
+                setIsProcessingModalOpen(false)
+                setProcessingTicket(null)
+                setCancelModalOpen(false)
+                setCancellingItemId(null)
+                setItemStatuses({})
+            }
+
+            fetchUserAndTickets(true) // Refresh to show report indicator
         } catch (error) {
             console.error('Error submitting quality report:', error)
             showNotification('Error submitting quality report: ' + error.message, 'error')
@@ -1020,12 +1149,43 @@ function TicketsContent() {
                     <span className="text-white font-bold text-base leading-none">{readyCount}</span>
                 </div>
             </div>
+
+            {/* Reports Button (Only for Tool Room Staff & Supervisors) */}
+            {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
+                <button
+                    onClick={() => setIsReportListModalOpen(true)}
+                    className="bg-purple-100/20 border border-purple-200/30 rounded-md px-3 py-1 flex items-center gap-2 backdrop-blur-sm hover:bg-purple-100/30 transition-colors cursor-pointer"
+                >
+                    <div className="bg-purple-500 text-white p-1 rounded-full shadow-sm">
+                        <FileWarning size={14} strokeWidth={2.5} />
+                    </div>
+                    <div className="flex flex-col items-start">
+                        <span className="text-purple-200 text-[9px] font-bold uppercase tracking-wider leading-none mb-0.5">Reports</span>
+                        <span className="text-white font-bold text-base leading-none">{reports.length}</span>
+                    </div>
+                </button>
+            )}
         </div>
     )
 
     return (
 
-        <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+        <div className="flex flex-col h-full bg-slate-50 overflow-hidden relative">
+            {/* Notifications */}
+            {notification && (
+                <div className={`absolute top-4 right-4 z-[100] px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-right duration-300 max-w-sm ${notification.type === 'error' ? 'bg-red-500 text-white' :
+                    notification.type === 'success' ? 'bg-green-500 text-white' :
+                        'bg-blue-500 text-white'
+                    }`}>
+                    {notification.type === 'error' ? <AlertCircle size={20} /> :
+                        notification.type === 'success' ? <Check size={20} /> :
+                            <Info size={20} />}
+                    <div>
+                        <p className="font-bold text-sm">{notification.type === 'error' ? 'Error' : notification.type === 'success' ? 'Success' : 'Info'}</p>
+                        <p className="text-sm opacity-90">{notification.message}</p>
+                    </div>
+                </div>
+            )}
 
             <PageHeader
                 title="Tickets"
@@ -1035,14 +1195,15 @@ function TicketsContent() {
                 bgColor="#164e63" // Cyan-900
             />
 
+            {/* Realtime Status Indicator (Debug - Hidden) */}
             {/* Toolbar - Stats & Actions */}
             <div className="bg-primary-900 px-8 py-2 flex items-center justify-between border-t border-primary-800/50 shadow-md z-20">
                 <div className="flex-1">
                     {headerStats}
                 </div>
                 <div className="flex justify-end gap-3">
-                    {/* New Request - Only for users and admin in user/admin view (NOT toolroom) */}
-                    {!(userProfile?.role === 'toolroom_staff' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
+                    {/* New Request - Only for users and admin in user/admin view (NOT toolroom or supervisor) */}
+                    {!(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
                         <button
                             onClick={() => {
                                 setIsCreateModalOpen(true)
@@ -1076,8 +1237,8 @@ function TicketsContent() {
                         </button>
                     )}
 
-                    {/* Tool Room Staff Buttons - Only for toolroom staff or admin in toolroom view */}
-                    {(userProfile?.role === 'toolroom_staff' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
+                    {/* Tool Room Staff Buttons - Only for toolroom staff, supervisor or admin in toolroom view */}
+                    {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
                         <>
                             <button
                                 onClick={() => handleStartProcessing(selectedTicket)}
@@ -1103,14 +1264,7 @@ function TicketsContent() {
                                 {actionProcessingId === selectedTicket?.id && (selectedTicket?.status === 'READY' || selectedTicket?.status === 'PARTIALLY_FULFILLED') ? <Loader2 size={16} className="animate-spin" /> : null}
                                 {actionProcessingId === selectedTicket?.id && (selectedTicket?.status === 'READY' || selectedTicket?.status === 'PARTIALLY_FULFILLED') ? 'Delivering...' : 'Deliver'}
                             </button>
-                            <button
-                                onClick={() => handleCancelTicket(selectedTicket?.id)}
-                                disabled={!selectedTicket || actionProcessingId === selectedTicket?.id}
-                                className="bg-red-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-red-600 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {actionProcessingId === selectedTicket?.id ? <Loader2 size={16} className="animate-spin" /> : null}
-                                {actionProcessingId === selectedTicket?.id ? 'Cancelling...' : 'Cancel'}
-                            </button>
+
                         </>
                     )}
                 </div>
@@ -1305,9 +1459,15 @@ function TicketsContent() {
                         }
 
                         return filteredTickets.map(ticket => (
+
                             <div
                                 key={ticket.id}
-                                onClick={() => (userProfile?.role === 'toolroom_staff' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && setSelectedTicket(ticket)}
+                                onClick={() => {
+                                    if (userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) {
+                                        setSelectedTicket(ticket)
+                                        setNotification(null)
+                                    }
+                                }}
                                 className={`bg-white rounded-xl shadow-sm border p-6 flex flex-col md:flex-row gap-6 hover:shadow-md transition-all cursor-pointer ${selectedTicket?.id === ticket.id
                                     ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/30'
                                     : 'border-slate-200'
@@ -1454,859 +1614,950 @@ function TicketsContent() {
             </div>
 
             {/* NEW Redesigned Modal - Full Screen / Large */}
-            {isCreateModalOpen && (
-                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={handleCloseModal}>
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
+            {
+                isCreateModalOpen && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={handleCloseModal}>
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
 
-                        {/* Confirmation Modal Overlay */}
-                        {showExitConfirm && (
-                            <div className="absolute inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
-                                <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
-                                    <h3 className="text-lg font-bold text-slate-800 mb-2">Unsaved Changes</h3>
-                                    <p className="text-sm text-slate-600 mb-6">All entered information in your request list will be lost. Do you wish to proceed?</p>
-                                    <div className="flex justify-end gap-3">
-                                        <button
-                                            onClick={() => setShowExitConfirm(false)}
-                                            className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={performCloseModal}
-                                            className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
-                                        >
-                                            Yes, Close
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Custom Notification Modal (Centered) */}
-                        {notification && (
-                            <div className="absolute inset-0 z-[70] bg-black/40 flex items-center justify-center p-4 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={() => setNotification(null)}>
-                                <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-100 transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                                    <div className={`px-6 py-4 flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-50' : 'bg-blue-50'}`}>
-                                        <div className={`p-2 rounded-full ${notification.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {notification.type === 'error' ? <AlertCircle size={24} /> : <Info size={24} />}
-                                        </div>
-                                        <h3 className={`font-bold text-lg ${notification.type === 'error' ? 'text-red-700' : 'text-blue-700'}`}>
-                                            {notification.type === 'error' ? 'Attention Needed' : 'Information'}
-                                        </h3>
-                                    </div>
-                                    <div className="p-6">
-                                        <p className="text-slate-600 text-sm font-medium leading-relaxed">
-                                            {notification.message}
-                                        </p>
-                                    </div>
-                                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                                        <button
-                                            onClick={() => setNotification(null)}
-                                            className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-transform active:scale-95 shadow-md flex items-center gap-2"
-                                        >
-                                            <Check size={16} /> OK
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-
-
-                        {/* Header */}
-                        <div className="px-6 py-4 bg-primary-900 text-white flex justify-between items-center shadow-md shrink-0">
-                            <div>
-                                <h3 className="font-bold text-xl flex items-center gap-2">
-                                    <Package className="text-primary-300" />
-                                    Tool Crib Material Request
-                                </h3>
-                            </div>
-                            <button onClick={handleCloseModal} className="text-primary-200 hover:text-white transition-colors">
-                                <X size={28} />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 flex overflow-hidden">
-                            {/* Left Side: Product Selection & Search */}
-                            <div className="w-2/3 flex flex-col border-r border-slate-200 bg-slate-50/50">
-                                {/* Visual Verification Block - NEW */}
-                                <div className="p-2 bg-blue-50/50 border-b border-blue-100 shadow-sm z-10">
-                                    <h4 className="font-bold text-blue-800 text-xs flex items-center gap-2 mb-1 tracking-tight uppercase">
-                                        <Eye size={14} /> Visual Verification
-                                    </h4>
-                                    <div className="flex gap-2 items-end">
-                                        <div className="flex-1">
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="text"
-                                                    className="flex-1 border border-blue-200 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 font-mono"
-                                                    placeholder="Click part # ..."
-                                                    value={previewPartNumber}
-                                                    onChange={(e) => setPreviewPartNumber(e.target.value)}
-                                                    onKeyDown={(e) => e.key === 'Enter' && handleSearchPreview()}
-                                                />
-                                                <button
-                                                    onClick={handleSearchPreview}
-                                                    className="bg-blue-600 text-white px-3 py-1 rounded-md font-bold text-[10px] shadow-sm hover:bg-blue-700 transition-all flex items-center gap-1 uppercase tracking-wide"
-                                                >
-                                                    <Search size={12} /> Verify
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Search Bar */}
-                                <div className="p-2 bg-white border-b border-slate-200 shadow-sm z-10">
-                                    <h4 className="font-medium text-slate-800 text-sm flex items-center gap-2 mb-1 tracking-tight">
-                                        <Search size={16} /> Search Materials
-                                    </h4>
-                                    <div className="space-y-1">
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-normal text-slate-600 text-xs w-20 text-right">Description:</label>
-                                                <input
-                                                    type="text"
-                                                    className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
-                                                    value={searchDesc}
-                                                    onChange={e => {
-                                                        if (checkPendingAction()) return
-                                                        setSearchDesc(e.target.value)
-                                                        // Allow combining filters
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="w-64 flex items-center gap-2">
-                                                <label className="font-normal text-slate-600 text-xs w-20 text-right leading-tight">Part Number:</label>
-                                                <input
-                                                    type="text"
-                                                    className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
-                                                    value={searchPart}
-                                                    onChange={e => {
-                                                        if (checkPendingAction()) return
-                                                        setSearchPart(e.target.value)
-                                                        // Allow combining filters
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-normal text-slate-600 text-xs w-20 text-right">Process:</label>
-                                                <select
-                                                    className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
-                                                    value={filterProcess}
-                                                    onChange={e => {
-                                                        if (checkPendingAction()) return
-                                                        setFilterProcess(e.target.value)
-                                                    }}
-                                                >
-                                                    <option value="all">- Select -</option>
-                                                    {uniqueProcesses.map(p => <option key={p} value={p}>{p}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-normal text-slate-600 text-xs w-20 text-right">Area:</label>
-                                                <select
-                                                    className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
-                                                    value={filterArea}
-                                                    onChange={e => {
-                                                        if (checkPendingAction()) return
-                                                        setFilterArea(e.target.value)
-                                                    }}
-                                                >
-                                                    <option value="all">- Select -</option>
-                                                    {uniqueAreas.map(a => <option key={a} value={a}>{a}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="flex-1 flex items-center gap-2">
-                                                <label className="font-normal text-slate-600 text-xs w-20 text-right">Machine:</label>
-                                                <select
-                                                    className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
-                                                    value={filterMachine}
-                                                    onChange={e => {
-                                                        if (checkPendingAction()) return
-                                                        setFilterMachine(e.target.value)
-                                                    }}
-                                                >
-                                                    <option value="all">- Select -</option>
-                                                    {uniqueMachines.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-end mt-2">
-                                        <button
-                                            onClick={() => {
-                                                if (checkPendingAction()) return
-                                                setSearchDesc('')
-                                                setSearchPart('')
-                                                setFilterProcess('all')
-                                                setFilterArea('all')
-                                                setFilterMachine('all')
-                                            }}
-                                            className="text-xs text-slate-500 hover:text-red-500 underline flex items-center gap-1 transition-colors"
-                                        >
-                                            <X size={12} /> Clear Filters
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Table Results */}
-                                <div className="flex-1 overflow-auto p-4 custom-scrollbar">
-                                    <table className="w-full border-separate border-spacing-0">
-                                        <thead>
-                                            <tr>
-                                                <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tl-lg">Part #</th>
-                                                <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Description</th>
-                                                <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Process</th>
-                                                <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Area</th>
-                                                <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Machine</th>
-                                                <th className="p-3 border-b border-primary-200 text-center sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-xs font-bold text-primary-800 uppercase tracking-wider">Stock</th>
-                                                <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider">Qty</th>
-                                                <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tr-lg">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredMaterials.length > 0 ? (
-                                                filteredMaterials.map(material => {
-                                                    const isLowStock = material.current_stock <= (material.min_stock || 0)
-                                                    const rowBg = isLowStock ? 'bg-red-50 hover:bg-red-100/80 shadow-sm' : 'hover:bg-blue-50/50'
-                                                    const cellBg = isLowStock ? 'bg-red-50/50 group-hover:bg-red-100/50' : 'bg-white group-hover:bg-blue-50/50'
-
-                                                    return (
-                                                        <tr key={material.id} className={`transition-all group border-l-4 ${isLowStock ? 'border-l-red-500 shadow-inner' : 'border-l-transparent'} ${rowBg}`}>
-                                                            <td
-                                                                className={`p-3 border-b ${isLowStock ? 'border-red-100 text-red-700' : 'border-slate-100 text-blue-600'} font-mono text-sm font-bold ${cellBg} cursor-pointer hover:underline`}
-                                                                onClick={() => handlePartClick(material.part_number)}
-                                                                title="Click to verify image"
-                                                            >
-                                                                {material.part_number}
-                                                            </td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.name}</td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.process}</td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.area || material.Area}</td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.machine_asset}</td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-center font-bold text-sm ${cellBg} ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                                                                {material.current_stock}
-                                                            </td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} ${cellBg}`}>
-                                                                <input
-                                                                    type="number"
-                                                                    className={`w-16 px-2 py-1 rounded border text-center focus:ring-2 outline-none transition-all ${isLowStock ? 'bg-red-50 border-red-200 focus:ring-red-500' : 'bg-slate-100 border-slate-200 focus:ring-primary-500'}`}
-                                                                    min="1"
-                                                                    value={qtyInputs[material.id] || ''}
-                                                                    onChange={e => {
-                                                                        // Check for pending actions first
-                                                                        if (checkPendingAction()) return
-
-                                                                        // Set the quantity for this material
-                                                                        setQtyInputs({ [material.id]: e.target.value })
-                                                                    }}
-                                                                />
-                                                            </td>
-                                                            <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-center ${cellBg}`}>
-                                                                <button
-                                                                    onClick={() => handleAddToCart(material)}
-                                                                    disabled={material.current_stock <= 0}
-                                                                    className={`p-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isLowStock ? 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white' : 'bg-primary-100 text-primary-600 hover:bg-primary-600 hover:text-white'}`}
-                                                                >
-                                                                    <Plus size={18} />
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })
-                                            ) : (
-                                                <tr>
-                                                    <td colspan="8" className="p-8 text-center text-slate-400">
-                                                        <p className="font-medium">No materials found matching your filters.</p>
-                                                        <button
-                                                            onClick={() => {
-                                                                setSearchDesc('')
-                                                                setSearchPart('')
-                                                                setFilterProcess('all')
-                                                                setFilterArea('all')
-                                                                setFilterMachine('all')
-                                                            }}
-                                                            className="text-primary-600 hover:text-primary-800 text-sm font-bold mt-2 underline"
-                                                        >
-                                                            Clear Filters
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-
-                            {/* Right Side: Cart & Details */}
-                            <div className="w-1/3 flex flex-col bg-slate-50 border-l border-slate-200">
-                                <div className="p-4 bg-white shadow-sm z-10 flex justify-between items-center">
-                                    <h4 className="font-medium text-slate-800 text-lg flex items-center gap-2 tracking-tight">
-                                        <FileText size={18} className="text-primary-600" />
-                                        Order Request
-                                    </h4>
-                                    <button
-                                        onClick={handleCreateTicket}
-                                        disabled={cartItems.length === 0}
-                                        className={`px-4 py-1.5 rounded-md font-bold text-xs flex items-center gap-2 shadow-sm transition-all ${cartItems.length === 0
-                                            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:-translate-y-0.5'
-                                            }`}
-                                    >
-                                        <Check size={14} /> Submit
-                                    </button>
-                                </div>
-
-                                <div className="flex-1 overflow-auto p-4 space-y-3">
-                                    {cartItems.length === 0 ? (
-                                        <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
-                                            <Package size={64} className="mb-4 text-slate-200" />
-                                            <p>Your request list is empty.</p>
-                                        </div>
-                                    ) : (
-                                        cartItems.map((item, idx) => {
-                                            const isSelected = editingItemIndex === idx;
-                                            const isPending = !item.confirmed;
-                                            return (
-                                                <div
-                                                    key={idx}
-                                                    onClick={() => {
-                                                        setEditingItemIndex(idx);
-                                                        // Load item details into form
-                                                        setJobPlant(item.details?.plant || '');
-                                                        setJobArea(item.details?.area || '');
-                                                        setJobMachine(item.details?.machine || '');
-                                                        setJobProcess(item.details?.process || '');
-                                                    }}
-                                                    className={`p-3 rounded-lg border cursor-pointer relative group transition-all ${isSelected
-                                                        ? `ring-2 ring-primary-500 border-primary-500 shadow-md z-10 ${isPending ? 'bg-yellow-50' : 'bg-white'}`
-                                                        : isPending
-                                                            ? 'bg-yellow-50 border-yellow-400'
-                                                            : 'bg-white border-slate-200 hover:border-primary-300'
-                                                        }`}
-                                                >
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleRemoveFromCart(idx);
-                                                        }}
-                                                        className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                    >
-                                                        <X size={16} />
-                                                    </button>
-
-                                                    <div className="flex items-start justify-between pr-6">
-                                                        <div>
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <h5 className="font-bold text-slate-900 text-sm leading-tight">{item.material.part_number}</h5>
-                                                                {isPending && (
-                                                                    <span className="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 text-[10px] font-bold uppercase rounded tracking-wide">
-                                                                        PENDING DETAILS
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs text-slate-600 font-medium">{item.material.name}</p>
-                                                        </div>
-                                                        <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded text-xs font-bold ring-1 ring-primary-100 whitespace-nowrap ml-2">
-                                                            {item.quantity} QTY
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )
-                                        })
-                                    )}
-                                </div>
-
-                                {/* Footer: JOB DETAILS Form + Submit */}
-                                <div className="p-4 bg-white border-t border-slate-200 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">JOB DETAILS</h5>
-                                        {editingItemIndex !== null && cartItems[editingItemIndex] && (
-                                            <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                                                FOR: {cartItems[editingItemIndex].material.part_number}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className={`grid grid-cols-2 gap-3 mb-4 transition-opacity ${editingItemIndex === null ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Factory</label>
-                                            <select className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobPlant} onChange={e => setJobPlant(e.target.value)}>
-                                                <option value="">- Select -</option>
-                                                <option value="Planta 1">Planta 1</option>
-                                                <option value="Planta 2">Planta 2</option>
-                                                <option value="Planta 3">Planta 3</option>
-                                                <option value="Planta 5">Planta 5</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Area</label>
-                                            <input className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobArea} onChange={e => setJobArea(e.target.value)} placeholder="e.g. Assembly" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Machine</label>
-                                            <input className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobMachine} onChange={e => setJobMachine(e.target.value)} placeholder="e.g. CNC-01" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Process</label>
-                                            <select className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobProcess} onChange={e => setJobProcess(e.target.value)}>
-                                                <option value="">- Select -</option>
-                                                {uniqueProcesses.map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    {/* Action Buttons */}
-                                    {editingItemIndex !== null ? (
-                                        <button
-                                            onClick={handleConfirmDetails}
-                                            className="w-full py-2.5 rounded-lg font-bold text-white shadow-md flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 transform hover:-translate-y-0.5 transition-all"
-                                        >
-                                            Confirm Details & Continue
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <div className="flex justify-between items-center mb-3 pt-2 border-t border-slate-100">
-                                                <span className="text-slate-500 font-medium text-xs">Total Items</span>
-                                                <span className="text-xl font-bold text-slate-800">{cartItems.reduce((acc, item) => acc + item.quantity, 0)}</span>
-                                            </div>
+                            {/* Confirmation Modal Overlay */}
+                            {showExitConfirm && (
+                                <div className="absolute inset-0 z-[60] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+                                    <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full animate-in fade-in zoom-in duration-200">
+                                        <h3 className="text-lg font-bold text-slate-800 mb-2">Unsaved Changes</h3>
+                                        <p className="text-sm text-slate-600 mb-6">All entered information in your request list will be lost. Do you wish to proceed?</p>
+                                        <div className="flex justify-end gap-3">
                                             <button
-                                                onClick={handleCreateTicket}
-                                                disabled={cartItems.length === 0}
-                                                className={`w-full py-2.5 rounded-lg font-bold text-white shadow-md flex items-center justify-center gap-2 text-sm ${cartItems.length === 0
-                                                    ? 'bg-slate-300 cursor-not-allowed'
-                                                    : 'bg-green-600 hover:bg-green-700 transform hover:-translate-y-0.5 transition-all'
-                                                    }`}
+                                                onClick={() => setShowExitConfirm(false)}
+                                                className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                                             >
-                                                <Check size={18} />
-                                                Submit Request
+                                                Cancel
                                             </button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                            {/* Image Preview Modal */}
-                            {isPreviewOpen && (
-                                <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => { setIsPreviewOpen(false); setPreviewPartNumber(''); }}>
-                                    <div className="bg-white p-2 rounded-xl max-w-4xl max-h-[90vh] overflow-hidden relative shadow-2xl animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => { setIsPreviewOpen(false); setPreviewPartNumber(''); }}
-                                            className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors backdrop-blur-md"
-                                        >
-                                            <X size={24} />
-                                        </button>
-                                        <div className="flex flex-col items-center">
-                                            <div className="bg-slate-100 w-full flex justify-center items-center rounded-lg overflow-hidden border border-slate-200">
-                                                <img src={previewImage} alt="Material Preview" className="max-w-full max-h-[80vh] object-contain" />
-                                            </div>
-                                            <div className="mt-3 text-center">
-                                                <p className="font-bold text-lg text-slate-800">{previewPartNumber}</p>
-                                                <p className="text-xs text-slate-500 uppercase tracking-widest">Visual Verification</p>
-                                            </div>
+                                            <button
+                                                onClick={performCloseModal}
+                                                className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+                                            >
+                                                Yes, Close
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Processing Modal - Tool Room Staff */}
-            {isProcessingModalOpen && processingTicket && (
-                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-                        {/* Modal Header */}
-                        <div className="bg-primary-900 px-6 py-4 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-bold text-white">Processing Ticket #{processingTicket.folio}</h2>
-                                <p className="text-primary-200 text-sm">User: {processingTicket.requester?.full_name || 'Unknown'}</p>
-                            </div>
-                            <button
-                                onClick={handleCancelProcessingSession}
-                                className="text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Items List */}
-                        <div className="flex-1 overflow-auto p-6 space-y-4">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4">Items to Process:</h3>
-
-                            {processingTicket.items?.map(item => {
-                                const itemStatus = itemStatuses[item.id]?.status || 'pending'
-                                const material = item.material
-                                const isLowStock = material?.current_stock <= (material?.min_stock || 0)
-
-                                return (
-                                    <div
-                                        key={item.id}
-                                        className={`border-2 rounded-lg p-4 transition-all ${itemStatus === 'fulfilled' ? 'bg-green-50 border-green-500' :
-                                            itemStatus === 'cancelled' ? 'bg-red-50 border-red-500' :
-                                                'bg-white border-slate-200'
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-4">
-                                            {/* Material Info */}
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Package className={itemStatus === 'fulfilled' ? 'text-green-600' : itemStatus === 'cancelled' ? 'text-red-600' : 'text-slate-600'} size={20} />
-                                                    <h4
-                                                        className="font-bold text-slate-800 cursor-pointer hover:text-primary-600 transition-colors"
-                                                        onClick={() => handleViewItemImage(material)}
-                                                        title="Click to view image"
-                                                    >
-                                                        {material?.name || 'Unknown Material'}
-                                                    </h4>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-2">
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-medium">Part #:</span>
-                                                        <span className="font-mono">{material?.part_number}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <MapPin size={14} />
-                                                        <span className="font-medium">Location:</span>
-                                                        <span>{material?.location || 'N/A'}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <Box size={14} />
-                                                        <span className="font-medium">Stock:</span>
-                                                        <span className={isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
-                                                            {material?.current_stock || 0}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-medium">Requested:</span>
-                                                        <span className="font-bold text-primary-600">{item.quantity_requested}</span>
-                                                    </div>
-                                                </div>
-
-                                                {material?.description && (
-                                                    <p className="text-xs text-slate-500 italic">{material.description}</p>
-                                                )}
-
-                                                {itemStatus === 'cancelled' && itemStatuses[item.id]?.reason && (
-                                                    <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded text-sm text-red-700">
-                                                        <span className="font-bold">Reason:</span> {itemStatuses[item.id].reason}
-                                                    </div>
-                                                )}
+                            {/* Custom Notification Modal (Centered) */}
+                            {notification && (
+                                <div className="absolute inset-0 z-[70] bg-black/40 flex items-center justify-center p-4 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={() => setNotification(null)}>
+                                    <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-100 transform scale-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                                        <div className={`px-6 py-4 flex items-center gap-3 ${notification.type === 'error' ? 'bg-red-50' : 'bg-blue-50'}`}>
+                                            <div className={`p-2 rounded-full ${notification.type === 'error' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                {notification.type === 'error' ? <AlertCircle size={24} /> : <Info size={24} />}
                                             </div>
+                                            <h3 className={`font-bold text-lg ${notification.type === 'error' ? 'text-red-700' : 'text-blue-700'}`}>
+                                                {notification.type === 'error' ? 'Attention Needed' : 'Information'}
+                                            </h3>
+                                        </div>
+                                        <div className="p-6">
+                                            <p className="text-slate-600 text-sm font-medium leading-relaxed">
+                                                {notification.message}
+                                            </p>
+                                        </div>
+                                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                            <button
+                                                onClick={() => setNotification(null)}
+                                                className="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-transform active:scale-95 shadow-md flex items-center gap-2"
+                                            >
+                                                <Check size={16} /> OK
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
-                                            {/* Action Buttons */}
-                                            <div className="flex flex-col gap-2">
-                                                {itemStatus === 'pending' && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleFulfillItem(item.id)}
-                                                            className="bg-green-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold shadow hover:bg-green-600 transition-all text-sm"
-                                                        >
-                                                            <Check size={16} />
-                                                            Fulfill
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleCancelItem(item.id)}
-                                                            className="bg-red-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold shadow hover:bg-red-600 transition-all text-sm"
-                                                        >
-                                                            <X size={16} />
-                                                            Cancel
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {itemStatus === 'fulfilled' && (
-                                                    <div className="bg-green-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold text-sm">
-                                                        <Check size={16} />
-                                                        Fulfilled
-                                                    </div>
-                                                )}
-                                                {itemStatus === 'cancelled' && (
-                                                    <div className="bg-red-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold text-sm">
-                                                        <X size={16} />
-                                                        Cancelled
-                                                    </div>
-                                                )}
+
+
+                            {/* Header */}
+                            <div className="px-6 py-4 bg-primary-900 text-white flex justify-between items-center shadow-md shrink-0">
+                                <div>
+                                    <h3 className="font-bold text-xl flex items-center gap-2">
+                                        <Package className="text-primary-300" />
+                                        Tool Crib Material Request
+                                    </h3>
+                                </div>
+                                <button onClick={handleCloseModal} className="text-primary-200 hover:text-white transition-colors">
+                                    <X size={28} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 flex overflow-hidden">
+                                {/* Left Side: Product Selection & Search */}
+                                <div className="w-2/3 flex flex-col border-r border-slate-200 bg-slate-50/50">
+                                    {/* Visual Verification Block - NEW */}
+                                    <div className="p-2 bg-blue-50/50 border-b border-blue-100 shadow-sm z-10">
+                                        <h4 className="font-bold text-blue-800 text-xs flex items-center gap-2 mb-1 tracking-tight uppercase">
+                                            <Eye size={14} /> Visual Verification
+                                        </h4>
+                                        <div className="flex gap-2 items-end">
+                                            <div className="flex-1">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        className="flex-1 border border-blue-200 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 font-mono"
+                                                        placeholder="Click part # ..."
+                                                        value={previewPartNumber}
+                                                        onChange={(e) => setPreviewPartNumber(e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchPreview()}
+                                                    />
+                                                    <button
+                                                        onClick={handleSearchPreview}
+                                                        className="bg-blue-600 text-white px-3 py-1 rounded-md font-bold text-[10px] shadow-sm hover:bg-blue-700 transition-all flex items-center gap-1 uppercase tracking-wide"
+                                                    >
+                                                        <Search size={12} /> Verify
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                )
-                            })}
-                        </div>
 
-                        {/* Modal Footer */}
-                        <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex justify-between items-center">
-                            <button
-                                onClick={handleCancelProcessingSession}
-                                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleFinishProcessing}
-                                disabled={Object.values(itemStatuses).some(item => item.status === 'pending')}
-                                className="bg-primary-600 text-white px-6 py-2 rounded-md font-bold shadow-lg hover:bg-primary-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <Check size={18} />
-                                Finish Processing
-                            </button>
+                                    {/* Search Bar */}
+                                    <div className="p-2 bg-white border-b border-slate-200 shadow-sm z-10">
+                                        <h4 className="font-medium text-slate-800 text-sm flex items-center gap-2 mb-1 tracking-tight">
+                                            <Search size={16} /> Search Materials
+                                        </h4>
+                                        <div className="space-y-1">
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Description:</label>
+                                                    <input
+                                                        type="text"
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
+                                                        value={searchDesc}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setSearchDesc(e.target.value)
+                                                            // Allow combining filters
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="w-64 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right leading-tight">Part Number:</label>
+                                                    <input
+                                                        type="text"
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light"
+                                                        value={searchPart}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setSearchPart(e.target.value)
+                                                            // Allow combining filters
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Process:</label>
+                                                    <select
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
+                                                        value={filterProcess}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setFilterProcess(e.target.value)
+                                                        }}
+                                                    >
+                                                        <option value="all">- Select -</option>
+                                                        {uniqueProcesses.map(p => <option key={p} value={p}>{p}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Area:</label>
+                                                    <select
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
+                                                        value={filterArea}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setFilterArea(e.target.value)
+                                                        }}
+                                                    >
+                                                        <option value="all">- Select -</option>
+                                                        {uniqueAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Machine:</label>
+                                                    <select
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
+                                                        value={filterMachine}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setFilterMachine(e.target.value)
+                                                        }}
+                                                    >
+                                                        <option value="all">- Select -</option>
+                                                        {uniqueMachines.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end mt-2">
+                                            <button
+                                                onClick={() => {
+                                                    if (checkPendingAction()) return
+                                                    setSearchDesc('')
+                                                    setSearchPart('')
+                                                    setFilterProcess('all')
+                                                    setFilterArea('all')
+                                                    setFilterMachine('all')
+                                                }}
+                                                className="text-xs text-slate-500 hover:text-red-500 underline flex items-center gap-1 transition-colors"
+                                            >
+                                                <X size={12} /> Clear Filters
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Table Results */}
+                                    <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                                        <table className="w-full border-separate border-spacing-0">
+                                            <thead>
+                                                <tr>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tl-lg">Part #</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Description</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Process</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Area</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Machine</th>
+                                                    <th className="p-3 border-b border-primary-200 text-center sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-xs font-bold text-primary-800 uppercase tracking-wider">Stock</th>
+                                                    <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider">Qty</th>
+                                                    <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tr-lg">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredMaterials.length > 0 ? (
+                                                    filteredMaterials.map(material => {
+                                                        const isLowStock = material.current_stock <= (material.min_stock || 0)
+                                                        const rowBg = isLowStock ? 'bg-red-50 hover:bg-red-100/80 shadow-sm' : 'hover:bg-blue-50/50'
+                                                        const cellBg = isLowStock ? 'bg-red-50/50 group-hover:bg-red-100/50' : 'bg-white group-hover:bg-blue-50/50'
+
+                                                        return (
+                                                            <tr key={material.id} className={`transition-all group border-l-4 ${isLowStock ? 'border-l-red-500 shadow-inner' : 'border-l-transparent'} ${rowBg}`}>
+                                                                <td
+                                                                    className={`p-3 border-b ${isLowStock ? 'border-red-100 text-red-700' : 'border-slate-100 text-blue-600'} font-mono text-sm font-bold ${cellBg} cursor-pointer hover:underline`}
+                                                                    onClick={() => handlePartClick(material.part_number)}
+                                                                    title="Click to verify image"
+                                                                >
+                                                                    {material.part_number}
+                                                                </td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.name}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.process}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.area || material.Area}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.machine_asset}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-center font-bold text-sm ${cellBg} ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                                                                    {material.current_stock}
+                                                                </td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} ${cellBg}`}>
+                                                                    <input
+                                                                        type="number"
+                                                                        className={`w-16 px-2 py-1 rounded border text-center focus:ring-2 outline-none transition-all ${isLowStock ? 'bg-red-50 border-red-200 focus:ring-red-500' : 'bg-slate-100 border-slate-200 focus:ring-primary-500'}`}
+                                                                        min="1"
+                                                                        value={qtyInputs[material.id] || ''}
+                                                                        onChange={e => {
+                                                                            // Check for pending actions first
+                                                                            if (checkPendingAction()) return
+
+                                                                            // Set the quantity for this material
+                                                                            setQtyInputs({ [material.id]: e.target.value })
+                                                                        }}
+                                                                    />
+                                                                </td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-center ${cellBg}`}>
+                                                                    <button
+                                                                        onClick={() => handleAddToCart(material)}
+                                                                        disabled={material.current_stock <= 0}
+                                                                        className={`p-2 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isLowStock ? 'bg-red-100 text-red-600 hover:bg-red-600 hover:text-white' : 'bg-primary-100 text-primary-600 hover:bg-primary-600 hover:text-white'}`}
+                                                                    >
+                                                                        <Plus size={18} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })
+                                                ) : (
+                                                    <tr>
+                                                        <td colspan="8" className="p-8 text-center text-slate-400">
+                                                            <p className="font-medium">No materials found matching your filters.</p>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSearchDesc('')
+                                                                    setSearchPart('')
+                                                                    setFilterProcess('all')
+                                                                    setFilterArea('all')
+                                                                    setFilterMachine('all')
+                                                                }}
+                                                                className="text-primary-600 hover:text-primary-800 text-sm font-bold mt-2 underline"
+                                                            >
+                                                                Clear Filters
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Cart & Details */}
+                                <div className="w-1/3 flex flex-col bg-slate-50 border-l border-slate-200">
+                                    <div className="p-4 bg-white shadow-sm z-10 flex justify-between items-center">
+                                        <h4 className="font-medium text-slate-800 text-lg flex items-center gap-2 tracking-tight">
+                                            <FileText size={18} className="text-primary-600" />
+                                            Order Request
+                                        </h4>
+                                        <button
+                                            onClick={handleCreateTicket}
+                                            disabled={cartItems.length === 0}
+                                            className={`px-4 py-1.5 rounded-md font-bold text-xs flex items-center gap-2 shadow-sm transition-all ${cartItems.length === 0
+                                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:-translate-y-0.5'
+                                                }`}
+                                        >
+                                            <Check size={14} /> Submit
+                                        </button>
+                                    </div>
+
+                                    <div className="flex-1 overflow-auto p-4 space-y-3">
+                                        {cartItems.length === 0 ? (
+                                            <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                                                <Package size={64} className="mb-4 text-slate-200" />
+                                                <p>Your request list is empty.</p>
+                                            </div>
+                                        ) : (
+                                            cartItems.map((item, idx) => {
+                                                const isSelected = editingItemIndex === idx;
+                                                const isPending = !item.confirmed;
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        onClick={() => {
+                                                            setEditingItemIndex(idx);
+                                                            // Load item details into form
+                                                            setJobPlant(item.details?.plant || '');
+                                                            setJobArea(item.details?.area || '');
+                                                            setJobMachine(item.details?.machine || '');
+                                                            setJobProcess(item.details?.process || '');
+                                                        }}
+                                                        className={`p-3 rounded-lg border cursor-pointer relative group transition-all ${isSelected
+                                                            ? `ring-2 ring-primary-500 border-primary-500 shadow-md z-10 ${isPending ? 'bg-yellow-50' : 'bg-white'}`
+                                                            : isPending
+                                                                ? 'bg-yellow-50 border-yellow-400'
+                                                                : 'bg-white border-slate-200 hover:border-primary-300'
+                                                            }`}
+                                                    >
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleRemoveFromCart(idx);
+                                                            }}
+                                                            className="absolute top-2 right-2 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+
+                                                        <div className="flex items-start justify-between pr-6">
+                                                            <div>
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <h5 className="font-bold text-slate-900 text-sm leading-tight">{item.material.part_number}</h5>
+                                                                    {isPending && (
+                                                                        <span className="px-1.5 py-0.5 bg-yellow-200 text-yellow-800 text-[10px] font-bold uppercase rounded tracking-wide">
+                                                                            PENDING DETAILS
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-xs text-slate-600 font-medium">{item.material.name}</p>
+                                                            </div>
+                                                            <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded text-xs font-bold ring-1 ring-primary-100 whitespace-nowrap ml-2">
+                                                                {item.quantity} QTY
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        )}
+                                    </div>
+
+                                    {/* Footer: JOB DETAILS Form + Submit */}
+                                    <div className="p-4 bg-white border-t border-slate-200 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">JOB DETAILS</h5>
+                                            {editingItemIndex !== null && cartItems[editingItemIndex] && (
+                                                <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                                                    FOR: {cartItems[editingItemIndex].material.part_number}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className={`grid grid-cols-2 gap-3 mb-4 transition-opacity ${editingItemIndex === null ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 block mb-1">Factory</label>
+                                                <select className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobPlant} onChange={e => setJobPlant(e.target.value)}>
+                                                    <option value="">- Select -</option>
+                                                    <option value="Planta 1">Planta 1</option>
+                                                    <option value="Planta 2">Planta 2</option>
+                                                    <option value="Planta 3">Planta 3</option>
+                                                    <option value="Planta 5">Planta 5</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 block mb-1">Area</label>
+                                                <input className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobArea} onChange={e => setJobArea(e.target.value)} placeholder="e.g. Assembly" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 block mb-1">Machine</label>
+                                                <input className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobMachine} onChange={e => setJobMachine(e.target.value)} placeholder="e.g. CNC-01" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 block mb-1">Process</label>
+                                                <select className="w-full bg-slate-50 text-xs p-1.5 rounded border border-slate-200 focus:ring-1 focus:ring-primary-500 outline-none" value={jobProcess} onChange={e => setJobProcess(e.target.value)}>
+                                                    <option value="">- Select -</option>
+                                                    {uniqueProcesses.map(p => <option key={p} value={p}>{p}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        {editingItemIndex !== null ? (
+                                            <button
+                                                onClick={handleConfirmDetails}
+                                                className="w-full py-2.5 rounded-lg font-bold text-white shadow-md flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 transform hover:-translate-y-0.5 transition-all"
+                                            >
+                                                Confirm Details & Continue
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <div className="flex justify-between items-center mb-3 pt-2 border-t border-slate-100">
+                                                    <span className="text-slate-500 font-medium text-xs">Total Items</span>
+                                                    <span className="text-xl font-bold text-slate-800">{cartItems.reduce((acc, item) => acc + item.quantity, 0)}</span>
+                                                </div>
+                                                <button
+                                                    onClick={handleCreateTicket}
+                                                    disabled={cartItems.length === 0}
+                                                    className={`w-full py-2.5 rounded-lg font-bold text-white shadow-md flex items-center justify-center gap-2 text-sm ${cartItems.length === 0
+                                                        ? 'bg-slate-300 cursor-not-allowed'
+                                                        : 'bg-green-600 hover:bg-green-700 transform hover:-translate-y-0.5 transition-all'
+                                                        }`}
+                                                >
+                                                    <Check size={18} />
+                                                    Submit Request
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Image Preview Modal */}
+                                {isPreviewOpen && (
+                                    <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => { setIsPreviewOpen(false); setPreviewPartNumber(''); }}>
+                                        <div className="bg-white p-2 rounded-xl max-w-4xl max-h-[90vh] overflow-hidden relative shadow-2xl animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+                                            <button
+                                                onClick={() => { setIsPreviewOpen(false); setPreviewPartNumber(''); }}
+                                                className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors backdrop-blur-md"
+                                            >
+                                                <X size={24} />
+                                            </button>
+                                            <div className="flex flex-col items-center">
+                                                <div className="bg-slate-100 w-full flex justify-center items-center rounded-lg overflow-hidden border border-slate-200">
+                                                    <img src={previewImage} alt="Material Preview" className="max-w-full max-h-[80vh] object-contain" />
+                                                </div>
+                                                <div className="mt-3 text-center">
+                                                    <p className="font-bold text-lg text-slate-800">{previewPartNumber}</p>
+                                                    <p className="text-xs text-slate-500 uppercase tracking-widest">Visual Verification</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Processing Modal - Tool Room Staff */}
+            {
+                isProcessingModalOpen && processingTicket && (
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                            {/* Modal Header */}
+                            <div className="bg-primary-900 px-6 py-4 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Processing Ticket #{processingTicket.folio}</h2>
+                                    <p className="text-primary-200 text-sm">User: {processingTicket.requester?.full_name || 'Unknown'}</p>
+                                </div>
+                                <button
+                                    onClick={handleCancelProcessingSession}
+                                    className="text-white/60 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all"
+                                >
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Items List */}
+                            <div className="flex-1 overflow-auto p-6 space-y-4">
+                                <h3 className="text-lg font-bold text-slate-800 mb-4">Items to Process:</h3>
+
+                                {processingTicket.items?.map(item => {
+                                    const itemStatus = itemStatuses[item.id]?.status || 'pending'
+                                    const material = item.material
+                                    const isLowStock = material?.current_stock <= (material?.min_stock || 0)
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className={`border-2 rounded-lg p-4 transition-all ${itemStatus === 'fulfilled' ? 'bg-green-50 border-green-500' :
+                                                itemStatus === 'cancelled' ? 'bg-red-50 border-red-500' :
+                                                    'bg-white border-slate-200'
+                                                }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                {/* Material Info */}
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <Package className={itemStatus === 'fulfilled' ? 'text-green-600' : itemStatus === 'cancelled' ? 'text-red-600' : 'text-slate-600'} size={20} />
+                                                        <h4
+                                                            className="font-bold text-slate-800 cursor-pointer hover:text-primary-600 transition-colors"
+                                                            onClick={() => handleViewItemImage(material)}
+                                                            title="Click to view image"
+                                                        >
+                                                            {material?.name || 'Unknown Material'}
+                                                        </h4>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-2">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="font-medium">Part #:</span>
+                                                            <span className="font-mono">{material?.part_number}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <MapPin size={14} />
+                                                            <span className="font-medium">Location:</span>
+                                                            <span>{material?.location || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Box size={14} />
+                                                            <span className="font-medium">Stock:</span>
+                                                            <span className={isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                                                                {material?.current_stock || 0}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="font-medium">Requested:</span>
+                                                            <span className="font-bold text-primary-600">{item.quantity_requested}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {material?.description && (
+                                                        <p className="text-xs text-slate-500 italic">{material.description}</p>
+                                                    )}
+
+                                                    {itemStatus === 'cancelled' && itemStatuses[item.id]?.reason && (
+                                                        <div className="mt-2 p-2 bg-red-100 border border-red-200 rounded text-sm text-red-700">
+                                                            <span className="font-bold">Reason:</span> {itemStatuses[item.id].reason}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Action Buttons */}
+                                                <div className="flex flex-col gap-2">
+                                                    {itemStatus === 'pending' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleFulfillItem(item.id)}
+                                                                className="bg-green-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold shadow hover:bg-green-600 transition-all text-sm"
+                                                            >
+                                                                <Check size={16} />
+                                                                Fulfill
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleCancelItem(item.id)}
+                                                                className="bg-red-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold shadow hover:bg-red-600 transition-all text-sm"
+                                                            >
+                                                                <X size={16} />
+                                                                Cancel
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {itemStatus === 'fulfilled' && (
+                                                        <div className="bg-green-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold text-sm">
+                                                            <Check size={16} />
+                                                            Fulfilled
+                                                        </div>
+                                                    )}
+                                                    {itemStatus === 'cancelled' && (
+                                                        <div className="bg-red-500 text-white px-4 py-2 rounded-md flex items-center gap-2 font-bold text-sm">
+                                                            <X size={16} />
+                                                            Cancelled
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex justify-between items-center">
+                                <button
+                                    onClick={handleCancelProcessingSession}
+                                    className="px-4 py-2 text-slate-600 hover:text-slate-800 font-medium"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleFinishProcessing}
+                                    disabled={Object.values(itemStatuses).some(item => item.status === 'pending')}
+                                    className="bg-primary-600 text-white px-6 py-2 rounded-md font-bold shadow-lg hover:bg-primary-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Check size={18} />
+                                    Finish Processing
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             {/* Material Image Modal */}
-            {viewingImageMaterial && (
-                <div
-                    className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
-                    onClick={() => setViewingImageMaterial(null)}
-                >
-                    <div className="bg-white p-4 rounded-xl max-w-3xl max-h-[90vh] overflow-hidden relative shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <button
-                            onClick={() => setViewingImageMaterial(null)}
-                            className="absolute top-2 right-2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg z-10"
-                        >
-                            <X size={20} />
-                        </button>
-                        {viewingImageMaterial.signed_image_url ? (
-                            <img
-                                src={viewingImageMaterial.signed_image_url}
-                                alt={viewingImageMaterial.name}
-                                className="max-w-full max-h-[80vh] object-contain rounded-lg"
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-                                <Image size={64} />
-                                <p className="mt-4 text-lg">No image available</p>
+            {
+                viewingImageMaterial && (
+                    <div
+                        className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm"
+                        onClick={() => setViewingImageMaterial(null)}
+                    >
+                        <div className="bg-white p-4 rounded-xl max-w-3xl max-h-[90vh] overflow-hidden relative shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <button
+                                onClick={() => setViewingImageMaterial(null)}
+                                className="absolute top-2 right-2 bg-white/90 hover:bg-white p-2 rounded-full shadow-lg z-10"
+                            >
+                                <X size={20} />
+                            </button>
+                            {viewingImageMaterial.signed_image_url ? (
+                                <img
+                                    src={viewingImageMaterial.signed_image_url}
+                                    alt={viewingImageMaterial.name}
+                                    className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+                                    <Image size={64} />
+                                    <p className="mt-4 text-lg">No image available</p>
+                                </div>
+                            )}
+                            <div className="mt-3 text-center">
+                                <p className="font-bold text-lg text-slate-800">{viewingImageMaterial.name}</p>
+                                <p className="text-sm text-slate-500">{viewingImageMaterial.part_number}</p>
                             </div>
-                        )}
-                        <div className="mt-3 text-center">
-                            <p className="font-bold text-lg text-slate-800">{viewingImageMaterial.name}</p>
-                            <p className="text-sm text-slate-500">{viewingImageMaterial.part_number}</p>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Cancellation Reason Modal */}
-            {cancelModalOpen && (
-                <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-                        <div className="bg-red-600 px-6 py-4 rounded-t-xl relative">
-                            <h3 className="text-xl font-bold text-white">Cancel Item</h3>
-                            <button
-                                onClick={() => {
-                                    setCancelModalOpen(false)
-                                    setCancellingItemId(null)
-                                    setCancellationReason('')
-                                }}
-                                className="absolute top-4 right-4 text-white hover:text-red-100 transition-colors"
-                                title="Close"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-                        <div className="p-6">
-                            <label className="block text-sm font-bold text-slate-700 mb-2">
-                                Reason for cancellation:
-                            </label>
-                            <textarea
-                                value={cancellationReason}
-                                onChange={(e) => setCancellationReason(e.target.value)}
-                                placeholder="Enter reason (e.g., No authorization, Out of stock, etc.)"
-                                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
-                                rows={4}
-                                autoFocus
-                            />
-                        </div>
-                        <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex justify-between items-center rounded-b-xl">
-                            {/* Report Quality Issue Button - Left side */}
-                            <button
-                                onClick={() => {
-                                    // Find the ticket that contains this item
-                                    const ticket = tickets.find(t =>
-                                        t.items?.some(item => item.id === cancellingItemId)
-                                    )
-                                    if (ticket) {
+            {
+                cancelModalOpen && (
+                    <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                            <div className="bg-red-600 px-6 py-4 rounded-t-xl relative">
+                                <h3 className="text-xl font-bold text-white">Cancel Item</h3>
+                                <button
+                                    onClick={() => {
                                         setCancelModalOpen(false)
-                                        handleOpenQualityReport(ticket, 'processing')
-                                    }
-                                }}
-                                className="bg-orange-500 text-white px-3 py-1.5 rounded-md font-bold shadow-lg hover:bg-orange-600 transition-all flex items-center gap-2 text-sm"
-                            >
-                                <AlertTriangle size={14} />
-                                Report Quality Issue
-                            </button>
-
-                            {/* Confirm Cancellation button - Right side */}
-                            <button
-                                onClick={confirmCancelItem}
-                                className="bg-red-600 text-white px-4 py-1.5 rounded-md font-bold shadow-lg hover:bg-red-700 transition-all text-sm"
-                            >
-                                Confirm Cancellation
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Quality Report Modal */}
-            {isQualityReportModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-orange-200 bg-orange-500 rounded-t-xl relative">
-                            <button
-                                onClick={() => setIsQualityReportModalOpen(false)}
-                                className="absolute top-4 right-4 text-white hover:text-orange-100 transition-colors"
-                                title="Close"
-                            >
-                                <X size={24} />
-                            </button>
-                            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                <AlertTriangle className="text-white" size={24} />
-                                Report Quality Issue
-                            </h2>
-                            <p className="text-sm text-orange-100 mt-1">
-                                Report material quality issues for ticket #{reportingTicket?.folio}
-                            </p>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            {/* Material Selection */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Select Material <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={selectedMaterialForReport?.material_id || ''}
-                                    onChange={(e) => {
-                                        const item = reportingTicket.items.find(i => i.material_id === parseInt(e.target.value))
-                                        setSelectedMaterialForReport(item)
-                                        // Auto-fill supplier name if material has one registered
-                                        if (item?.material?.supplier) {
-                                            setSupplierName(item.material.supplier)
-                                        }
+                                        setCancellingItemId(null)
+                                        setCancellationReason('')
                                     }}
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    className="absolute top-4 right-4 text-white hover:text-red-100 transition-colors"
+                                    title="Close"
                                 >
-                                    <option value="">-- Select Material --</option>
-                                    {reportingTicket?.items?.map(item => (
-                                        <option key={item.id} value={item.material_id}>
-                                            {item.material?.part_number} - {item.material?.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <X size={24} />
+                                </button>
                             </div>
-
-                            {/* Issue Category */}
-                            <div>
+                            <div className="p-6">
                                 <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Issue Category <span className="text-red-500">*</span>
-                                </label>
-                                <select
-                                    value={issueCategory}
-                                    onChange={(e) => setIssueCategory(e.target.value)}
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                >
-                                    <option value="">-- Select Category --</option>
-                                    <option value="wrong_material">Wrong Material (Incorrect Part)</option>
-                                    <option value="damaged">Damaged (Physical Damage)</option>
-                                    <option value="wrong_quantity">Wrong Quantity (Count Mismatch)</option>
-                                    <option value="defective">Defective (Quality Defect)</option>
-                                    <option value="other">Other</option>
-                                </select>
-                            </div>
-
-                            {/* Description */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Description <span className="text-red-500">*</span>
+                                    Reason for cancellation:
                                 </label>
                                 <textarea
-                                    value={issueDescription}
-                                    onChange={(e) => setIssueDescription(e.target.value)}
-                                    placeholder="Describe the quality issue in detail..."
+                                    value={cancellationReason}
+                                    onChange={(e) => setCancellationReason(e.target.value)}
+                                    placeholder="Enter reason (e.g., No authorization, Out of stock, etc.)"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
                                     rows={4}
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    autoFocus
                                 />
                             </div>
+                            <div className="border-t border-slate-200 px-6 py-4 bg-slate-50 flex justify-between items-center rounded-b-xl">
+                                {/* Report Quality Issue Button - Left side */}
+                                <button
+                                    onClick={() => {
+                                        // Find the ticket that contains this item
+                                        const ticket = tickets.find(t =>
+                                            t.items?.some(item => item.id === cancellingItemId)
+                                        )
+                                        if (ticket) {
+                                            setCancelModalOpen(false)
+                                            handleOpenQualityReport(ticket, 'processing')
+                                        }
+                                    }}
+                                    className="bg-orange-500 text-white px-3 py-1.5 rounded-md font-bold shadow-lg hover:bg-orange-600 transition-all flex items-center gap-2 text-sm"
+                                >
+                                    <AlertTriangle size={14} />
+                                    Report Quality Issue
+                                </button>
 
-                            {/* Supplier Name */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Supplier Name {selectedMaterialForReport?.material?.supplier ? '(Auto-filled from material)' : '(Optional - Enter manually)'}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={supplierName}
-                                    onChange={(e) => setSupplierName(e.target.value)}
-                                    placeholder={selectedMaterialForReport?.material?.supplier ? "Supplier from material record" : "Enter supplier name if known..."}
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                />
-                                {selectedMaterialForReport?.material?.supplier && (
-                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
-                                        Supplier registered in material master
-                                    </p>
+                                {/* Confirm Cancellation button - Right side */}
+                                <button
+                                    onClick={confirmCancelItem}
+                                    className="bg-red-600 text-white px-4 py-1.5 rounded-md font-bold shadow-lg hover:bg-red-700 transition-all text-sm"
+                                >
+                                    Confirm Cancellation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Quality Report Modal */}
+            {
+                isQualityReportModalOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-orange-200 bg-orange-500 rounded-t-xl relative">
+                                <button
+                                    onClick={() => setIsQualityReportModalOpen(false)}
+                                    className="absolute top-4 right-4 text-white hover:text-orange-100 transition-colors"
+                                    title="Close"
+                                >
+                                    <X size={24} />
+                                </button>
+                                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    <AlertTriangle className="text-white" size={24} />
+                                    Report Quality Issue
+                                </h2>
+                                <p className="text-sm text-orange-100 mt-1">
+                                    Report material quality issues for ticket #{reportingTicket?.folio}
+                                </p>
+                            </div>
+
+                            <div className="p-6 space-y-4">
+                                {/* Material Selection */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Select Material <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={selectedMaterialForReport?.material_id || ''}
+                                        onChange={(e) => {
+                                            const item = reportingTicket.items.find(i => i.material_id === parseInt(e.target.value))
+                                            setSelectedMaterialForReport(item)
+                                            // Auto-fill supplier name if material has one registered
+                                            if (item?.material?.supplier) {
+                                                setSupplierName(item.material.supplier)
+                                            }
+                                        }}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="">-- Select Material --</option>
+                                        {reportingTicket?.items?.map(item => (
+                                            <option key={item.id} value={item.material_id}>
+                                                {item.material?.part_number} - {item.material?.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Issue Category */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Issue Category <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={issueCategory}
+                                        onChange={(e) => setIssueCategory(e.target.value)}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="">-- Select Category --</option>
+                                        <option value="wrong_material">Wrong Material (Incorrect Part)</option>
+                                        <option value="damaged">Damaged (Physical Damage)</option>
+                                        <option value="wrong_quantity">Wrong Quantity (Count Mismatch)</option>
+                                        <option value="defective">Defective (Quality Defect)</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+
+                                {/* Description */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Description <span className="text-red-500">*</span>
+                                    </label>
+                                    <textarea
+                                        value={issueDescription}
+                                        onChange={(e) => setIssueDescription(e.target.value)}
+                                        placeholder="Describe the quality issue in detail..."
+                                        rows={4}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                </div>
+
+                                {/* Supplier Name */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Supplier Name {selectedMaterialForReport?.material?.supplier ? '(Auto-filled from material)' : '(Optional - Enter manually)'}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={supplierName}
+                                        onChange={(e) => setSupplierName(e.target.value)}
+                                        placeholder={selectedMaterialForReport?.material?.supplier ? "Supplier from material record" : "Enter supplier name if known..."}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                    {selectedMaterialForReport?.material?.supplier && (
+                                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                            Supplier registered in material master
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Quantity Affected */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Quantity Affected (Optional)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={quantityAffected}
+                                        onChange={(e) => setQuantityAffected(e.target.value)}
+                                        placeholder="How many units were affected?"
+                                        min="1"
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                </div>
+
+                                {/* Action Taken */}
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-2">
+                                        Action Taken
+                                    </label>
+                                    <select
+                                        value={actionTaken}
+                                        onChange={(e) => setActionTaken(e.target.value)}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    >
+                                        <option value="pending_review">Pending Review</option>
+                                        <option value="rejected">Rejected (Not Accepted)</option>
+                                        <option value="returned">Returned to Supplier</option>
+                                        <option value="accepted_with_note">Accepted with Note</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setIsQualityReportModalOpen(false)}
+                                    className="px-6 py-2 border border-slate-300 rounded-lg font-bold text-slate-700 hover:bg-slate-50 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSubmitQualityReport}
+                                    className="bg-orange-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-orange-600 transition-all"
+                                >
+                                    Submit Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Reports List Modal */}
+            {
+                isReportListModalOpen && (
+                    <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={() => setIsReportListModalOpen(false)}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                            <div className="px-6 py-4 bg-purple-900 text-white flex justify-between items-center shrink-0">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white/10 p-2 rounded-lg">
+                                        <FileWarning size={20} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg leading-tight">Material Reports</h3>
+                                        <p className="text-purple-200 text-xs">Items with no requisition found</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsReportListModalOpen(false)} className="text-purple-300 hover:text-white transition-colors">
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-auto p-0">
+                                {reports.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                                        <Check size={48} className="mb-2 opacity-50" />
+                                        <p>No active reports found.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0">
+                                            <tr>
+                                                <th className="px-6 py-3 font-bold">Date</th>
+                                                <th className="px-6 py-3 font-bold">Material</th>
+                                                <th className="px-6 py-3 font-bold">Reported By</th>
+                                                <th className="px-6 py-3 font-bold">Message</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {reports.map((report) => (
+                                                <tr key={report.id} className="bg-white hover:bg-slate-50 transition-colors">
+                                                    <td className="px-6 py-4 font-mono text-xs whitespace-nowrap text-slate-500">
+                                                        {new Date(report.created_at).toLocaleDateString('en-US')}
+                                                        <br />
+                                                        {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="font-bold text-slate-700">{report.material?.name}</div>
+                                                        <div className="text-xs font-mono text-slate-500">{report.material?.part_number}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                                {report.sender?.full_name?.[0] || 'U'}
+                                                            </div>
+                                                            <span className="text-slate-600 font-medium truncate max-w-[120px]">
+                                                                {report.sender?.full_name || 'Unknown'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={report.message}>
+                                                        {report.message}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 )}
                             </div>
 
-                            {/* Quantity Affected */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Quantity Affected (Optional)
-                                </label>
-                                <input
-                                    type="number"
-                                    value={quantityAffected}
-                                    onChange={(e) => setQuantityAffected(e.target.value)}
-                                    placeholder="How many units were affected?"
-                                    min="1"
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                />
-                            </div>
-
-                            {/* Action Taken */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Action Taken
-                                </label>
-                                <select
-                                    value={actionTaken}
-                                    onChange={(e) => setActionTaken(e.target.value)}
-                                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                                <button
+                                    onClick={() => setIsReportListModalOpen(false)}
+                                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg hover:bg-slate-50 shadow-sm"
                                 >
-                                    <option value="pending_review">Pending Review</option>
-                                    <option value="rejected">Rejected (Not Accepted)</option>
-                                    <option value="returned">Returned to Supplier</option>
-                                    <option value="accepted_with_note">Accepted with Note</option>
-                                </select>
+                                    Close
+                                </button>
                             </div>
-                        </div>
-
-                        <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
-                            <button
-                                onClick={() => setIsQualityReportModalOpen(false)}
-                                className="px-6 py-2 border border-slate-300 rounded-lg font-bold text-slate-700 hover:bg-slate-50 transition-all"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSubmitQualityReport}
-                                className="bg-orange-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-orange-600 transition-all"
-                            >
-                                Submit Report
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }
 
