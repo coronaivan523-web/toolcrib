@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2, FileWarning } from 'lucide-react'
+import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2, FileWarning, History } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
@@ -117,6 +117,14 @@ function TicketsContent() {
     // Report Notifications State
     const [reports, setReports] = useState([])
     const [isReportListModalOpen, setIsReportListModalOpen] = useState(false)
+    const [showCancelledView, setShowCancelledView] = useState(false) // New State for Cancelled View Toggle
+
+    // States for Cancelled Items Filters
+    const [cancelledFilterFolio, setCancelledFilterFolio] = useState('');
+    const [cancelledFilterMaterial, setCancelledFilterMaterial] = useState('');
+    const [cancelledFilterRequester, setCancelledFilterRequester] = useState('');
+    const [cancelledFilterCancelledBy, setCancelledFilterCancelledBy] = useState('');
+    const [cancelledFilterDate, setCancelledFilterDate] = useState('');
 
     // Get adminViewMode from Layout context
     const context = useOutletContext() || {}
@@ -203,7 +211,8 @@ function TicketsContent() {
                             image_url,
                             supplier
                         )
-                    ), 
+                    ),
+                    quality_reports(*), 
                     requester:profiles!tickets_requester_id_fkey(email, full_name)
                 `)
                     .order('created_at', { ascending: false })
@@ -223,12 +232,36 @@ function TicketsContent() {
 
                 // Generate signed URLs for material images in parallel
                 if (data) {
+                    // Collect all user IDs needed (requesters are already joined, but need cancellers)
+                    const cancellerIds = new Set()
+                    data.forEach(t => t.items?.forEach(i => {
+                        if (i.cancelled_by) cancellerIds.add(i.cancelled_by)
+                    }))
+
+                    // Fetch canceller profiles if any
+                    let cancellersMap = {}
+                    if (cancellerIds.size > 0) {
+                        const { data: profiles } = await supabase
+                            .from('profiles')
+                            .select('id, full_name, email')
+                            .in('id', Array.from(cancellerIds))
+
+                        if (profiles) {
+                            profiles.forEach(p => cancellersMap[p.id] = p)
+                        }
+                    }
+
                     const ticketsWithSignedUrls = await Promise.all(
                         data.map(async (ticket) => {
                             if (!ticket.items) return ticket;
 
                             const itemsWithUrls = await Promise.all(
                                 ticket.items.map(async (item) => {
+                                    // Attach canceller manually
+                                    if (item.cancelled_by) {
+                                        item.canceller = cancellersMap[item.cancelled_by]
+                                    }
+
                                     if (item.material?.image_url) {
                                         try {
                                             const { data: signedData } = await supabase.storage
@@ -847,6 +880,9 @@ function TicketsContent() {
                 if (itemData.status === 'fulfilled') {
                     updateData.fulfilled_by = user.id
                     updateData.fulfilled_at = new Date().toISOString()
+                } else if (itemData.status === 'cancelled') {
+                    updateData.cancelled_by = user.id
+                    updateData.cancelled_at = new Date().toISOString()
                 }
 
                 const { error } = await supabase
@@ -928,6 +964,27 @@ function TicketsContent() {
             return
         }
 
+        // Validate Quantity Affected against Quantity Requested
+        if (quantityAffected) {
+            const affectedQty = parseInt(quantityAffected)
+            let requestedQty = 0
+
+            // Try to find quantity from selectedMaterialForReport first (if available)
+            if (selectedMaterialForReport.quantity_requested) {
+                requestedQty = selectedMaterialForReport.quantity_requested
+            }
+            // Fallback: try to find item in reportingTicket if available
+            else if (reportingTicket && reportingTicket.items) {
+                const item = reportingTicket.items.find(i => i.material?.id === selectedMaterialForReport.material_id || i.material_id === selectedMaterialForReport.material_id)
+                if (item) requestedQty = item.quantity_requested
+            }
+
+            if (requestedQty > 0 && affectedQty > requestedQty) {
+                showNotification(`Quantity affected (${affectedQty}) cannot be greater than requested quantity (${requestedQty})`, 'error')
+                return
+            }
+        }
+
         try {
             const { data: { user } } = await supabase.auth.getUser()
 
@@ -966,6 +1023,30 @@ function TicketsContent() {
 
                 if (updateError) {
                     console.error('Error reverting ticket status:', updateError)
+                }
+
+                // IMPORTANT: Update the specific ticket item with the cancellation reason (from report description)
+                // This ensures the red box reason appears in the ticket list
+                if (selectedMaterialForReport && selectedMaterialForReport.id) { // selectedMaterialForReport here acts as the ticket item wrapper in some contexts, let's verify
+                    // Actually selectedMaterialForReport might be just constructed data. Let's find the correct item ID.
+                    // In handleOpenQualityReport (processing flow), we set selectedMaterialForReport = item.
+
+                    const itemIdToUpdate = selectedMaterialForReport.id
+                    if (itemIdToUpdate) {
+                        const { error: itemUpdateError } = await supabase
+                            .from('ticket_items')
+                            .update({
+                                cancellation_reason: issueDescription.trim(),
+                                status: 'cancelled',
+                                cancelled_by: user.id,
+                                cancelled_at: new Date().toISOString()
+                            })
+                            .eq('id', itemIdToUpdate)
+
+                        if (itemUpdateError) {
+                            console.error('Error updating item cancellation reason:', itemUpdateError)
+                        }
+                    }
                 }
 
                 // Close all related modals and clear state
@@ -1194,6 +1275,20 @@ function TicketsContent() {
                     {headerStats}
                 </div>
                 <div className="flex justify-end gap-3">
+                    {/* View Cancelled Toggle - Only for Toolroom/Supervisor/Admin(Toolroom View) */}
+                    {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
+                        <button
+                            onClick={() => setShowCancelledView(!showCancelledView)}
+                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg transition-all text-sm transform hover:-translate-y-0.5 border ${showCancelledView
+                                ? 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700'
+                                : 'bg-white text-indigo-900 border-indigo-100 hover:bg-indigo-50'
+                                }`}
+                        >
+                            <History size={16} strokeWidth={3} />
+                            {showCancelledView ? 'Exit Cancelled View' : 'View Cancelled'}
+                        </button>
+                    )}
+
                     {/* New Request - Only for users and admin in user/admin view (NOT toolroom or supervisor) */}
                     {!(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
                         <button
@@ -1379,44 +1474,278 @@ function TicketsContent() {
                         </div>
                     )}
 
-                    {/* Filter Bar */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex gap-4 items-center">
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-bold text-slate-700">Status:</label>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="active">Active (Pending/In Process/Ready)</option>
-                                <option value="closed">Delivered/Closed/Cancelled</option>
-                                <option value="all">All Tickets</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-2 flex-1">
-                            <label className="text-sm font-bold text-slate-700">Search Folio:</label>
-                            <input
-                                type="text"
-                                value={folioSearch}
-                                onChange={(e) => setFolioSearch(e.target.value)}
-                                placeholder="Enter folio number..."
-                                className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 max-w-xs"
-                            />
-                            {folioSearch && (
-                                <button
-                                    onClick={() => setFolioSearch('')}
-                                    className="text-slate-400 hover:text-slate-600"
+                    {/* Filter Bar - Hide in cancelled view to keep it clean, or keep it if needed. Let's hide for table purity */}
+                    {!showCancelledView && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex gap-4 items-center">
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-bold text-slate-700">Status:</label>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    <X size={16} />
-                                </button>
-                            )}
+                                    <option value="active">Active (Pending/In Process/Ready)</option>
+                                    <option value="closed">Delivered/Closed/Cancelled</option>
+                                    <option value="all">All Tickets</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2 flex-1">
+                                <label className="text-sm font-bold text-slate-700">Search Folio:</label>
+                                <input
+                                    type="text"
+                                    value={folioSearch}
+                                    onChange={(e) => setFolioSearch(e.target.value)}
+                                    placeholder="Enter folio number..."
+                                    className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 max-w-xs"
+                                />
+                                {folioSearch && (
+                                    <button
+                                        onClick={() => setFolioSearch('')}
+                                        className="text-slate-400 hover:text-slate-600"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {loading ? <p className="text-center text-slate-500 py-10">Loading tickets...</p> : (() => {
+
+                        // CANCELLED TABLE VIEW
+                        if (showCancelledView) {
+                            // Flatten tickets to get all items with cancellation context
+                            const cancelledItems = tickets.flatMap(ticket => {
+                                return (ticket.items || []).filter(item => {
+                                    const qualityReport = ticket.quality_reports?.find(qr => qr.material_id === item.material?.id);
+                                    const isCancelled = item.status === 'cancelled' || item.item_status === 'cancelled' || ticket.status === 'CANCELLED';
+                                    const hasReason = !!item.cancellation_reason || !!qualityReport;
+
+                                    // Should show if specifically cancelled OR if ticket is cancelled
+                                    // AND (important) it is actually cancelled (status or reason imply it)
+                                    return (isCancelled && hasReason) || (item.status === 'cancelled') || (item.item_status === 'cancelled');
+                                }).map(item => {
+                                    const qualityReport = ticket.quality_reports?.find(qr => qr.material_id === item.material?.id);
+                                    return {
+                                        ...item,
+                                        ticketFolio: ticket.folio,
+                                        ticketDate: ticket.created_at,
+                                        requester: ticket.requester,
+                                        cancelledBy: item.canceller,
+                                        cancellationReason: item.cancellation_reason || qualityReport?.description || 'Ticket Cancelled'
+                                    }
+                                })
+                            }).filter(item => {
+                                // Apply Filters
+                                if (cancelledFilterFolio) {
+                                    const cleanFilter = cancelledFilterFolio.toLowerCase().replace('#', '');
+                                    if (!item.ticketFolio.toString().toLowerCase().includes(cleanFilter)) return false;
+                                }
+                                if (cancelledFilterMaterial) {
+                                    const matSearch = cancelledFilterMaterial.toLowerCase();
+                                    const matName = item.material?.name?.toLowerCase() || '';
+                                    const matPart = item.material?.part_number?.toLowerCase() || '';
+                                    if (!matName.includes(matSearch) && !matPart.includes(matSearch)) return false;
+                                }
+                                if (cancelledFilterRequester) {
+                                    const reqSearch = cancelledFilterRequester.toLowerCase();
+                                    const reqName = item.requester?.full_name?.toLowerCase() || '';
+                                    const reqEmail = item.requester?.email?.toLowerCase() || '';
+                                    if (!reqName.includes(reqSearch) && !reqEmail.includes(reqSearch)) return false;
+                                }
+                                if (cancelledFilterCancelledBy) {
+                                    const cancSearch = cancelledFilterCancelledBy.toLowerCase();
+                                    // Treat missing cancelledBy as 'unknown' for search purposes so users can find them
+                                    const cancName = item.cancelledBy?.full_name?.toLowerCase() || 'unknown';
+                                    const cancEmail = item.cancelledBy?.email?.toLowerCase() || '';
+
+                                    if (!cancName.includes(cancSearch) && !cancEmail.includes(cancSearch)) return false;
+                                }
+                                if (cancelledFilterDate) {
+                                    const dateStr = new Date(item.ticketDate).toLocaleDateString().toLowerCase();
+                                    if (!dateStr.includes(cancelledFilterDate.toLowerCase())) return false;
+                                }
+                                return true;
+                            }).sort((a, b) => new Date(b.ticketDate) - new Date(a.ticketDate));
+
+                            const hasFilters = cancelledFilterFolio || cancelledFilterMaterial || cancelledFilterRequester || cancelledFilterCancelledBy || cancelledFilterDate;
+
+                            if (cancelledItems.length === 0) {
+                                return (
+                                    <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-slate-200">
+                                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
+                                            <Package size={32} />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-slate-700">No Cancelled Items Found</h3>
+                                        <p className="text-slate-500 text-sm mt-1 mb-4">
+                                            {hasFilters ? 'No items match your filter criteria.' : 'There are no items in the cancellation history.'}
+                                        </p>
+
+                                        {hasFilters && (
+                                            <button
+                                                onClick={() => {
+                                                    setCancelledFilterFolio('');
+                                                    setCancelledFilterMaterial('');
+                                                    setCancelledFilterRequester('');
+                                                    setCancelledFilterCancelledBy('');
+                                                    setCancelledFilterDate('');
+                                                }}
+                                                className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-700 transition-colors"
+                                            >
+                                                Clear Filters
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            }
+
+                            return (
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                        <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                            <AlertCircle className="text-red-500" size={18} />
+                                            Cancelled Items History
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {hasFilters && (
+                                                <button
+                                                    onClick={() => {
+                                                        setCancelledFilterFolio('');
+                                                        setCancelledFilterMaterial('');
+                                                        setCancelledFilterRequester('');
+                                                        setCancelledFilterCancelledBy('');
+                                                        setCancelledFilterDate('');
+                                                    }}
+                                                    className="text-xs font-bold text-slate-500 hover:text-slate-800 underline transition-colors mr-2"
+                                                >
+                                                    Clear Filters
+                                                </button>
+                                            )}
+                                            <span className="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded-full">
+                                                {cancelledItems.length} items
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+                                                    <th className="p-4 align-top w-28">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span>Folio</span>
+                                                            <input
+                                                                type="text"
+                                                                value={cancelledFilterFolio}
+                                                                onChange={(e) => setCancelledFilterFolio(e.target.value)}
+                                                                placeholder="#"
+                                                                className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white font-normal"
+                                                            />
+                                                        </div>
+                                                    </th>
+                                                    <th className="p-4 align-top">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span>Material</span>
+                                                            <input
+                                                                type="text"
+                                                                value={cancelledFilterMaterial}
+                                                                onChange={(e) => setCancelledFilterMaterial(e.target.value)}
+                                                                placeholder="Part number or name"
+                                                                className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white font-normal"
+                                                            />
+                                                        </div>
+                                                    </th>
+                                                    <th className="p-4 align-top">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span>Requester</span>
+                                                            <input
+                                                                type="text"
+                                                                value={cancelledFilterRequester}
+                                                                onChange={(e) => setCancelledFilterRequester(e.target.value)}
+                                                                placeholder="Name or email"
+                                                                className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white font-normal"
+                                                            />
+                                                        </div>
+                                                    </th>
+                                                    <th className="p-4 align-top">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span>Cancelled By</span>
+                                                            <input
+                                                                type="text"
+                                                                value={cancelledFilterCancelledBy}
+                                                                onChange={(e) => setCancelledFilterCancelledBy(e.target.value)}
+                                                                placeholder="Name or email"
+                                                                className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white font-normal"
+                                                            />
+                                                        </div>
+                                                    </th>
+                                                    <th className="p-4 align-top w-32">
+                                                        <div className="flex flex-col gap-2">
+                                                            <span>Date</span>
+                                                            <input
+                                                                type="text"
+                                                                value={cancelledFilterDate}
+                                                                onChange={(e) => setCancelledFilterDate(e.target.value)}
+                                                                placeholder="DD/MM/YYYY"
+                                                                className="w-full text-[10px] p-1 border border-slate-200 rounded bg-white font-normal"
+                                                            />
+                                                        </div>
+                                                    </th>
+                                                    <th className="p-4 text-center align-middle">Qty</th>
+                                                    <th className="p-4 align-middle">Cancellation Reason</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {cancelledItems.map((item, idx) => (
+                                                    <tr key={`${item.id}-${idx}`} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="p-4 font-black text-slate-700 text-sm">#{item.ticketFolio}</td>
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-bold text-slate-700 text-sm">{item.material?.name || 'Unknown'}</span>
+                                                                <span className="font-mono text-slate-500 text-xs">{item.material?.part_number || 'N/A'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">
+                                                                    {item.requester?.email?.[0]?.toUpperCase() || 'U'}
+                                                                </div>
+                                                                <span className="text-sm text-slate-600">{item.requester?.full_name || item.requester?.email}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4">
+                                                            {item.cancelledBy ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[10px] font-bold">
+                                                                        {item.cancelledBy?.email?.[0]?.toUpperCase() || 'S'}
+                                                                    </div>
+                                                                    <span className="text-sm text-slate-600">{item.cancelledBy?.full_name || item.cancelledBy?.email}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-sm text-slate-400 italic">Unknown</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-4 text-sm text-slate-500 font-mono">
+                                                            {new Date(item.ticketDate).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="p-4 text-center font-bold text-slate-700">{item.quantity_requested}</td>
+                                                        <td className="p-4">
+                                                            <span className="inline-block bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-medium border border-red-100 max-w-xs truncate" title={item.cancellationReason}>
+                                                                {item.cancellationReason}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        }
+
+                        // STANDARD TICKET CARD VIEW (Existing Logic)
                         // Filter tickets based on status and folio search
-                        const activeStatuses = ['pending', 'PENDIENTE', 'IN_PROCESS', 'READY']
-                        const closedStatuses = ['CLOSED', 'CANCELLED', 'PARTIALLY_FULFILLED', 'ENTREGADO']
+                        const activeStatuses = ['pending', 'PENDIENTE', 'IN_PROCESS', 'READY', 'PARTIALLY_FULFILLED']
+                        const closedStatuses = ['CLOSED', 'CANCELLED', 'ENTREGADO']
 
                         const filteredTickets = tickets.filter(ticket => {
                             // View mode filter
@@ -1538,6 +1867,10 @@ function TicketsContent() {
                                                 } else {
                                                     rowClass += "bg-slate-50 border-slate-100 opacity-70 cursor-not-allowed"; // Reduced interactivity for normal items
                                                 }
+                                                // Find matching quality report for this item (Legacy fallback)
+                                                const qualityReport = ticket.quality_reports?.find(qr => qr.material_id === item.material?.id);
+                                                const effectiveCancellationReason = item.cancellation_reason || qualityReport?.description;
+                                                const isLegacyCancelled = !!qualityReport && ticket.status === 'CANCELLED';
 
                                                 return (
                                                     <div
@@ -1563,12 +1896,12 @@ function TicketsContent() {
                                                                         </span>
                                                                     )}
                                                                 </p>
-                                                                {item.item_status === 'cancelled' && (
+                                                                {(item.status === 'cancelled' || item.item_status === 'cancelled' || isLegacyCancelled || effectiveCancellationReason) && (
                                                                     <div className="mt-1.5 flex items-start gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-100">
                                                                         <AlertTriangle size={12} className="mt-0.5 shrink-0" />
                                                                         <div className="flex flex-col">
                                                                             <span className="text-[9px] font-black uppercase tracking-wider leading-none mb-0.5">Cancelled</span>
-                                                                            <span className="text-xs leading-tight">{item.cancellation_reason || 'No reason provided'}</span>
+                                                                            <span className="text-xs leading-tight">{effectiveCancellationReason || 'No reason provided'}</span>
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -2429,10 +2762,21 @@ function TicketsContent() {
                                     <input
                                         type="number"
                                         value={quantityAffected}
-                                        onChange={(e) => setQuantityAffected(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value);
+                                            const max = selectedMaterialForReport?.quantity_requested ||
+                                                reportingTicket?.items?.find(i => i.material_id === selectedMaterialForReport?.material_id)?.quantity_requested ||
+                                                9999;
+                                            if (val > max) {
+                                                // Prevent setting value higher than max immediately
+                                                // or just let the max attribute handle the invalid state visual
+                                            }
+                                            setQuantityAffected(e.target.value)
+                                        }}
                                         placeholder="How many units were affected?"
                                         min="1"
-                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                        max={selectedMaterialForReport?.quantity_requested || reportingTicket?.items?.find(i => i.material_id === selectedMaterialForReport?.material_id)?.quantity_requested}
+                                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 invalid:border-red-500 invalid:text-red-600 focus:invalid:ring-red-500"
                                     />
                                 </div>
 
