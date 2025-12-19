@@ -776,6 +776,19 @@ function TicketsContent() {
 
             if (error) throw error
 
+            // Update all items belonging to this ticket
+            const { error: itemsError } = await supabase
+                .from('ticket_items')
+                .update({
+                    item_status: 'cancelled',
+                    cancellation_reason: reason,
+                    cancelled_by: currentUser?.id,
+                    cancelled_at: new Date().toISOString()
+                })
+                .eq('ticket_id', ticketId)
+
+            if (itemsError) throw itemsError
+
             fetchUserAndTickets(true)
             showNotification('Ticket cancelled', 'success')
         } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Search, RotateCw, AlertTriangle, ClipboardList, ListFilter } from 'lucide-react'
+import { Search, RotateCw, AlertTriangle, ClipboardList, ListFilter, X } from 'lucide-react'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
 
@@ -136,6 +136,22 @@ export default function Stock() {
                         />
                     </div>
                 </div>
+
+                {/* Clear Filters Button */}
+                {(searchTerm || Object.entries(filters).some(([_, v]) => v) || showLowStock || showRequisitionOnly) && (
+                    <button
+                        onClick={() => {
+                            setSearchTerm('')
+                            setFilters({})
+                            setShowLowStock(false)
+                            setShowRequisitionOnly(false)
+                        }}
+                        className="ml-3 flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-200 hover:text-red-100 border border-red-500/20 rounded-lg transition-all text-xs font-bold uppercase tracking-wider"
+                    >
+                        <X size={14} />
+                        Clear Filters
+                    </button>
+                )}
 
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-800/40 border border-primary-700/50 rounded-lg shadow-sm backdrop-blur-sm">

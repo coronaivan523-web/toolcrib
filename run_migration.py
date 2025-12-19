@@ -4,7 +4,7 @@ import psycopg2
 # Connection string manually extracted from .env
 DB_URL = "postgresql://postgres.bykumuizmxsclsazeych:Changos3.3@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
-MIGRATION_FILE_1 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241216_create_notifications_table.sql"
+MIGRATION_FILE_1 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241219_add_cancelled_by_to_ticket_items.sql"
 
 def run_migration():
     try:
