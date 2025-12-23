@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box } from 'lucide-react'
+import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList } from 'lucide-react'
 import clsx from 'clsx'
 
 export default function Layout() {
@@ -54,6 +54,7 @@ export default function Layout() {
             { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
             { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
             { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+            { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
             { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
         ]
 
@@ -82,6 +83,7 @@ export default function Layout() {
         { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
         { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
         { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+        { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
         { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
     ]
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import auth, users, inventory, tickets
+from app.api.v1.endpoints import auth, users, inventory, tickets, requisitions
 from app.core.supabase import supabase
 
 app = FastAPI(
@@ -22,6 +22,7 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["aut
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(inventory.router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
 app.include_router(tickets.router, prefix=f"{settings.API_V1_STR}/tickets", tags=["tickets"])
+app.include_router(requisitions.router, prefix=f"{settings.API_V1_STR}/requisitions", tags=["requisitions"])
 
 @app.get("/")
 def root():

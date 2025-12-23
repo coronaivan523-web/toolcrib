@@ -12,6 +12,8 @@ import Dashboard from './pages/Dashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import RoleBasedHome from './components/RoleBasedHome'
 
+import Requisitions from './pages/Requisitions'
+
 function App() {
   return (
     <BrowserRouter>
@@ -35,6 +37,11 @@ function App() {
           <Route path="/stock" element={
             <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
               <Stock />
+            </ProtectedRoute>
+          } />
+          <Route path="/requisitions" element={
+            <ProtectedRoute allowedRoles={['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']}>
+              <Requisitions />
             </ProtectedRoute>
           } />
           <Route path="/tickets" element={<Tickets />} />

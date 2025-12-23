@@ -1204,7 +1204,7 @@ function TicketsContent() {
     const headerStats = (
         <div className="flex items-center gap-4">
             {/* Pending Requests (Left) */}
-            <div className="bg-amber-100/20 border border-amber-200/30 rounded-md px-3 py-1 flex items-center gap-2 backdrop-blur-sm">
+            <div className="bg-amber-100/20 border border-amber-200/30 rounded-md px-3 py-1 flex items-center gap-2">
                 <div className="bg-amber-500 text-white p-1 rounded-full shadow-sm animate-pulse">
                     <AlertCircle size={14} strokeWidth={2.5} />
                 </div>
@@ -1215,7 +1215,7 @@ function TicketsContent() {
             </div>
 
             {/* Status: In Process */}
-            <div className="bg-blue-100/20 border border-blue-200/30 rounded-md px-3 py-1 flex items-center gap-2 backdrop-blur-sm">
+            <div className="bg-blue-100/20 border border-blue-200/30 rounded-md px-3 py-1 flex items-center gap-2">
                 <div className="bg-blue-500 text-white p-1 rounded-full shadow-sm">
                     <Clock size={14} strokeWidth={2.5} />
                 </div>
@@ -1226,7 +1226,7 @@ function TicketsContent() {
             </div>
 
             {/* Status: Ready */}
-            <div className="bg-green-100/20 border border-green-200/30 rounded-md px-3 py-1 flex items-center gap-2 backdrop-blur-sm">
+            <div className="bg-green-100/20 border border-green-200/30 rounded-md px-3 py-1 flex items-center gap-2">
                 <div className="bg-green-500 text-white p-1 rounded-full shadow-sm">
                     <Check size={14} strokeWidth={2.5} />
                 </div>
@@ -1240,7 +1240,7 @@ function TicketsContent() {
             {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
                 <button
                     onClick={() => setIsReportListModalOpen(true)}
-                    className="bg-purple-100/20 border border-purple-200/30 rounded-md px-3 py-1 flex items-center gap-2 backdrop-blur-sm hover:bg-purple-100/30 transition-colors cursor-pointer"
+                    className="bg-purple-100/20 border border-purple-200/30 rounded-md px-3 py-1 flex items-center gap-2 hover:bg-purple-100/30 transition-colors cursor-pointer"
                 >
                     <div className="bg-purple-500 text-white p-1 rounded-full shadow-sm">
                         <FileWarning size={14} strokeWidth={2.5} />
@@ -1292,7 +1292,7 @@ function TicketsContent() {
                     {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
                         <button
                             onClick={() => setShowCancelledView(!showCancelledView)}
-                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg transition-all text-sm transform hover:-translate-y-0.5 border ${showCancelledView
+                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg transition-colors text-sm border ${showCancelledView
                                 ? 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700'
                                 : 'bg-white text-indigo-900 border-indigo-100 hover:bg-indigo-50'
                                 }`}
@@ -1315,7 +1315,7 @@ function TicketsContent() {
                                 setFilterArea('all')
                                 setFilterMachine('all')
                             }}
-                            className="bg-white text-primary-900 px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-slate-50 transition-all text-sm transform hover:-translate-y-0.5"
+                            className="bg-white text-primary-900 px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-slate-50 transition-colors text-sm"
                         >
                             <Plus size={16} strokeWidth={3} />
                             New Request
@@ -1327,7 +1327,7 @@ function TicketsContent() {
                         <button
                             onClick={() => setIsRequirementModalOpen(true)}
                             disabled={!selectedTicketItem}
-                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold transition-all text-sm border backdrop-blur-sm ${selectedTicketItem
+                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold transition-all text-sm border ${selectedTicketItem
                                 ? 'bg-pink-500/20 border-pink-400/30 text-white shadow-lg shadow-pink-900/20 hover:bg-pink-500/30 ring-1 ring-pink-500/50'
                                 : 'bg-slate-800/20 border-slate-700/30 text-slate-500 cursor-not-allowed opacity-40'
                                 }`}
@@ -1343,7 +1343,7 @@ function TicketsContent() {
                             <button
                                 onClick={() => handleStartProcessing(selectedTicket)}
                                 disabled={!selectedTicket || (selectedTicket.status !== 'pending' && selectedTicket.status !== 'PENDIENTE') || actionProcessingId === selectedTicket?.id}
-                                className="bg-blue-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-blue-600 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-blue-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-blue-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {actionProcessingId === selectedTicket?.id && selectedTicket?.status === 'PENDIENTE' ? <Loader2 size={16} className="animate-spin" /> : null}
                                 {actionProcessingId === selectedTicket?.id && selectedTicket?.status === 'PENDIENTE' ? 'Starting...' : (selectedTicket ? `Start Processing #${selectedTicket.folio}` : 'Start Processing')}
@@ -1351,7 +1351,7 @@ function TicketsContent() {
                             <button
                                 onClick={() => handleMarkReady(selectedTicket?.id)}
                                 disabled={!selectedTicket || selectedTicket.status !== 'IN_PROCESS' || actionProcessingId === selectedTicket?.id}
-                                className="bg-green-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-green-600 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-green-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-green-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {actionProcessingId === selectedTicket?.id && selectedTicket?.status === 'IN_PROCESS' ? <Loader2 size={16} className="animate-spin" /> : null}
                                 {actionProcessingId === selectedTicket?.id && selectedTicket?.status === 'IN_PROCESS' ? 'Updating...' : 'Mark as Ready'}
@@ -1359,7 +1359,7 @@ function TicketsContent() {
                             <button
                                 onClick={() => handleDeliverTicket(selectedTicket?.id)}
                                 disabled={!selectedTicket || (selectedTicket.status !== 'READY' && selectedTicket.status !== 'PARTIALLY_FULFILLED') || actionProcessingId === selectedTicket?.id}
-                                className="bg-purple-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-purple-600 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-purple-500 text-white px-4 py-1.5 rounded-md flex items-center gap-2 font-bold shadow-lg hover:bg-purple-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {actionProcessingId === selectedTicket?.id && (selectedTicket?.status === 'READY' || selectedTicket?.status === 'PARTIALLY_FULFILLED') ? <Loader2 size={16} className="animate-spin" /> : null}
                                 {actionProcessingId === selectedTicket?.id && (selectedTicket?.status === 'READY' || selectedTicket?.status === 'PARTIALLY_FULFILLED') ? 'Delivering...' : 'Deliver'}
