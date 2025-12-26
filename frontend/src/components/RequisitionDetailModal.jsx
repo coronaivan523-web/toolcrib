@@ -33,6 +33,84 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, c
         }
     }
 
+    // --- Permissions Logic ---
+    const currentUserId = currentUser?.id
+
+    // Check if user has a pending approval step
+    const myPendingStep = requisition.approvals?.find(step =>
+        step.step_status === 'PENDING' &&
+        step.assigned_to_user_id === currentUserId
+    )
+    const isAssignedApprover = Boolean(myPendingStep)
+
+    // Owner actions
+    const isOwner = requisition.requester_id === currentUserId
+    const canResubmit = requisition.status === 'REWORK_REQUIRED' && isOwner
+    const canCancel = ['DRAFT', 'UNDER_APPROVAL', 'REWORK_REQUIRED'].includes(requisition.status) && isOwner
+
+    // --- Handlers ---
+    const handleApprove = async () => {
+        if (!confirm("Are you sure you want to APPROVE this requisition?")) return
+        setActionLoading(true)
+        try {
+            await requisitionService.approve(requisition.id)
+            onActionSuccess()
+            onClose()
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleReject = async () => {
+        const comment = prompt("Please enter a reason for rejection:")
+        if (comment === null) return // User cancelled prompt
+        if (!comment.trim()) {
+            alert("Comment is required for rejection.")
+            return
+        }
+
+        setActionLoading(true)
+        try {
+            await requisitionService.reject(requisition.id, comment)
+            onActionSuccess()
+            onClose()
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleResubmit = async () => {
+        if (!confirm("Confirm resubmission?")) return
+        setActionLoading(true)
+        try {
+            await requisitionService.resubmit(requisition.id)
+            onActionSuccess()
+            onClose()
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleCancel = async () => {
+        if (!confirm("Are you sure you want to CANCEL this requisition? It cannot be undone.")) return
+        setActionLoading(true)
+        try {
+            await requisitionService.cancel(requisition.id)
+            onActionSuccess()
+            onClose()
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">

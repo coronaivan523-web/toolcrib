@@ -58,6 +58,11 @@ class RequisitionItemBase(BaseModel):
     quantity_requested: int
     unit: Optional[str] = None
     notes: Optional[str] = None
+    supplier: Optional[str] = None
+    cost_center: Optional[str] = None
+    project_code: Optional[str] = None
+    monthly_consumption: Optional[float] = None
+    cause: Optional[str] = None
 
 class RequisitionItemCreate(RequisitionItemBase):
     pass
@@ -66,7 +71,6 @@ class RequisitionItemResponse(RequisitionItemBase):
     id: UUID
     requisition_id: UUID
     quantity_approved: Optional[int] = None
-    # Optional nested details not part of DB table
     material_name: Optional[str] = None 
 
 # --- Requisition Approvals (Workflows) ---
@@ -99,9 +103,17 @@ class RequisitionApprove(BaseModel):
 class RequisitionBase(BaseModel):
     priority: RequisitionPriority = RequisitionPriority.NORMAL
     justification: Optional[str] = None
+    # V2 Fields
+    purchase_justification: Optional[str] = None
+    department: Optional[str] = None
+    job_title: Optional[str] = None
+    cause: Optional[str] = None
+    criticality_requested: Optional[str] = None # C1, C2, C3, C4
+    criticality_assigned: Optional[str] = None
 
 class RequisitionCreate(RequisitionBase):
     items: List[RequisitionItemCreate]
+    attachments: Optional[List[RequisitionAttachmentCreate]] = []
 
 class RequisitionResponse(RequisitionBase):
     id: UUID

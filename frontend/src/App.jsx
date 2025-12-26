@@ -40,7 +40,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/requisitions" element={
-            <ProtectedRoute allowedRoles={['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']}>
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']}>
               <Requisitions />
             </ProtectedRoute>
           } />

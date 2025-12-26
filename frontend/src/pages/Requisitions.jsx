@@ -5,10 +5,11 @@ import clsx from 'clsx'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 import RequisitionDetailModal from '../components/RequisitionDetailModal'
+import RequisitionFormModal from '../components/RequisitionFormModal'
 
 export default function Requisitions() {
     const { userProfile } = useOutletContext()
-    const canCreate = ['supervisor_tool', 'toolroom_staff', 'toolroom_technician'].includes(userProfile?.role)
+    const canCreate = ['supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'].includes(userProfile?.role?.trim().toLowerCase())
 
     // State
     const [requisitions, setRequisitions] = useState([])
@@ -24,6 +25,10 @@ export default function Requisitions() {
     // Modal
     const [selectedReq, setSelectedReq] = useState(null)
     const [isDetailOpen, setIsDetailOpen] = useState(false)
+    const [isCreateOpen, setIsCreateOpen] = useState(false)
+
+    // View Mode
+    const [viewMode, setViewMode] = useState('all') // 'all' | 'inbox'
 
     // Fetch Data
     const fetchData = async () => {
@@ -31,15 +36,20 @@ export default function Requisitions() {
         setError(null)
         try {
             // 1. Fetch Requisitions
-            const reqData = await requisitionService.listRequisitions({
-                status: statusFilter !== 'all' ? statusFilter : undefined
-            })
+            let reqData = []
+            if (viewMode === 'inbox') {
+                reqData = await requisitionService.getInbox()
+            } else {
+                reqData = await requisitionService.listRequisitions({
+                    status: statusFilter !== 'all' ? statusFilter : undefined
+                })
+            }
             setRequisitions(reqData)
 
             // 2. Fetch Materials for Mapping (Lightweight)
             const { data: matData } = await supabase
                 .from('materials')
-                .select('id, name, part_number')
+                .select('id, name, part_number, description, image_url')
 
             if (matData) {
                 const matMap = {}
@@ -51,6 +61,7 @@ export default function Requisitions() {
 
         } catch (err) {
             console.error("Error fetching requisitions:", err)
+            console.error("[Requisitions.jsx] Load error details:", err.name, err.message)
             setError(err.message)
         } finally {
             setLoading(false)
@@ -59,7 +70,7 @@ export default function Requisitions() {
 
     useEffect(() => {
         fetchData()
-    }, [statusFilter]) // Refetch on status change (server-side supported)
+    }, [statusFilter, viewMode]) // Refetch on status or view change
 
     // Client-side Filtering for others
     const filteredRequisitions = requisitions.filter(req => {
@@ -108,9 +119,11 @@ export default function Requisitions() {
                     </button>
 
                     {canCreate && (
-                        <button className="bg-primary-600 text-white px-4 py-2 rounded-lg font-medium shadow-md hover:bg-primary-700 transition-colors flex items-center gap-2">
+                        <button
+                            onClick={() => setIsCreateOpen(true)}
+                            className="bg-primary-600 text-white px-4 py-2 rounded-lg font-medium shadow-md hover:bg-primary-700 transition-colors flex items-center gap-2">
                             <Plus size={18} />
-                            Create Requisition (Stub)
+                            Create Requisition
                         </button>
                     )}
                 </div>
@@ -128,7 +141,30 @@ export default function Requisitions() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+
                     </div>
+
+                    {/* View Toggle */}
+                    <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                        <button
+                            onClick={() => setViewMode('all')}
+                            className={clsx(
+                                "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                viewMode === 'all' ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                            )}>
+                            All
+                        </button>
+                        <button
+                            onClick={() => setViewMode('inbox')}
+                            className={clsx(
+                                "px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5",
+                                viewMode === 'inbox' ? "bg-white text-primary-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                            )}>
+                            Inbox
+                        </button>
+                    </div>
+
+                    <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
 
                     <div className="flex items-center gap-2">
                         <Filter size={16} className="text-slate-400" />
@@ -260,6 +296,15 @@ export default function Requisitions() {
                 requisition={selectedReq}
                 currentUser={userProfile}
                 onActionSuccess={fetchData}
+            />
+
+            {/* Create Modal */}
+            <RequisitionFormModal
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+                onSuccess={fetchData}
+                materials={materials}
+                currentUser={userProfile}
             />
         </div>
     )

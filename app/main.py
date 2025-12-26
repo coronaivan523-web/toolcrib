@@ -12,7 +12,8 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+    # Allow ALL origins in dev mode to fix persistent CORS blocking
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,8 +39,6 @@ def health_supabase():
         res = supabase.table('locations').select('id').limit(1).execute()
         return {"status": "ok", "supabase": "connected"}
     except Exception as e:
-        return {"status": "error", "supabase": "disconnected", "detail": str(e)}
-
         return {"status": "error", "supabase": "disconnected", "detail": str(e)}
 
 @app.get("/health/db")

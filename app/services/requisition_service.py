@@ -18,7 +18,14 @@ class RequisitionService:
             "requester_id": str(requester_id),
             "priority": data.priority,
             "justification": data.justification,
-            "status": RequisitionStatus.DRAFT
+            "status": RequisitionStatus.DRAFT,
+            # V2 Fields
+            "purchase_justification": data.purchase_justification,
+            "department": data.department,
+            "job_title": data.job_title,
+            "cause": data.cause,
+            "criticality_requested": data.criticality_requested,
+            "criticality_assigned": data.criticality_assigned
         }
         res = supabase.table('requisitions').insert(req_data).execute()
         
@@ -37,10 +44,27 @@ class RequisitionService:
                     "material_id": item.material_id,
                     "quantity_requested": item.quantity_requested,
                     "unit": item.unit,
-                    "notes": item.notes
+                    "notes": item.notes,
+                    # V2 Fields
+                    "supplier": item.supplier,
+                    "cost_center": item.cost_center,
+                    "project_code": item.project_code,
+                    "monthly_consumption": item.monthly_consumption
                 })
             
             supabase.table('requisition_items').insert(items_data).execute()
+
+        # 3. Insert Attachments (if any)
+        if data.attachments:
+            att_data = []
+            for att in data.attachments:
+                att_data.append({
+                    "requisition_id": req_id,
+                    "filename": att.filename,
+                    "url": att.url,
+                    "uploaded_by": str(requester_id)
+                })
+            supabase.table('requisition_attachments').insert(att_data).execute()
             
         return RequisitionService.get_requisition_by_id(req_id)
 

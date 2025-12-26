@@ -4,6 +4,14 @@ import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList } from 'lucide-react'
 import clsx from 'clsx'
 
+const ALL_NAVIGATION = [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
+    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
+]
+
 export default function Layout() {
     const [session, setSession] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -46,29 +54,39 @@ export default function Layout() {
         return () => subscription.unsubscribe()
     }, [navigate])
 
+    // Normalize Role helper
+    const getEffectiveRole = () => {
+        if (!userProfile?.role) return null
+
+        let role = userProfile.role
+        if (role === 'admin' && adminViewMode !== 'admin') {
+            role = adminViewMode === 'toolroom' ? 'toolroom_staff' : 'user'
+        }
+        return role.trim().toLowerCase() // ROBUST FIX: Handle 'Supervisor ' or 'Supervisor'
+    }
+
+    const effectiveRole = getEffectiveRole()
+
     // Redirect if current page is not accessible in the new view mode
     useEffect(() => {
-        if (!userProfile) return
+        if (!effectiveRole) return
 
-        const allNavigation = [
-            { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-            { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-            { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-            { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
-            { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
-        ]
+        const currentPage = ALL_NAVIGATION.find(item => item.href === location.pathname)
 
-        const effectiveRole = userProfile?.role === 'admin' && adminViewMode !== 'admin'
-            ? adminViewMode === 'toolroom' ? 'toolroom_staff' : 'user'
-            : userProfile?.role
-
-        const currentPage = allNavigation.find(item => item.href === location.pathname)
+        console.log('[Layout] Navigation Check:', {
+            path: location.pathname,
+            role: effectiveRole,
+            pageFound: currentPage?.name,
+            allowedRoles: currentPage?.roles,
+            isAllowed: currentPage ? currentPage.roles.includes(effectiveRole) : 'N/A'
+        })
 
         // If current page is not accessible in the new role, redirect to tickets
         if (currentPage && !currentPage.roles.includes(effectiveRole)) {
+            console.warn('[Layout] Redirecting to tickets. Reason: Role mismatch.')
             navigate('/tickets')
         }
-    }, [adminViewMode, userProfile, location.pathname, navigate])
+    }, [effectiveRole, location.pathname, navigate])
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
@@ -79,23 +97,12 @@ export default function Layout() {
 
     if (!session) return null
 
-    const allNavigation = [
-        { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-        { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-        { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-        { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
-        { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
-    ]
-
-    // Determine effective role based on admin view mode
-    const effectiveRole = userProfile?.role === 'admin' && adminViewMode !== 'admin'
-        ? adminViewMode === 'toolroom' ? 'toolroom_staff' : 'user'
-        : userProfile?.role
-
     // Filter navigation based on effective role
-    const navigation = allNavigation.filter(item =>
-        !userProfile || item.roles.includes(effectiveRole)
+    const navigation = ALL_NAVIGATION.filter(item =>
+        !effectiveRole || item.roles.includes(effectiveRole)
     )
+
+
 
     return (
         <div className="flex h-screen bg-slate-100">
