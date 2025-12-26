@@ -47,14 +47,27 @@ export default function Requisitions() {
             setRequisitions(reqData)
 
             // 2. Fetch Materials for Mapping (Lightweight)
+            // Added unit_of_measure to fix population issue reported by user
             const { data: matData } = await supabase
                 .from('materials')
-                .select('id, name, part_number, description, image_url')
+                .select('id, name, part_number, description, image_url, unit, unit_of_measure')
 
             if (matData) {
                 const matMap = {}
                 matData.forEach(m => {
-                    matMap[m.id] = m
+                    // Fix Image URL: Prepend Supabase Storage URL if it's just a filename
+                    let finalImageUrl = m.image_url
+                    if (m.image_url && !m.image_url.startsWith('http')) {
+                        finalImageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${m.image_url}`
+                    }
+
+                    // Map unit_of_measure to unit to ensure compatibility with RequisitionFormModal
+                    matMap[m.id] = {
+                        ...m,
+                        image_url: finalImageUrl,
+                        unit: m.unit_of_measure || m.unit || 'EA',
+                        uom: m.unit_of_measure // Ensure fallback
+                    }
                 })
                 setMaterials(matMap)
             }

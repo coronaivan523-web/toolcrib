@@ -10,7 +10,7 @@ router = APIRouter()
 def read_users(
     skip: int = 0,
     limit: int = 100,
-    current_user = Depends(get_current_active_superuser),
+    current_user = Depends(get_current_user),
 ) -> Any:
     """
     Retrieve users (profiles).

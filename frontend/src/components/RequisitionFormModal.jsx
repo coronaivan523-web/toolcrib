@@ -24,7 +24,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         purchase_justification: '',
         department: currentUser?.department || '',
         job_title: currentUser?.job_title || '', // If avail in profile
-        requester_name: currentUser?.email || '', // Added for manual entry
+        requester_name: '', // Empty by default
         cause: '', // OP, LS, etc.
         criticality_requested: '', // C1-C4
     })
@@ -73,7 +73,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 purchase_justification: '',
                 department: currentUser?.department || '', // Ideally verify if profile has this now
                 job_title: currentUser?.job_title || '',
-                requester_name: currentUser?.email || '',
+                requester_name: '',
                 cause: '',
                 criticality_requested: ''
             })
@@ -141,9 +141,13 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const handleMaterialSelect = (itemId, matId) => {
         let desc = ''
         let img = null
+        let unit = 'EA' // Default
         if (materials && materials[matId]) {
             desc = materials[matId].description || materials[matId].name || ''
             img = materials[matId].image_url
+            // Fetch dynamically
+            if (materials[matId].unit) unit = materials[matId].unit
+            else if (materials[matId].uom) unit = materials[matId].uom
         }
 
         setItems(items.map(i => i.id === itemId ? {
@@ -153,11 +157,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             image_url: img,
             supplier: '',
             cost_center: '',
-            supplier: '',
-            cost_center: '',
-            unit: 'EA',
-            cost_center: '',
-            unit: 'EA',
+            unit: unit,
             quantity: '',
             cause: ''
         } : i))
@@ -222,21 +222,41 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     }
 
     const validate = (isSubmit = false) => {
-        // if (!header.justification.trim()) return "Justification is required." // Removed check
-        if (isSubmit) {
-            // if (!header.cause) return "Cause is required for submission." // Removed header cause check
-            if (!header.purchase_justification.trim()) return "Purchase Justification is required for submission."
+        // Strict Validation - All Visible Fields
+        // Header
+        if (!header.requester_name.trim()) return "Requester Name is required."
+        if (!header.department.trim()) return "Department is required."
+        if (!header.job_title.trim()) return "Job Title is required."
+        if (!header.purchase_justification.trim()) return "Purchase Justification is required."
+        if (!header.criticality_requested) return "Req. Criticality selection is required."
+
+        // Items
+        if (items.length === 0) return "At least one item is required."
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+            const lineNum = i + 1
+            if (!item.material_id) return `Line ${lineNum}: Material is required.`
+            if (!item.notes || !item.notes.trim()) return `Line ${lineNum}: Description/Specs is required.`
+            if (!item.quantity || item.quantity <= 0) return `Line ${lineNum}: Quantity must be > 0.`
+            if (!item.unit || !item.unit.trim()) return `Line ${lineNum}: Unit is required.`
+            if (!item.cause) return `Line ${lineNum}: Cause is required.`
+            if (!item.cost_center || !item.cost_center.trim()) return `Line ${lineNum}: Cost Center is required.`
         }
 
-        if (items.length === 0) return "At least one item is required."
-        for (const item of items) {
-            if (!item.material_id) return "All items must have a selected material."
-            if (item.quantity <= 0) return "Quantity must be > 0."
-        }
         return null
     }
 
     // --- Core Logic: Save/Submit ---
+    const handleSubmitClick = () => {
+        const valError = validate(false)
+        if (valError) {
+            setError(valError)
+            return
+        }
+        setIsSubmittingMode(true)
+    }
+
     const saveOrSubmit = async (isSubmit) => {
         const valError = validate(isSubmit)
         if (valError) { setError(valError); return }
@@ -478,7 +498,14 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                                     <input type="number" min="1" className="w-full text-center border-slate-300 rounded px-1 py-1"
                                                                         value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', e.target.value)} />
                                                                 </td>
-                                                                <td className="px-2 py-2 text-center text-slate-500">{item.unit}</td>
+                                                                <td className="px-2 py-2">
+                                                                    <input
+                                                                        type="text"
+                                                                        className="w-full text-center border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
+                                                                        value={item.unit}
+                                                                        onChange={e => handleItemChange(item.id, 'unit', e.target.value)}
+                                                                    />
+                                                                </td>
                                                                 <td className="px-2 py-2">
                                                                     <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
                                                                         placeholder="Optional" value={item.supplier} onChange={e => handleItemChange(item.id, 'supplier', e.target.value)} />
