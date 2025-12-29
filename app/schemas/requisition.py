@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -78,7 +78,7 @@ class RequisitionApprovalResponse(BaseModel):
     id: UUID
     requisition_id: UUID
     step_order: int
-    step_name: ApprovalStepName
+    step_name: str
     step_status: StepStatus
     assigned_to_user_id: Optional[UUID] = None
     action_by_user_id: Optional[UUID] = None
@@ -88,10 +88,17 @@ class RequisitionApprovalResponse(BaseModel):
     created_at: datetime
 
 # --- Actions Payloads ---
+class CustomApprovalStep(BaseModel):
+    user_id: UUID
+    label: str
+    order: int
+
 class RequisitionSubmit(BaseModel):
-    gerente_mx_id: UUID
-    gerente_ch_id: UUID
+    gerente_mx_id: Optional[UUID] = None
+    gerente_ch_id: Optional[UUID] = None
     gerente_gral_id: Optional[UUID] = None
+    custom_approvals: Optional[List[CustomApprovalStep]] = None
+    resubmission_comment: Optional[str] = None # New field for correction notes
 
 class RequisitionReject(BaseModel):
     comment: str = Field(..., min_length=1, description="Reason for rejection is required")
@@ -131,6 +138,7 @@ class RequisitionResponse(RequisitionBase):
     items: List[RequisitionItemResponse] = []
     approvals: List[RequisitionApprovalResponse] = []
     attachments: List[RequisitionAttachmentResponse] = []
+    requester: Optional[Dict[str, Any]] = None
 
     # Approver assignments snapshot
     gerente_mx_id: Optional[UUID] = None

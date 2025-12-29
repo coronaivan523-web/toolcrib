@@ -4,6 +4,8 @@ from app.core.deps import get_current_user, get_current_active_superuser
 from app.core.supabase import supabase, supabase_admin
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 
+from app.core.config import settings
+
 router = APIRouter()
 
 @router.get("/", response_model=List[UserResponse])
@@ -16,7 +18,14 @@ def read_users(
     Retrieve users (profiles).
     """
     try:
-        res = supabase.table('profiles').select('*').range(skip, skip + limit - 1).execute()
+        # Force create admin client to ensure we have one, avoiding global init issues
+        # This fixes the issue where 'supabase_admin' might be None at startup but available in settings
+        client = supabase
+        if settings.SUPABASE_SERVICE_KEY:
+            from supabase import create_client
+            client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+        
+        res = client.table('profiles').select('*').range(skip, skip + limit - 1).execute()
         
         # Map profiles to UserResponse
         users = []
@@ -33,6 +42,9 @@ def read_users(
             ))
         return users
     except Exception as e:
+        print(f"\\n[ERROR] read_users failed: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/", response_model=UserResponse)

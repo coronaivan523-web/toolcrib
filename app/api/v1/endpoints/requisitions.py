@@ -46,10 +46,19 @@ def read_requisitions(
 ) -> Any:
     """ List requisitions. """
     requester_id = None
-    role_name = getattr(current_user.role, 'name', 'user')
     
-    # Standard user sees own
-    if role_name == 'user':
+    # Force DB lookup for role to ensure accuracy (metadata in token might be stale)
+    try:
+        profile_res = supabase.table('profiles').select('role').eq('id', current_user.id).single().execute()
+        role_name = profile_res.data.get('role', 'user') if profile_res.data else 'user'
+    except:
+        role_name = 'user'
+    
+    # Authorized roles that can see ALL requisitions
+    # (Admins, Managers, Staff, Engineers, Coordinators, Supervisors)
+    privileged_roles = ['admin', 'manager', 'toolroom_staff', 'process_engineer', 'coordinator', 'supervisor', 'head_of_department']
+    
+    if role_name not in privileged_roles:
         requester_id = current_user.id
         
     return RequisitionService.get_requisitions(skip=skip, limit=limit, status=status, requester_id=requester_id)
@@ -68,8 +77,16 @@ def create_draft(
     current_user = Depends(get_current_active_user),
 ) -> Any:
     """ Create DRAFT. """
-    check_create_permission(current_user)
-    return RequisitionService.create_draft(current_user.id, requisition_in)
+    try:
+        print(f"\\n[DEBUG] create_draft called by {current_user.email}")
+        print(f"[DEBUG] Payload: {requisition_in.dict()}")
+        check_create_permission(current_user)
+        return RequisitionService.create_draft(current_user.id, requisition_in)
+    except Exception as e:
+        print(f"[ERROR] create_draft failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/{requisition_id}", response_model=RequisitionResponse)
 def read_requisition(

@@ -5,7 +5,7 @@ import MaterialAutocomplete from './MaterialAutocomplete'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 
-export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, currentUser }) {
+export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, users: propUsers, currentUser }) {
     if (!isOpen) return null
 
     // --- State ---
@@ -16,12 +16,12 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const fileInputRef = React.useRef(null)
     const [uploadTargetId, setUploadTargetId] = useState(null) // itemId that triggered upload
     const [openCauseDropdownId, setOpenCauseDropdownId] = useState(null) // ID of item with open cause dropdown
+    const [openCostCenterDropdownId, setOpenCostCenterDropdownId] = useState(null) // ID of item with open cost center dropdown
 
     // Form Data
     const [header, setHeader] = useState({
         priority: 'NORMAL',
         justification: '',
-        purchase_justification: '',
         department: currentUser?.department || '',
         job_title: currentUser?.job_title || '', // If avail in profile
         requester_name: '', // Empty by default
@@ -39,9 +39,15 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
 
     // Approvers
     const [users, setUsers] = useState([])
-    const [approvers, setApprovers] = useState({
-        gerente_mx_id: '',
-        gerente_ch_id: ''
+
+    // Configurable Team Approvals
+    const [teamApprovers, setTeamApprovers] = useState({
+        mx1: { userId: '', order: '1' },
+        mx2: { userId: '', order: '2' },
+        ch1: { userId: '', order: '3' },
+        ch2: { userId: '', order: '4' },
+        gmx: { userId: '', order: '5' },
+        gch: { userId: '', order: '6' }
     })
 
     // --- constants ---
@@ -54,6 +60,37 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         { value: 'CM', label: 'CM (Producto o servicio no de linea o hecho a la medida)' },
         { value: 'MQ', label: 'MQ (Maquina especializada)' },
         { value: 'SA', label: 'SA (Aprovación especial requeida para procesar el requerimiento)' }
+    ]
+
+    const COST_CENTER_OPTIONS = [
+        // Production
+        { value: 'TP060000', label: 'TP060000 (Apportion-Semi-finished product shop)' },
+        { value: 'TP070000', label: 'TP070000 (Finished product shop (three-phase table) 48 Electric meter)' },
+        { value: 'TP080000', label: 'TP080000 (Finished product shop (Single-phase table) 34 Electric meter)' },
+        { value: 'TP090000', label: 'TP090000 (Injection molding workshop)' },
+        { value: 'TP100000', label: 'TP100000 (Own Production Recloser)' },
+        { value: 'TP110000', label: 'TP110000 (Own Production)' },
+        // Administration / Support
+        { value: 'TA010000', label: 'TA010000 (Purchase Department)' },
+        { value: 'TA010001', label: 'TA010001 (Warehouse Department)' },
+        { value: 'TA010002', label: 'TA010002 (Logistics Department)' },
+        { value: 'TA010003', label: 'TA010003 (Administration Department)' },
+        { value: 'TA010004', label: 'TA010004 (Human Resources Department)' },
+        { value: 'TA010005', label: 'TA010005 (Financial Department)' },
+        { value: 'TA010006', label: 'TA010006 (Ministry of Security)' },
+        { value: 'TA010008', label: 'TA010008 (Quality Department)' },
+        { value: 'TA010009', label: 'TA010009 (Project Department)' },
+        { value: 'TA010010', label: 'TA010010 (Legal Service Department)' },
+        { value: 'TA010011', label: 'TA010011 (Public center GL account)' },
+        // Sales / Service
+        { value: 'TS010001', label: 'TS010001 (Technical Support Department)' },
+        { value: 'TS010000', label: 'TS010000 (Sales Department)' },
+        { value: 'TS010002', label: 'TS010002 (Sales Department-for store energy)' },
+        { value: 'TS010003', label: 'TS010003 (Sales Department-for water meter)' },
+        { value: 'TS010004', label: 'TS010004 (Sales Department-for recloser)' },
+        { value: 'TS010005', label: 'TS010005 (Sales Department for transformer)' },
+        // Other
+        { value: 'TBD', label: 'TBD (The distribution to the productive cc will start at the time of starting)' }
     ]
 
     const CRITICALITY_OPTIONS = [
@@ -70,7 +107,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             setHeader({
                 priority: 'NORMAL',
                 justification: '',
-                purchase_justification: '',
                 department: currentUser?.department || '', // Ideally verify if profile has this now
                 job_title: currentUser?.job_title || '',
                 requester_name: '',
@@ -82,10 +118,21 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             setPreviews([])
             setIsSubmittingMode(false)
             setError(null)
-            setApprovers({ gerente_mx_id: '', gerente_ch_id: '' })
-            loadUsers()
+            setTeamApprovers({
+                mx1: { userId: '', order: '1' },
+                mx2: { userId: '', order: '2' },
+                ch1: { userId: '', order: '3' },
+                ch2: { userId: '', order: '4' },
+                gmx: { userId: '', order: '5' },
+                gch: { userId: '', order: '6' }
+            })
+            if (propUsers && propUsers.length > 0) {
+                setUsers(propUsers)
+            } else {
+                loadUsers()
+            }
         }
-    }, [isOpen])
+    }, [isOpen, propUsers])
 
     // Cleanup previews to avoid memory leaks
     useEffect(() => {
@@ -102,6 +149,15 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     }
 
     // --- Handlers ---
+    // Filter users for approver dropdowns (Exclude basic 'user' role)
+    // Filter users for approver dropdowns (Exclude basic 'user' role)
+    // Filter users for approver dropdowns (Exclude basic 'user' role)
+    const approverUsers = (users || []).filter(u => {
+        if (!u) return false
+        const role = (u.role_name || u.role || '').toLowerCase().trim()
+        return role !== 'user' && role !== ''
+    })
+
     const handleFileSelect = (e) => {
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = Array.from(e.target.files)
@@ -227,7 +283,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         if (!header.requester_name.trim()) return "Requester Name is required."
         if (!header.department.trim()) return "Department is required."
         if (!header.job_title.trim()) return "Job Title is required."
-        if (!header.purchase_justification.trim()) return "Purchase Justification is required."
+        if (!header.justification.trim()) return "Purchase Justification is required."
         if (!header.criticality_requested) return "Req. Criticality selection is required."
 
         // Items
@@ -254,6 +310,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             setError(valError)
             return
         }
+        setError(null)
         setIsSubmittingMode(true)
     }
 
@@ -261,9 +318,22 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         const valError = validate(isSubmit)
         if (valError) { setError(valError); return }
 
-        if (isSubmit && (!approvers.gerente_mx_id || !approvers.gerente_ch_id)) {
-            setError("Approvers are missing.")
-            return
+        if (isSubmit) {
+            const approvers = [teamApprovers.mx1, teamApprovers.mx2, teamApprovers.ch1, teamApprovers.ch2, teamApprovers.gmx, teamApprovers.gch]
+
+            // 1. Check if all users are selected
+            if (approvers.some(a => !a.userId)) {
+                setError("All Approvers (Teams & Managers) need to be selected.")
+                return
+            }
+
+            // 2. Check for duplicate orders
+            const orders = approvers.map(a => parseInt(a.order))
+            const uniqueOrders = new Set(orders)
+            if (uniqueOrders.size !== orders.length) {
+                setError("Duplicate approval order numbers found. Please ensure each approver has a unique order.")
+                return
+            }
         }
 
         setLoading(true)
@@ -319,12 +389,21 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 }
             }
 
-            // 5. If Submit, trigger submit logic
+
+
+            // 5. Submit Logic (Custom Approvals)
             if (isSubmit) {
+                const customApprovals = [
+                    { user_id: teamApprovers.mx1.userId, label: 'Team Mexicano (1)', order: parseInt(teamApprovers.mx1.order) },
+                    { user_id: teamApprovers.mx2.userId, label: 'Team Mexicano (2)', order: parseInt(teamApprovers.mx2.order) },
+                    { user_id: teamApprovers.ch1.userId, label: 'Team Chino (1)', order: parseInt(teamApprovers.ch1.order) },
+                    { user_id: teamApprovers.ch2.userId, label: 'Team Chino (2)', order: parseInt(teamApprovers.ch2.order) },
+                    { user_id: teamApprovers.gmx.userId, label: 'Gerente Mexicano', order: parseInt(teamApprovers.gmx.order) },
+                    { user_id: teamApprovers.gch.userId, label: 'Gerente Chino', order: parseInt(teamApprovers.gch.order) }
+                ]
+
                 await requisitionService.submitRequisition(reqId, {
-                    gerente_mx_id: approvers.gerente_mx_id,
-                    gerente_ch_id: approvers.gerente_ch_id,
-                    gerente_gral_id: null
+                    custom_approvals: customApprovals
                 })
             }
 
@@ -337,6 +416,17 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         } finally {
             setLoading(false)
         }
+    }
+
+    const getDuplicateError = () => {
+        if (!isSubmittingMode) return null
+        const approvers = [teamApprovers.mx1, teamApprovers.mx2, teamApprovers.ch1, teamApprovers.ch2, teamApprovers.gmx, teamApprovers.gch]
+        const orders = approvers.map(a => parseInt(a.order))
+        const uniqueOrders = new Set(orders)
+        if (uniqueOrders.size !== orders.length) {
+            return "Duplicate approval orders! Each approver order must be unique (1-8)."
+        }
+        return null
     }
 
     return (
@@ -357,7 +447,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                     {/* LEFT COLUMN: FORM */}
                     <div className="flex-1 flex flex-col min-h-0">
-                        <form id="requisition-form" onSubmit={(e) => e.preventDefault()} className="flex flex-col h-full">
+                        <form id="requisition-form" onSubmit={(e) => e.preventDefault()} onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} className="flex flex-col h-full">
                             {!isSubmittingMode ? (
                                 <>
                                     {/* STATIC HEADER: Info & Justification */}
@@ -414,8 +504,8 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                 className="w-full rounded-lg border-slate-300 focus:ring-primary-500 focus:border-primary-500 placeholder:text-slate-400 text-sm"
                                                 rows={2}
                                                 placeholder="explain the need, impact if not purchased, etc."
-                                                value={header.purchase_justification}
-                                                onChange={e => setHeader({ ...header, purchase_justification: e.target.value })}
+                                                value={header.justification}
+                                                onChange={e => setHeader({ ...header, justification: e.target.value })}
                                             />
                                         </div>
 
@@ -454,9 +544,10 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                             <th className="px-2 py-2 w-[8%] text-center">Image</th>
                                                             <th className="px-2 py-2 w-[5%] text-center">Qty</th>
                                                             <th className="px-2 py-2 w-[5%] text-center">Unit</th>
-                                                            <th className="px-3 py-2 w-[12%]">Supplier</th>
+                                                            <th className="px-3 py-2 w-[8%]">Supplier</th>
                                                             <th className="px-3 py-2 w-[5%]">Cause</th>
                                                             <th className="px-3 py-2 w-[8%]">Cost Center</th>
+                                                            <th className="px-3 py-2 w-[12%]">Project</th>
                                                             <th className="px-2 py-2 w-[4%]"></th>
                                                         </tr>
                                                     </thead>
@@ -540,19 +631,49 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                                         </>
                                                                     )}
                                                                 </td>
+                                                                <td className="px-2 py-2 relative">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setOpenCostCenterDropdownId(openCostCenterDropdownId === item.id ? null : item.id)}
+                                                                        className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
+                                                                    >
+                                                                        <span className="truncate">{item.cost_center || "Select"}</span>
+                                                                        <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
+                                                                    </button>
+
+                                                                    {openCostCenterDropdownId === item.id && (
+                                                                        <>
+                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenCostCenterDropdownId(null)}></div>
+                                                                            <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                {COST_CENTER_OPTIONS.map(opt => (
+                                                                                    <div
+                                                                                        key={opt.value}
+                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                        onClick={() => {
+                                                                                            handleItemChange(item.id, 'cost_center', opt.value)
+                                                                                            setOpenCostCenterDropdownId(null)
+                                                                                        }}
+                                                                                    >
+                                                                                        {opt.label}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </td>
                                                                 <td className="px-2 py-2">
                                                                     <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
-                                                                        placeholder="Code" value={item.cost_center} onChange={e => handleItemChange(item.id, 'cost_center', e.target.value)} />
+                                                                        placeholder="Proj #" value={item.project_code} onChange={e => handleItemChange(item.id, 'project_code', e.target.value)} />
                                                                 </td>
                                                                 <td className="px-2 py-2 text-center">
-                                                                    <button onClick={() => handleRemoveItem(item.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                                                                    <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
                                                                 </td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
                                                 </table>
                                                 <div className="p-2 border-t border-slate-100 bg-slate-50">
-                                                    <button onClick={handleAddItem} className="text-primary-600 font-bold text-xs flex items-center gap-1 hover:text-primary-800">
+                                                    <button type="button" onClick={handleAddItem} className="text-primary-600 font-bold text-xs flex items-center gap-1 hover:text-primary-800">
                                                         <Plus size={14} /> Add Line
                                                     </button>
                                                 </div>
@@ -567,22 +688,181 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                         <h3 className="text-lg font-bold text-blue-900 mb-2">Ready to Submit?</h3>
                                         <p className="text-blue-700 text-sm mb-4">Please verify all data. Once submitted, the requisition enters the approval workflow.</p>
                                     </div>
-                                    <div className="max-w-md mx-auto space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Gerente MX <span className="text-red-500">*</span></label>
-                                            <select className="w-full rounded-lg border-slate-300"
-                                                value={approvers.gerente_mx_id} onChange={e => setApprovers({ ...approvers, gerente_mx_id: e.target.value })}>
-                                                <option value="">Select Manager...</option>
-                                                {users.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                            </select>
+
+                                    {(error || getDuplicateError()) && (
+                                        <div className="p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 text-sm border border-red-200 shadow-sm mx-auto max-w-md">
+                                            <AlertCircle size={16} />
+                                            {error || getDuplicateError()}
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Gerente CH <span className="text-red-500">*</span></label>
-                                            <select className="w-full rounded-lg border-slate-300"
-                                                value={approvers.gerente_ch_id} onChange={e => setApprovers({ ...approvers, gerente_ch_id: e.target.value })}>
-                                                <option value="">Select Manager...</option>
-                                                {users.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                            </select>
+                                    )}
+
+                                    <div className="max-w-2xl mx-auto space-y-6">
+                                        {/* Team Mexicano */}
+                                        <div className="bg-white p-4 rounded-lg border border-slate-200">
+                                            <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                Team Mexicano
+                                            </h4>
+                                            <div className="space-y-3">
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 1</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.mx1.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx1: { ...teamApprovers.mx1, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.mx1.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx1: { ...teamApprovers.mx1, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 2</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.mx2.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx2, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.mx2.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx2, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Team Chino */}
+                                        <div className="bg-white p-4 rounded-lg border border-slate-200">
+                                            <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                Team Chino
+                                            </h4>
+                                            <div className="space-y-3">
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 1</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.ch1.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch1: { ...teamApprovers.ch1, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.ch1.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch1: { ...teamApprovers.ch1, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 2</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.ch2.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch2: { ...teamApprovers.ch2, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.ch2.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch2: { ...teamApprovers.ch2, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Gerencia */}
+                                        <div className="bg-white p-4 rounded-lg border border-slate-200">
+                                            <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                                                Gerencia
+                                            </h4>
+                                            <div className="space-y-3">
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Gerente Mexicano</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.gmx.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gmx: { ...teamApprovers.gmx, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.gmx.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gmx: { ...teamApprovers.gmx, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Gerente Chino</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm"
+                                                            value={teamApprovers.gch.userId}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gch: { ...teamApprovers.gch, userId: e.target.value } })}
+                                                        >
+                                                            <option value="">Select User...</option>
+                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="w-24">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
+                                                        <select
+                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
+                                                            value={teamApprovers.gch.order}
+                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gch: { ...teamApprovers.gch, order: e.target.value } })}
+                                                        >
+                                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <option key={i} value={i}>{i}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -663,8 +943,8 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                             </button>
                             <button
                                 onClick={() => saveOrSubmit(true)}
-                                disabled={loading}
-                                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold text-sm flex items-center gap-2 shadow-lg shadow-green-200"
+                                disabled={loading || getDuplicateError()}
+                                className={`px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg ${loading || getDuplicateError() ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'}`}
                             >
                                 <Send size={16} />
                                 {loading ? 'Processing...' : 'Confirm Submission'}

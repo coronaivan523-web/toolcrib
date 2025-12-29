@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Search, RotateCw, Filter, Eye, AlertCircle, Plus, ClipboardList } from 'lucide-react'
+import { Search, RotateCw, Filter, Eye, AlertCircle, Plus, ClipboardList, X } from 'lucide-react'
 import clsx from 'clsx'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
@@ -13,7 +13,10 @@ export default function Requisitions() {
 
     // State
     const [requisitions, setRequisitions] = useState([])
+    const [inboxCount, setInboxCount] = useState(0)
     const [materials, setMaterials] = useState({}) // ID -> { name, part_number }
+    const [usersMap, setUsersMap] = useState({}) // ID -> Name/Email
+    const [usersList, setUsersList] = useState([]) // Array of user objects
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
@@ -46,6 +49,12 @@ export default function Requisitions() {
             }
             setRequisitions(reqData)
 
+            // Always fetch inbox count for the badge
+            try {
+                const inboxData = await requisitionService.getInbox()
+                setInboxCount(inboxData.length)
+            } catch (ignore) { console.warn("Failed to fetch inbox count", ignore) }
+
             // 2. Fetch Materials for Mapping (Lightweight)
             // Added unit_of_measure to fix population issue reported by user
             const { data: matData } = await supabase
@@ -72,6 +81,17 @@ export default function Requisitions() {
                 setMaterials(matMap)
             }
 
+            // 3. Fetch Users for Mapping (Approvers)
+            const users = await requisitionService.getUsers()
+            if (users) {
+                const uMap = {}
+                users.forEach(u => {
+                    uMap[u.id] = u.full_name || u.email
+                })
+                setUsersList(users)
+                setUsersMap(uMap)
+            }
+
         } catch (err) {
             console.error("Error fetching requisitions:", err)
             console.error("[Requisitions.jsx] Load error details:", err.name, err.message)
@@ -81,9 +101,35 @@ export default function Requisitions() {
         }
     }
 
+    // Initial Fetch and Realtime Subscription
     useEffect(() => {
         fetchData()
-    }, [statusFilter, viewMode]) // Refetch on status or view change
+
+        // Realtime Subscription
+        const channel = supabase
+            .channel('requisitions-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'requisitions' },
+                (payload) => {
+                    console.log('Realtime change in requisitions:', payload)
+                    fetchData()
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'requisition_approvals' },
+                (payload) => {
+                    console.log('Realtime change in approvals:', payload)
+                    fetchData()
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [statusFilter, priorityFilter, viewMode]) // Refetch on status or view change
 
     // Client-side Filtering for others
     const filteredRequisitions = requisitions.filter(req => {
@@ -174,6 +220,11 @@ export default function Requisitions() {
                                 viewMode === 'inbox' ? "bg-white text-primary-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
                             )}>
                             Inbox
+                            {inboxCount > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center">
+                                    {inboxCount}
+                                </span>
+                            )}
                         </button>
                     </div>
 
@@ -206,6 +257,21 @@ export default function Requisitions() {
                             <option value="URGENT">Urgent</option>
                             <option value="LOW">Low</option>
                         </select>
+
+                        {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm) && (
+                            <button
+                                onClick={() => {
+                                    setStatusFilter('all')
+                                    setPriorityFilter('all')
+                                    setSearchTerm('')
+                                }}
+                                className="ml-2 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                                title="Clear All Filters"
+                            >
+                                <X size={16} />
+                                Clear
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -307,6 +373,8 @@ export default function Requisitions() {
                 isOpen={isDetailOpen}
                 onClose={() => setIsDetailOpen(false)}
                 requisition={selectedReq}
+                materials={materials}
+                usersMap={usersMap}
                 currentUser={userProfile}
                 onActionSuccess={fetchData}
             />
@@ -317,8 +385,9 @@ export default function Requisitions() {
                 onClose={() => setIsCreateOpen(false)}
                 onSuccess={fetchData}
                 materials={materials}
+                users={usersList}
                 currentUser={userProfile}
             />
-        </div>
+        </div >
     )
 }
