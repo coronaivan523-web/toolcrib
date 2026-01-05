@@ -13,12 +13,14 @@ import ProtectedRoute from './components/ProtectedRoute'
 import RoleBasedHome from './components/RoleBasedHome'
 
 import Requisitions from './pages/Requisitions'
+import RequisitionPrintView from './pages/RequisitionPrintView'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/print/requisition/:id" element={<RequisitionPrintView />} />
 
         <Route element={<Layout />}>
           <Route path="/" element={<RoleBasedHome />} />

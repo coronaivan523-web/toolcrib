@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, CheckCircle, Clock, XCircle, AlertCircle, FileText, User, Image as ImageIcon, Paperclip, RotateCw } from 'lucide-react'
+import { X, CheckCircle, Clock, XCircle, AlertCircle, FileText, User, Image as ImageIcon, Paperclip, RotateCw, Printer } from 'lucide-react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
 import { requisitionService } from '../services/requisitions'
@@ -252,8 +252,12 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                     {requisition.items?.map((item, idx) => (
                                         <tr key={item.id || idx} className="hover:bg-blue-50/30 transition-colors">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800">{item.material_name || item.material_id}</div>
-                                                <div className="text-xs text-slate-500 mt-0.5 font-medium">Part #: {item.part_number || 'N/A'} <span className="text-slate-300 mx-1">|</span> ID: {item.material_id}</div>
+                                                <div className="font-bold text-slate-800">
+                                                    {materials?.[item.material_id]?.name || item.material_name || item.material_id}
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-0.5 font-medium">
+                                                    Part #: {materials?.[item.material_id]?.part_number || item.part_number || 'N/A'} <span className="text-slate-300 mx-1">|</span> ID: {item.material_id}
+                                                </div>
                                             </td>
                                             <td className="px-3 py-4 text-center">
                                                 {materials && materials[item.material_id]?.image_url ? (
@@ -429,6 +433,12 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                 {actionLoading ? 'Processing...' : 'Cancel Requisition'}
                             </button>
                         )}
+                        <button
+                            onClick={() => window.open(`/print/requisition/${requisition.id}`, '_blank')}
+                            className="px-5 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            <Printer size={16} /> Print Format
+                        </button>
                     </div>
 
                     <div className="flex gap-3">
@@ -460,17 +470,19 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
             </div>
 
             {/* Lightbox */}
-            {expandedImage && (
-                <div
-                    className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={() => setExpandedImage(null)}
-                >
-                    <button className="absolute top-4 right-4 text-white hover:text-red-400 transition-colors">
-                        <X size={32} />
-                    </button>
-                    <img src={expandedImage} alt="Expanded" className="max-w-full max-h-[90vh] rounded shadow-2xl" />
-                </div>
-            )}
-        </div>
+            {
+                expandedImage && (
+                    <div
+                        className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 animate-in fade-in duration-200"
+                        onClick={() => setExpandedImage(null)}
+                    >
+                        <button className="absolute top-4 right-4 text-white hover:text-red-400 transition-colors">
+                            <X size={32} />
+                        </button>
+                        <img src={expandedImage} alt="Expanded" className="max-w-full max-h-[90vh] rounded shadow-2xl" />
+                    </div>
+                )
+            }
+        </div >
     )
 }

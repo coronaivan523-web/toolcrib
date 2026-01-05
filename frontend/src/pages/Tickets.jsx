@@ -4,6 +4,8 @@ import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircl
 import { useOutletContext } from 'react-router-dom'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
+import RequisitionFormModal from '../components/RequisitionFormModal' // Import Modal
+import RequisitionDetailModal from '../components/RequisitionDetailModal'
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -86,6 +88,8 @@ function TicketsContent() {
     const [selectedTicketItem, setSelectedTicketItem] = useState(null)
     const [isRequirementModalOpen, setIsRequirementModalOpen] = useState(false)
     const [existingNotification, setExistingNotification] = useState(null)
+    const [viewingRequisition, setViewingRequisition] = useState(null)
+    const [isRequisitionDetailOpen, setIsRequisitionDetailOpen] = useState(false)
     const [selectedTicket, setSelectedTicket] = useState(null) // For toolroom staff to select tickets for status changes
 
     // Processing Modal States
@@ -117,7 +121,12 @@ function TicketsContent() {
     // Report Notifications State
     const [reports, setReports] = useState([])
     const [isReportListModalOpen, setIsReportListModalOpen] = useState(false)
+    const [selectedReports, setSelectedReports] = useState([]) // Array of report IDs
+    const [isCreateRequisitionModalOpen, setIsCreateRequisitionModalOpen] = useState(false) // State for Req Modal
+    const [initialRequisitionItems, setInitialRequisitionItems] = useState([]) // Pass to Req Modal
+
     const [showCancelledView, setShowCancelledView] = useState(false) // New State for Cancelled View Toggle
+
 
     // States for Cancelled Items Filters
     const [cancelledFilterFolio, setCancelledFilterFolio] = useState('');
@@ -313,7 +322,8 @@ function TicketsContent() {
                         // 4. Fetch Materials
                         let materialsMap = {}
                         if (materialIds.length > 0) {
-                            const { data: mats } = await supabase.from('materials').select('id, name, part_number').in('id', materialIds)
+                            // Fetch more details for requisition (unit, etc)
+                            const { data: mats } = await supabase.from('materials').select('id, name, part_number, unit, unit_of_measure, image_url').in('id', materialIds)
                             if (mats) {
                                 mats.forEach(m => materialsMap[m.id] = m)
                             }
@@ -386,6 +396,44 @@ function TicketsContent() {
             return true
         }
         return false
+    }
+
+    const handleRequisitionSuccess = async () => {
+        console.log("handleRequisitionSuccess triggered. Selected Reports:", selectedReports)
+
+        // Mark selected reports as read so they disappear from the list
+        if (selectedReports.length > 0) {
+            try {
+                const { data, error } = await supabase
+                    .from('notifications')
+                    .update({ status: 'read' })
+                    .in('id', selectedReports)
+                    .select() // Return updated rows to verify
+
+                if (error) throw error
+                console.log("Updated notifications:", data)
+
+                if (data.length !== selectedReports.length) {
+                    console.warn(`Expected to update ${selectedReports.length} reports, but updated ${data.length}`)
+                }
+
+                showNotification(`Requisition created! Archived ${data.length} reports.`, "success")
+            } catch (err) {
+                console.error("Error updating notifications:", err)
+                showNotification("Requisition created, but failed to hide reports. Please check console.", "error")
+            }
+        } else {
+            console.warn("No reports selected to archive.")
+        }
+
+        // Delay fetch slightly to ensure DB propagation if needed (usually instant but safety net)
+        setTimeout(() => {
+            fetchUserAndTickets(true)
+        }, 500)
+
+        setIsCreateRequisitionModalOpen(false)
+        setInitialRequisitionItems([])
+        setSelectedReports([])
     }
 
     const handleAddToCart = (material) => {
@@ -1251,6 +1299,34 @@ function TicketsContent() {
                     </div>
                 </button>
             )}
+            {/* Requisition Detail Modal (Read-Only Mode) */}
+            <RequisitionDetailModal
+                isOpen={isRequisitionDetailOpen}
+                onClose={() => {
+                    setIsRequisitionDetailOpen(false)
+                    setViewingRequisition(null)
+                }}
+                requisition={viewingRequisition}
+                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
+                usersMap={{}} // Optional: for mapping user IDs to names if needed
+                currentUser={currentUser}
+                onActionSuccess={() => { }} // No actions expected in read-only mostly
+            />
+
+            {/* Requisition Detail Modal (Read-Only Mode) */}
+            <RequisitionDetailModal
+                isOpen={isRequisitionDetailOpen}
+                onClose={() => {
+                    setIsRequisitionDetailOpen(false)
+                    setViewingRequisition(null)
+                }}
+                requisition={viewingRequisition}
+                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
+                usersMap={{}} // Optional: for mapping user IDs to names if needed
+                currentUser={currentUser}
+                onActionSuccess={() => { }} // No actions expected in read-only mostly
+            />
+
         </div>
     )
 
@@ -1325,7 +1401,61 @@ function TicketsContent() {
                     {/* Requirement Status - Only for normal users or admin in user view */}
                     {(userProfile?.role === 'user' || (userProfile?.role === 'admin' && adminViewMode === 'user')) && (
                         <button
-                            onClick={() => setIsRequirementModalOpen(true)}
+                            onClick={async () => {
+                                if (!selectedTicketItem) return;
+
+                                // 1. Check for Active Requisition (Global)
+                                try {
+                                    // Step A: Find Requisition IDs associated with this material
+                                    const { data: itemData, error: itemError } = await supabase
+                                        .from('requisition_items')
+                                        .select('requisition_id')
+                                        .eq('material_id', selectedTicketItem.material?.id)
+                                        .limit(5)
+
+                                    if (!itemError && itemData && itemData.length > 0) {
+                                        const reqIds = itemData.map(i => i.requisition_id).filter(Boolean)
+
+                                        if (reqIds.length > 0) {
+                                            // Step B: Fetch full details for these requisitions
+                                            const { data: reqs, error: reqError } = await supabase
+                                                .from('requisitions')
+                                                .select(`
+                                                    *,
+                                                    items:requisition_items (*),
+                                                    approvals:requisition_approvals (*)
+                                                `)
+                                                .in('id', reqIds)
+                                                .order('created_at', { ascending: false })
+
+                                            if (!reqError && reqs) {
+                                                const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL'].includes(r.status))
+
+                                                if (activeReq) {
+                                                    // Fetch requester profile separately if needed or try to include in above query.
+                                                    // For now, let's try to fetch it to ensure modal looks good.
+                                                    const { data: profile } = await supabase
+                                                        .from('profiles')
+                                                        .select('*')
+                                                        .eq('id', activeReq.requester_id)
+                                                        .single()
+
+                                                    if (profile) activeReq.requester = profile
+
+                                                    setViewingRequisition(activeReq)
+                                                    setIsRequisitionDetailOpen(true)
+                                                    return
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Error checking requisitions:", e)
+                                }
+
+                                // 2. Check for Existing Report (Global)
+                                setIsRequirementModalOpen(true)
+                            }}
                             disabled={!selectedTicketItem}
                             className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold transition-all text-sm border ${selectedTicketItem
                                 ? 'bg-pink-500/20 border-pink-400/30 text-white shadow-lg shadow-pink-900/20 hover:bg-pink-500/30 ring-1 ring-pink-500/50'
@@ -2834,7 +2964,7 @@ function TicketsContent() {
             {
                 isReportListModalOpen && (
                     <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center p-4 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={() => setIsReportListModalOpen(false)}>
-                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                             <div className="px-6 py-4 bg-purple-900 text-white flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-3">
                                     <div className="bg-white/10 p-2 rounded-lg">
@@ -2842,7 +2972,7 @@ function TicketsContent() {
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-lg leading-tight">Material Reports</h3>
-                                        <p className="text-purple-200 text-xs">Items with no requisition found</p>
+                                        <p className="text-purple-200 text-xs">Select items to create a requisition (Max 6)</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setIsReportListModalOpen(false)} className="text-purple-300 hover:text-white transition-colors">
@@ -2858,8 +2988,11 @@ function TicketsContent() {
                                     </div>
                                 ) : (
                                     <table className="w-full text-sm text-left">
-                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
                                             <tr>
+                                                <th className="px-4 py-3 font-bold w-10 text-center">
+                                                    {/* Select All could go here but might be safer manual for now */}
+                                                </th>
                                                 <th className="px-6 py-3 font-bold">Date</th>
                                                 <th className="px-6 py-3 font-bold">Material</th>
                                                 <th className="px-6 py-3 font-bold">Reported By</th>
@@ -2867,49 +3000,124 @@ function TicketsContent() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
-                                            {reports.map((report) => (
-                                                <tr key={report.id} className="bg-white hover:bg-slate-50 transition-colors">
-                                                    <td className="px-6 py-4 font-mono text-xs whitespace-nowrap text-slate-500">
-                                                        {new Date(report.created_at).toLocaleDateString('en-US')}
-                                                        <br />
-                                                        {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="font-bold text-slate-700">{report.material?.name}</div>
-                                                        <div className="text-xs font-mono text-slate-500">{report.material?.part_number}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
-                                                                {report.sender?.full_name?.[0] || 'U'}
+                                            {reports.map((report) => {
+                                                const isSelected = selectedReports.includes(report.id)
+                                                return (
+                                                    <tr
+                                                        key={report.id}
+                                                        className={`transition-colors cursor-pointer ${isSelected ? 'bg-purple-50' : 'bg-white hover:bg-slate-50'}`}
+                                                        onClick={() => {
+                                                            if (isSelected) {
+                                                                setSelectedReports(selectedReports.filter(id => id !== report.id))
+                                                            } else {
+                                                                if (selectedReports.length >= 6) {
+                                                                    showNotification("Maximum 6 items per requisition.", "error")
+                                                                    return
+                                                                }
+                                                                setSelectedReports([...selectedReports, report.id])
+                                                            }
+                                                        }}
+                                                    >
+                                                        <td className="px-4 py-4 text-center">
+                                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-purple-600 border-purple-600' : 'border-slate-300 bg-white'}`}>
+                                                                {isSelected && <Check size={12} className="text-white" />}
                                                             </div>
-                                                            <span className="text-slate-600 font-medium truncate max-w-[120px]">
-                                                                {report.sender?.full_name || 'Unknown'}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={report.message}>
-                                                        {report.message}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                                        </td>
+                                                        <td className="px-6 py-4 font-mono text-xs whitespace-nowrap text-slate-500">
+                                                            {new Date(report.created_at).toLocaleDateString('en-US')}
+                                                            <br />
+                                                            {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-slate-700">{report.material?.name}</div>
+                                                            <div className="text-xs font-mono text-slate-500">{report.material?.part_number}</div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                                                    {report.sender?.full_name?.[0] || 'U'}
+                                                                </div>
+                                                                <span className="text-slate-600 font-medium truncate max-w-[120px]">
+                                                                    {report.sender?.full_name || 'Unknown'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-slate-600 max-w-xs truncate" title={report.message}>
+                                                            {report.message}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
                                         </tbody>
                                     </table>
                                 )}
                             </div>
 
-                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-                                <button
-                                    onClick={() => setIsReportListModalOpen(false)}
-                                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg hover:bg-slate-50 shadow-sm"
-                                >
-                                    Close
-                                </button>
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                                <div className="text-sm font-medium text-slate-500">
+                                    {selectedReports.length} selected
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setIsReportListModalOpen(false)}
+                                        className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg hover:bg-slate-50 shadow-sm"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        disabled={selectedReports.length === 0}
+                                        onClick={() => {
+                                            const selectedItems = reports.filter(r => selectedReports.includes(r.id))
+                                            const reqItems = selectedItems.map(report => ({
+                                                material_id: report.material_id,
+                                                quantity: 1, // Default
+                                                // Try to resolve keys if they differ
+                                                unit: report.material?.unit_of_measure || report.material?.unit || 'EA',
+                                                notes: `Reported issue: ${report.message || 'Low Stock'}`
+                                            }))
+                                            setInitialRequisitionItems(reqItems)
+                                            setIsCreateRequisitionModalOpen(true)
+                                            setIsReportListModalOpen(false) // Close reports modal
+                                        }}
+                                        className="px-4 py-2 bg-purple-600 text-white font-bold text-sm rounded-lg hover:bg-purple-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                    >
+                                        <Plus size={16} />
+                                        Create Requisition
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )
             }
+
+            {/* Requisition Create Modal (Launched from Reports) */}
+            <RequisitionFormModal
+                isOpen={isCreateRequisitionModalOpen}
+                onClose={() => {
+                    setIsCreateRequisitionModalOpen(false)
+                    setInitialRequisitionItems([])
+                    setSelectedReports([])
+                }}
+                onSuccess={handleRequisitionSuccess}
+                materials={materials.reduce((acc, m) => ({ ...acc, [m.id]: m }), {})} // Map array to object for modal
+                initialItems={initialRequisitionItems}
+                currentUser={userProfile}
+            />
+
+            {/* Requisition Detail Modal (Read-Only Mode) */}
+            <RequisitionDetailModal
+                isOpen={isRequisitionDetailOpen}
+                onClose={() => {
+                    setIsRequisitionDetailOpen(false)
+                    setViewingRequisition(null)
+                }}
+                requisition={viewingRequisition}
+                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
+                usersMap={{}} // Optional: for mapping user IDs to names if needed
+                currentUser={currentUser}
+                onActionSuccess={() => { }} // No actions expected in read-only mostly
+            />
         </div >
     )
 }

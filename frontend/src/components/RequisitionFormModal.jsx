@@ -5,7 +5,7 @@ import MaterialAutocomplete from './MaterialAutocomplete'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 
-export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, users: propUsers, currentUser }) {
+export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, users: propUsers, currentUser, initialItems = [] }) {
     if (!isOpen) return null
 
     // --- State ---
@@ -138,6 +138,45 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     useEffect(() => {
         return () => previews.forEach(p => URL.revokeObjectURL(p.url))
     }, [previews])
+
+    // Handle initial items from parent (e.g. from Reports)
+    useEffect(() => {
+        if (isOpen) {
+            if (initialItems && initialItems.length > 0) {
+                const mappedItems = initialItems.map((item, index) => ({
+                    id: Date.now() + index,
+                    material_id: item.material_id,
+                    quantity: item.quantity || '',
+                    unit: item.unit || 'EA',
+                    notes: item.notes || '',
+                    supplier: '',
+                    cost_center: '',
+                    project_code: '',
+                    monthly_consumption: '',
+                    cause: ''
+                }))
+                setItems(mappedItems)
+            } else {
+                // Only reset if we are opening fresh without initial items
+                // This prevents overwriting if user closes/reopens and we want persistence?
+                // Actually, usually we want to reset on open.
+                setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
+            }
+            // Reset header on open
+            setHeader(prev => ({
+                ...prev,
+                justification: '',
+                priority: 'NORMAL',
+                requester_name: '',
+                cause: '',
+                criticality_requested: '',
+                // Keep department/job_title from profile
+            }))
+            // Clear files
+            setPendingFiles([])
+            setPreviews([])
+        }
+    }, [isOpen, initialItems])
 
     const loadUsers = async () => {
         try {
@@ -319,19 +358,23 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         if (valError) { setError(valError); return }
 
         if (isSubmit) {
-            const approvers = [teamApprovers.mx1, teamApprovers.mx2, teamApprovers.ch1, teamApprovers.ch2, teamApprovers.gmx, teamApprovers.gch]
+            // 1. Definition of potential approvers in hierarchical order
+            // Note: We ignore the 'order' from state and calculate it dynamically
+            const potentialApprovers = [
+                { id: 'mx1', ...teamApprovers.mx1, label: 'Team Mexicano (1)' },
+                { id: 'mx2', ...teamApprovers.mx2, label: 'Team Mexicano (2)' },
+                { id: 'ch1', ...teamApprovers.ch1, label: 'Team Chino (1)' },
+                { id: 'ch2', ...teamApprovers.ch2, label: 'Team Chino (2)' },
+                { id: 'gmx', ...teamApprovers.gmx, label: 'Gerente Mexicano' },
+                { id: 'gch', ...teamApprovers.gch, label: 'Gerente Chino' }
+            ]
 
-            // 1. Check if all users are selected
-            if (approvers.some(a => !a.userId)) {
-                setError("All Approvers (Teams & Managers) need to be selected.")
-                return
-            }
+            // 2. Filter selected approvers
+            const selectedApprovers = potentialApprovers.filter(a => a.userId && a.userId.trim() !== '')
 
-            // 2. Check for duplicate orders
-            const orders = approvers.map(a => parseInt(a.order))
-            const uniqueOrders = new Set(orders)
-            if (uniqueOrders.size !== orders.length) {
-                setError("Duplicate approval order numbers found. Please ensure each approver has a unique order.")
+            // 3. Validation: At least one approver required
+            if (selectedApprovers.length === 0) {
+                setError("At least one Approver must be selected.")
                 return
             }
         }
@@ -393,21 +436,30 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
 
             // 5. Submit Logic (Custom Approvals)
             if (isSubmit) {
-                const customApprovals = [
-                    { user_id: teamApprovers.mx1.userId, label: 'Team Mexicano (1)', order: parseInt(teamApprovers.mx1.order) },
-                    { user_id: teamApprovers.mx2.userId, label: 'Team Mexicano (2)', order: parseInt(teamApprovers.mx2.order) },
-                    { user_id: teamApprovers.ch1.userId, label: 'Team Chino (1)', order: parseInt(teamApprovers.ch1.order) },
-                    { user_id: teamApprovers.ch2.userId, label: 'Team Chino (2)', order: parseInt(teamApprovers.ch2.order) },
-                    { user_id: teamApprovers.gmx.userId, label: 'Gerente Mexicano', order: parseInt(teamApprovers.gmx.order) },
-                    { user_id: teamApprovers.gch.userId, label: 'Gerente Chino', order: parseInt(teamApprovers.gch.order) }
+                const potentialApprovers = [
+                    { id: 'mx1', ...teamApprovers.mx1, label: 'Team Mexicano (1)' },
+                    { id: 'mx2', ...teamApprovers.mx2, label: 'Team Mexicano (2)' },
+                    { id: 'ch1', ...teamApprovers.ch1, label: 'Team Chino (1)' },
+                    { id: 'ch2', ...teamApprovers.ch2, label: 'Team Chino (2)' },
+                    { id: 'gmx', ...teamApprovers.gmx, label: 'Gerente Mexicano' },
+                    { id: 'gch', ...teamApprovers.gch, label: 'Gerente Chino' }
                 ]
+
+                // Filter and Auto-Assign Order
+                const customApprovals = potentialApprovers
+                    .filter(a => a.userId && a.userId.trim() !== '')
+                    .map((a, index) => ({
+                        user_id: a.userId,
+                        label: a.label,
+                        order: index + 1 // 1-based sequential order
+                    }))
 
                 await requisitionService.submitRequisition(reqId, {
                     custom_approvals: customApprovals
                 })
             }
 
-            onSuccess()
+            if (onSuccess) await onSuccess()
             onClose()
 
         } catch (e) {
@@ -416,17 +468,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         } finally {
             setLoading(false)
         }
-    }
-
-    const getDuplicateError = () => {
-        if (!isSubmittingMode) return null
-        const approvers = [teamApprovers.mx1, teamApprovers.mx2, teamApprovers.ch1, teamApprovers.ch2, teamApprovers.gmx, teamApprovers.gch]
-        const orders = approvers.map(a => parseInt(a.order))
-        const uniqueOrders = new Set(orders)
-        if (uniqueOrders.size !== orders.length) {
-            return "Duplicate approval orders! Each approver order must be unique (1-8)."
-        }
-        return null
     }
 
     return (
@@ -689,10 +730,10 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                         <p className="text-blue-700 text-sm mb-4">Please verify all data. Once submitted, the requisition enters the approval workflow.</p>
                                     </div>
 
-                                    {(error || getDuplicateError()) && (
+                                    {(error) && (
                                         <div className="p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 text-sm border border-red-200 shadow-sm mx-auto max-w-md">
                                             <AlertCircle size={16} />
-                                            {error || getDuplicateError()}
+                                            {error}
                                         </div>
                                     )}
 
@@ -716,16 +757,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.mx1.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx1: { ...teamApprovers.mx1, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
-                                                        </select>
-                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
@@ -737,16 +768,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                         >
                                                             <option value="">Select User...</option>
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.mx2.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx2, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
                                                         </select>
                                                     </div>
                                                 </div>
@@ -772,16 +793,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.ch1.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch1: { ...teamApprovers.ch1, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
-                                                        </select>
-                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
@@ -793,16 +804,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                         >
                                                             <option value="">Select User...</option>
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.ch2.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch2: { ...teamApprovers.ch2, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6].map(i => <option key={i} value={i}>{i}</option>)}
                                                         </select>
                                                     </div>
                                                 </div>
@@ -828,16 +829,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
                                                         </select>
                                                     </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.gmx.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gmx: { ...teamApprovers.gmx, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <option key={i} value={i}>{i}</option>)}
-                                                        </select>
-                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
@@ -849,16 +840,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                         >
                                                             <option value="">Select User...</option>
                                                             {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div className="w-24">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Orden</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm font-bold text-center"
-                                                            value={teamApprovers.gch.order}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gch: { ...teamApprovers.gch, order: e.target.value } })}
-                                                        >
-                                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <option key={i} value={i}>{i}</option>)}
                                                         </select>
                                                     </div>
                                                 </div>
@@ -943,8 +924,8 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                             </button>
                             <button
                                 onClick={() => saveOrSubmit(true)}
-                                disabled={loading || getDuplicateError()}
-                                className={`px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg ${loading || getDuplicateError() ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'}`}
+                                disabled={loading}
+                                className={`px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg ${loading ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'}`}
                             >
                                 <Send size={16} />
                                 {loading ? 'Processing...' : 'Confirm Submission'}

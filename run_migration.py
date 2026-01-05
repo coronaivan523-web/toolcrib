@@ -6,13 +6,20 @@ DB_URL = "postgresql://postgres.bykumuizmxsclsazeych:Changos3.3@aws-1-us-east-1.
 
 MIGRATION_FILE_1 = r"c:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\supabase\migrations\20241219_add_cancelled_by_to_ticket_items.sql"
 
+import sys
+
 def run_migration():
+    if len(sys.argv) > 1:
+        files = [sys.argv[1]]
+    else:
+        files = [MIGRATION_FILE_1]
+
     try:
         print(f"Connecting to database...")
         conn = psycopg2.connect(DB_URL)
         cur = conn.cursor()
         
-        for migration_file in [MIGRATION_FILE_1]:
+        for migration_file in files:
             if os.path.exists(migration_file):
                 print(f"Reading migration file: {migration_file}")
                 with open(migration_file, 'r') as f:
