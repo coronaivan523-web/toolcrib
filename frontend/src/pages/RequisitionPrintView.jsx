@@ -52,6 +52,20 @@ export default function RequisitionPrintView() {
 
     const getCauseLabel = (code) => code || ''
 
+    // Helper to normalize strings for comparison (remove spaces, lowercase)
+    const trainCase = (str) => str ? str.toLowerCase().replace(/\s+/g, '').trim() : ''
+
+    // Helper for safe date rendering
+    const safeDate = (dateVal) => {
+        if (!dateVal) return ''
+        try {
+            const d = new Date(dateVal)
+            return isNaN(d.getTime()) ? '' : d.toLocaleDateString()
+        } catch (e) {
+            return ''
+        }
+    }
+
     if (loading) return <div className="p-10 text-center">Loading print view...</div>
     if (!req) return <div className="p-10 text-center text-red-500">Requisition not found</div>
 
@@ -66,10 +80,40 @@ export default function RequisitionPrintView() {
 
     // Map specific signatures based on the image form
     // Gerente MX, Gerente CH, Gte.Compras, Gerente General
-    const mxManager = req.approvals?.find(a => a.step_label?.includes('Gerente Mexicano'))
-    const chManager = req.approvals?.find(a => a.step_label?.includes('Gerente Chino'))
+    const mxManager = req.approvals?.find(a => a.step_name?.includes('Gerente Mexicano') || a.step_name?.includes('Team Mexicano') || a.step_name?.includes('Team Mexico'))
+    const chManager = req.approvals?.find(a => a.step_name?.includes('Gerente Chino') || a.step_name?.includes('Team Chino') || a.step_name?.includes('Team China'))
 
     // For other roles, we might look at who signed what, or leave blank if not applicable logic yet
+    // Helper to find valid signature for "Solicitante" line
+    // 1. If Creator (req.requester) name matches Manual Name (req.requester_name) -> Use Creator's signature
+    // 2. If not, look in approvals for someone whose name matches Manual Name -> Use Approver's signature
+    // 3. Fallback: null (Manually sign)
+    let requesterSignatureUrl = null
+    let requesterSignatureDate = req.created_at
+
+    // Check Creator
+    if (req.requester?.signature_url && (!req.requester_name || trainCase(req.requester_name) === trainCase(req.requester.full_name))) {
+        requesterSignatureUrl = req.requester.signature_url
+    }
+
+    // Fallback: Check approvals if we didn't find a valid creator match (or if creator didn't sign, though unlikely if they submitted)
+    // We prioritize the fallback if the Creator name DOES NOT match the Manual Name (which is the case here: Tool Room != Ivan Corona)
+    if (!requesterSignatureUrl && req.requester_name) {
+        const matchingApproval = req.approvals?.find(a => {
+            if (!a.approver?.full_name) return false
+            const approverName = trainCase(a.approver.full_name)
+            const manualName = trainCase(req.requester_name)
+            // Fuzzy match: check if one includes the other
+            return (manualName.includes(approverName) || approverName.includes(manualName)) && a.approver.signature_url
+        })
+        if (matchingApproval) {
+            requesterSignatureUrl = matchingApproval.approver.signature_url
+            if (matchingApproval.action_at) {
+                requesterSignatureDate = matchingApproval.action_at
+            }
+        }
+    }
+
     if (loading || !req) return <div>Loading...</div>
 
     return (
@@ -119,7 +163,7 @@ export default function RequisitionPrintView() {
                             </div>
                             <div className="w-1/2 flex p-1 items-center">
                                 <span className="w-28 font-bold">Fecha Elaboración:</span>
-                                <div className="flex-1 pl-1 truncate h-4">{new Date(req.created_at).toLocaleDateString()}</div>
+                                <div className="flex-1 pl-1 truncate h-4">{safeDate(req.created_at)}</div>
                             </div>
                         </div>
                         <div className="flex">
@@ -153,7 +197,7 @@ export default function RequisitionPrintView() {
                                 const item = req.items[i]
                                 return (
                                     <tr key={i} className="h-[18px]">
-                                        <td className="border border-black px-1 text-left truncate align-middle font-bold overflow-hidden whitespace-nowrap">
+                                        <td className="border border-black px-1 text-left truncate align-middle overflow-hidden whitespace-nowrap">
                                             {item?.notes || item?.material_name || ''}
                                         </td>
                                         <td className="border border-black align-middle">{item?.quantity_requested || item?.quantity || ''}</td>
@@ -168,39 +212,33 @@ export default function RequisitionPrintView() {
                         </tbody>
                     </table>
 
-                    {/* Justification */}
                     <div className="p-1 mb-2 h-12 text-[10px] flex items-start">
                         <span className="font-bold mr-2 whitespace-nowrap">Justificación de la compra:</span>
                         <span className="italic text-slate-800 break-words leading-tight">{req.comments || req.justification || req.purchase_justification || ''}</span>
                     </div>
 
-                    {/* Causa Legend */}
                     <div className="text-red-600 text-[9px] font-bold leading-tight">
                         CAUSA: <span className="underline">OP</span> (Operación normal), <span className="underline">LS</span> (Paro de linea), <span className="underline">HS</span> (Seguridad), <span className="underline">CB</span> (Requerimiento del cliente)
                     </div>
 
-                    {/* Spacer 18px */}
                     <div className="h-[18px]"></div>
 
-                    {/* Approvals & Footer Grid */}
                     <div className="flex flex-col gap-2">
-
-                        {/* Signatures Stack (Split Alignment) */}
                         <div className="text-[9px] w-full">
                             {/* Solicitante */}
                             <div className="flex justify-between items-end mb-2">
                                 <div className="w-[50%] flex items-end">
                                     <span className="font-bold mr-1 w-20">Solicitante:</span>
                                     <div className="border-b border-black flex-1 relative h-4">
-                                        {req.requester?.signature_url && (
-                                            <img src={req.requester.signature_url} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
+                                        {requesterSignatureUrl && (
+                                            <img src={requesterSignatureUrl} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
                                         )}
                                         <span className="relative z-0 truncate w-full block pl-1"></span>
                                     </div>
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
-                                    <span className="border-b border-black flex-1 text-center">{new Date(req.created_at).toLocaleDateString()}</span>
+                                    <span className="border-b border-black flex-1 text-center">{safeDate(requesterSignatureDate)}</span>
                                 </div>
                             </div>
 
@@ -217,7 +255,7 @@ export default function RequisitionPrintView() {
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
-                                    <span className="border-b border-black flex-1 text-center">{mxManager ? new Date(mxManager.performed_at).toLocaleDateString() : ''}</span>
+                                    <span className="border-b border-black flex-1 text-center">{safeDate(mxManager?.action_at)}</span>
                                 </div>
                             </div>
 
@@ -234,7 +272,7 @@ export default function RequisitionPrintView() {
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
-                                    <span className="border-b border-black flex-1 text-center">{chManager ? new Date(chManager.performed_at).toLocaleDateString() : ''}</span>
+                                    <span className="border-b border-black flex-1 text-center">{safeDate(chManager?.action_at)}</span>
                                 </div>
                             </div>
 
@@ -330,14 +368,13 @@ export default function RequisitionPrintView() {
                 </div>
 
                 {/* --- PAGE 2: IMAGES --- */}
-                {req.items.length > 0 && (
+                {req.items?.length > 0 && (
                     <div className="print:h-[27cm] flex flex-col page-break-before-always pt-4">
-                        {/* Header Repeat (Optional, not in screenshot but good practice, keeping clean per request just Grid) */}
                         <div className="grid grid-cols-2 gap-4 h-full">
-                            {Array.from({ length: 6 }).map((_, idx) => { // Always 6 slots
+                            {Array.from({ length: 6 }).map((_, idx) => {
                                 const item = req.items[idx]
                                 return (
-                                    <div key={idx} className="border border-black flex flex-col h-[7.5cm] mb-4 break-inside-avoid">
+                                    <div key={idx} className="border border-black flex flex-col h-[7.2cm] mb-4 break-inside-avoid">
                                         <div className="flex-1 flex items-center justify-center p-2 overflow-hidden bg-white relative">
                                             {item?.image_url ? (
                                                 <img src={item.image_url} alt={item.material_name} className="max-h-full max-w-full object-contain" />

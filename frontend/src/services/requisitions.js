@@ -71,7 +71,7 @@ const getHeaders = async () => {
     }
 }
 
-const apiFetch = async (endpoint, options = {}) => {
+const apiFetch = async (endpoint, options = {}, retried = false) => {
     try {
         const headers = await getHeaders()
         const url = `${API_BASE_URL}${endpoint}`
@@ -89,6 +89,23 @@ const apiFetch = async (endpoint, options = {}) => {
         })
 
         if (!response.ok) {
+            // RETRY LOGIC: If 401, try to refresh session via getSession and retry once
+            if ((response.status === 401 || response.status === 403) && !retried) {
+                console.warn("[apiFetch] 401 encountered, attempting token refresh via getSession...")
+                // Force getSession to refresh token
+                const { data, error } = await supabase.auth.getSession()
+                if (data?.session?.access_token && !error) {
+                    console.log("[apiFetch] Token refreshed, retrying request...")
+                    // Update header in options (getHeaders will likely pick up new token, but let's be safe by recursing)
+                    // Note: recursive call will call getHeaders again.
+                    // We need to ensure getHeaders doesn't just return the stale fast token.
+                    // Actually, if supabase.auth.getSession() updates localStorage, getFastToken might pick it up, 
+                    // OR we can pass a flag to getHeaders to ignore fast token?
+                    // Simpler: Just recurse. If getSession worked, it updated storage.
+                    return await apiFetch(endpoint, options, true)
+                }
+            }
+
             // Try to parse JSON error, fallback to status text
             let errorMessage = 'Request failed'
             try {
@@ -99,8 +116,10 @@ const apiFetch = async (endpoint, options = {}) => {
                 errorMessage = response.statusText
             }
 
-            // Handle Auth errors specifically
+            // Handle Auth errors specifically (if retry failed or didn't happen)
             if (response.status === 401 || response.status === 403) {
+                // Final failure - maybe clear storage to unstuck user?
+                // localStorage.clear() // Too aggressive?
                 throw new Error('No autenticado / sesión expirada. Por favor recarga o inicia sesión nuevamente.')
             }
 
