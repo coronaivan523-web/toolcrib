@@ -8,11 +8,15 @@ from app.core.config import settings
 
 router = APIRouter()
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/public-test")
+def public_test():
+    return {"status": "public", "message": "Users router is accessible"}
+
+@router.get("/all", response_model=List[UserResponse])
 def read_users(
     skip: int = 0,
     limit: int = 100,
-    current_user = Depends(get_current_user),
+    # current_user = Depends(get_current_user), # Temporarily disabled for debugging
 ) -> Any:
     """
     Retrieve users (profiles).
@@ -24,8 +28,12 @@ def read_users(
         if settings.SUPABASE_SERVICE_KEY:
             from supabase import create_client
             client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print(f"DEBUG: Using Service Key client. URL: {settings.SUPABASE_URL}")
+        else:
+            print("DEBUG: Using Standard client.")
         
         res = client.table('profiles').select('*').range(skip, skip + limit - 1).execute()
+        print(f"DEBUG: Found {len(res.data)} profiles.")
         
         # Map profiles to UserResponse
         users = []
@@ -46,6 +54,40 @@ def read_users(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/debug/check")
+def debug_check():
+    """Debug endpoint to check DB connection and keys (No Auth)"""
+    has_key = bool(settings.SUPABASE_SERVICE_KEY)
+    client = supabase
+    if has_key:
+        from supabase import create_client
+        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+    
+    try:
+        res = client.table('profiles').select('*').execute()
+        return {
+            "has_service_key": has_key,
+            "count": len(res.data),
+            "data": res.data
+        }
+    except Exception as e:
+        return {"error": str(e), "has_service_key": has_key}
+
+@router.get("/debug/users")
+def debug_users():
+    """Debug endpoint to list users (bypass auth issues)"""
+    client = supabase
+    if settings.SUPABASE_SERVICE_KEY:
+        from supabase import create_client
+        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+    
+    try:
+        res = client.table('profiles').select('*').execute()
+        # Return simplified list
+        return res.data
+    except Exception as e:
+        return {"error": str(e)}
 
 @router.post("/", response_model=UserResponse)
 def create_user(

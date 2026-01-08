@@ -208,7 +208,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                 <User size={12} /> Requester
                             </span>
                             <div className="font-semibold text-slate-800 text-lg">
-                                {requisition.requester?.full_name || requisition.requester?.email || requisition.requester_id || 'Unknown'}
+                                {requisition.requester_name || requisition.requester?.full_name || requisition.requester?.email || requisition.requester_id || 'Unknown'}
                             </div>
                         </div>
                         <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
@@ -217,6 +217,23 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             </span>
                             <div className={clsx("font-bold text-lg inline-flex items-center gap-1.5", requisition.priority === 'URGENT' ? 'text-red-600' : 'text-slate-800')}>
                                 {requisition.priority}
+                            </div>
+                        </div>
+                        <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                            <span className="text-xs uppercase tracking-wider font-bold text-blue-500/80 flex items-center gap-1.5 mb-2">
+                                <AlertCircle size={12} /> Criticality
+                            </span>
+                            <div className="font-bold text-lg text-slate-800">
+                                {(() => {
+                                    const code = requisition.criticality_requested;
+                                    const labels = {
+                                        'C1': 'C1 - Normal',
+                                        'C2': 'C2 - Urgent',
+                                        'C3': 'C3 - Crítico',
+                                        'C4': 'C4 - Proyecto Especial'
+                                    };
+                                    return labels[code] || code || 'N/A';
+                                })()}
                             </div>
                         </div>
                         <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Save, Send, AlertCircle, Paperclip, FileText, Image as ImageIcon, ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 import MaterialAutocomplete from './MaterialAutocomplete'
+import UserAutocomplete from './UserAutocomplete'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 
@@ -19,6 +20,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const [openCostCenterDropdownId, setOpenCostCenterDropdownId] = useState(null) // ID of item with open cost center dropdown
 
     // Form Data
+    const [debugLog, setDebugLog] = useState("") // Visible debug for user
     const [header, setHeader] = useState({
         priority: 'NORMAL',
         justification: '',
@@ -103,45 +105,18 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     // --- Effects ---
     useEffect(() => {
         if (isOpen) {
-            // Reset
+            // Reset Form Fields
             setHeader({
                 priority: 'NORMAL',
                 justification: '',
-                department: currentUser?.department || '', // Ideally verify if profile has this now
+                department: currentUser?.department || '',
                 job_title: currentUser?.job_title || '',
                 requester_name: '',
                 cause: '',
                 criticality_requested: ''
             })
-            setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
-            setPendingFiles([])
-            setPreviews([])
-            setIsSubmittingMode(false)
-            setError(null)
-            setTeamApprovers({
-                mx1: { userId: '', order: '1' },
-                mx2: { userId: '', order: '2' },
-                ch1: { userId: '', order: '3' },
-                ch2: { userId: '', order: '4' },
-                gmx: { userId: '', order: '5' },
-                gch: { userId: '', order: '6' }
-            })
-            if (propUsers && propUsers.length > 0) {
-                setUsers(propUsers)
-            } else {
-                loadUsers()
-            }
-        }
-    }, [isOpen, propUsers])
 
-    // Cleanup previews to avoid memory leaks
-    useEffect(() => {
-        return () => previews.forEach(p => URL.revokeObjectURL(p.url))
-    }, [previews])
-
-    // Handle initial items from parent (e.g. from Reports)
-    useEffect(() => {
-        if (isOpen) {
+            // Handle Initial Items
             if (initialItems && initialItems.length > 0) {
                 const mappedItems = initialItems.map((item, index) => ({
                     id: Date.now() + index,
@@ -157,26 +132,30 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 }))
                 setItems(mappedItems)
             } else {
-                // Only reset if we are opening fresh without initial items
-                // This prevents overwriting if user closes/reopens and we want persistence?
-                // Actually, usually we want to reset on open.
                 setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
             }
-            // Reset header on open
-            setHeader(prev => ({
-                ...prev,
-                justification: '',
-                priority: 'NORMAL',
-                requester_name: '',
-                cause: '',
-                criticality_requested: '',
-                // Keep department/job_title from profile
-            }))
-            // Clear files
+
             setPendingFiles([])
             setPreviews([])
+            setIsSubmittingMode(false)
+            setError(null)
+            setTeamApprovers({
+                mx1: { userId: '', order: '1' },
+                mx2: { userId: '', order: '2' },
+                ch1: { userId: '', order: '3' },
+                ch2: { userId: '', order: '4' },
+                gmx: { userId: '', order: '5' },
+                gch: { userId: '', order: '6' }
+            })
         }
-    }, [isOpen, initialItems])
+    }, [isOpen])
+
+    // Sync users prop to state
+    useEffect(() => {
+        if (propUsers && propUsers.length > 0) {
+            setUsers(propUsers)
+        }
+    }, [propUsers])
 
     const loadUsers = async () => {
         try {
@@ -380,12 +359,13 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         }
 
         setLoading(true)
+        setDebugLog("Start: Validating & Payload...")
         setError(null)
         try {
             // 1. Create Payload (without attachments)
             const payload = {
                 ...header,
-                priority: header.criticality_requested === 'C2' ? 'HIGH' : header.criticality_requested === 'C3' ? 'URGENT' : 'NORMAL', // Map C-levels to old Priority
+                priority: header.criticality_requested === 'C2' ? 'HIGH' : header.criticality_requested === 'C3' ? 'URGENT' : header.criticality_requested === 'C4' ? 'HIGH' : 'NORMAL', // Map C-levels to old Priority
                 items: items.map(i => ({
                     ...i,
                     quantity_requested: parseInt(i.quantity),
@@ -395,12 +375,22 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             }
 
             // 2. Create Draft in DB
-            const req = await requisitionService.createDraft(payload)
+            let req;
+            try {
+                setDebugLog("Sending to Backend (createDraft)...")
+                req = await requisitionService.createDraft(payload)
+                setDebugLog("Backend Responded! Draft ID: " + req.id)
+            } catch (err) {
+                console.error("Backend Draft Creation Failed", err)
+                setDebugLog("Backend Failed: " + err.message)
+                throw new Error(`[Backend] ${err.message}`)
+            }
             const reqId = req.id
 
             // 3. Upload Files
             const uploadedMetadata = []
             if (pendingFiles.length > 0) {
+                setDebugLog("Uploading " + pendingFiles.length + " files...")
                 for (const file of pendingFiles) {
                     const fileExt = file.name.split('.').pop()
                     const fileName = `${reqId}/${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`
@@ -425,6 +415,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 // But we wanted to upload first to get URLs.
                 // So now we can call a simple insert.
                 if (uploadedMetadata.length > 0) {
+                    setDebugLog("Saving attachment metadata...")
                     const { error: insError } = await supabase
                         .from('requisition_attachments')
                         .insert(uploadedMetadata)
@@ -436,6 +427,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
 
             // 5. Submit Logic (Custom Approvals)
             if (isSubmit) {
+                setDebugLog("Submitting Workflow...")
                 const potentialApprovers = [
                     { id: 'mx1', ...teamApprovers.mx1, label: 'Team Mexicano (1)' },
                     { id: 'mx2', ...teamApprovers.mx2, label: 'Team Mexicano (2)' },
@@ -459,11 +451,13 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 })
             }
 
-            if (onSuccess) await onSuccess()
+            setDebugLog("Success! Closing...")
+            if (onSuccess) onSuccess() // FIRE AND FORGET - Don't wait for refresh
             onClose()
 
         } catch (e) {
             console.error(e)
+            setDebugLog("CRITICAL ERROR: " + e.message)
             setError(e.message || "An error occurred")
         } finally {
             setLoading(false)
@@ -477,7 +471,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-primary-800 bg-primary-900 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-white tracking-wide">New Requisition</h2>
+                        <h2 className="text-xl font-bold text-white tracking-wide">New Requisition <span className="text-xs opacity-50">Debug: U{users.length}/A{approverUsers.length}</span></h2>
                     </div>
                     <button onClick={onClose} className="p-2 text-primary-200 hover:text-white hover:bg-primary-800 rounded-full transition-colors">
                         <X size={20} />
@@ -738,109 +732,97 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                     )}
 
                                     <div className="max-w-2xl mx-auto space-y-6">
-                                        {/* Team Mexicano */}
+                                        {/* STAFF (Mexicano) */}
                                         <div className="bg-white p-4 rounded-lg border border-slate-200">
                                             <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                                                Team Mexicano
+                                                STAFF
                                             </h4>
                                             <div className="space-y-3">
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
                                                         <label className="text-[10px] uppercase font-bold text-slate-500">Firma 1</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.mx1.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx1: { ...teamApprovers.mx1, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.mx1.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, mx1: { ...teamApprovers.mx1, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
                                                         <label className="text-[10px] uppercase font-bold text-slate-500">Firma 2</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.mx2.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx2, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.mx2.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx1, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Team Chino */}
+                                        {/* STAFF (Chino) */}
                                         <div className="bg-white p-4 rounded-lg border border-slate-200">
                                             <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                                                Team Chino
+                                                STAFF
                                             </h4>
                                             <div className="space-y-3">
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 1</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.ch1.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch1: { ...teamApprovers.ch1, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 3</label>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.ch1.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, ch1: { ...teamApprovers.ch1, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 2</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.ch2.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, ch2: { ...teamApprovers.ch2, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 4</label>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.ch2.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, ch2: { ...teamApprovers.ch2, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Gerencia */}
+                                        {/* MANAGEMENT */}
                                         <div className="bg-white p-4 rounded-lg border border-slate-200">
                                             <h4 className="font-bold text-slate-800 mb-3 uppercase text-xs tracking-wider flex items-center gap-2">
                                                 <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                                                Gerencia
+                                                MANAGEMENT
                                             </h4>
                                             <div className="space-y-3">
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Gerente Mexicano</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.gmx.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gmx: { ...teamApprovers.gmx, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 1</label>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.gmx.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, gmx: { ...teamApprovers.gmx, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <div className="flex-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Gerente Chino</label>
-                                                        <select
-                                                            className="w-full rounded border-slate-300 text-sm"
-                                                            value={teamApprovers.gch.userId}
-                                                            onChange={e => setTeamApprovers({ ...teamApprovers, gch: { ...teamApprovers.gch, userId: e.target.value } })}
-                                                        >
-                                                            <option value="">Select User...</option>
-                                                            {approverUsers.map(u => <option key={u.id} value={u.id}>{u.full_name || u.email}</option>)}
-                                                        </select>
+                                                        <label className="text-[10px] uppercase font-bold text-slate-500">Firma 2</label>
+                                                        <UserAutocomplete
+                                                            users={approverUsers}
+                                                            selectedUserId={teamApprovers.gch.userId}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, gch: { ...teamApprovers.gch, userId: id } })}
+                                                            placeholder="Search User..."
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
@@ -893,44 +875,52 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
-                    {!isSubmittingMode ? (
-                        <>
-                            <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:text-slate-800 text-sm font-medium">Cancel</button>
-                            <div className="flex gap-3">
+                <div className="flex-col">
+                    <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-between items-center shrink-0">
+                        {!isSubmittingMode ? (
+                            <>
+                                <button onClick={onClose} className="px-4 py-2 text-slate-600 hover:text-slate-800 text-sm font-medium">Cancel</button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => saveOrSubmit(false)}
+                                        disabled={loading}
+                                        className="px-5 py-2 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center gap-2"
+                                    >
+                                        <Save size={16} /> Save Draft
+                                    </button>
+                                    <button
+                                        onClick={() => handleSubmitClick()}
+                                        disabled={loading}
+                                        className="px-5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-bold text-sm flex items-center gap-2 shadow-lg shadow-primary-200"
+                                    >
+                                        Next Step
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
                                 <button
-                                    onClick={() => saveOrSubmit(false)}
-                                    disabled={loading}
-                                    className="px-5 py-2 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center gap-2"
+                                    onClick={() => setIsSubmittingMode(false)}
+                                    className="px-4 py-2 text-slate-600 hover:text-slate-800 text-sm font-medium"
                                 >
-                                    <Save size={16} /> Save Draft
+                                    Back to Form
                                 </button>
                                 <button
-                                    onClick={() => handleSubmitClick()}
+                                    onClick={() => saveOrSubmit(true)}
                                     disabled={loading}
-                                    className="px-5 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-bold text-sm flex items-center gap-2 shadow-lg shadow-primary-200"
+                                    className={`px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg ${loading ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'}`}
                                 >
-                                    Next Step
+                                    <Send size={16} />
+                                    {loading ? 'Processing...' : 'Confirm Submission'}
                                 </button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <button
-                                onClick={() => setIsSubmittingMode(false)}
-                                className="px-4 py-2 text-slate-600 hover:text-slate-800 text-sm font-medium"
-                            >
-                                Back to Form
-                            </button>
-                            <button
-                                onClick={() => saveOrSubmit(true)}
-                                disabled={loading}
-                                className={`px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg ${loading ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none' : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'}`}
-                            >
-                                <Send size={16} />
-                                {loading ? 'Processing...' : 'Confirm Submission'}
-                            </button>
-                        </>
+                            </>
+                        )}
+                    </div>
+                    {/* VISIBLE DEBUG LOG */}
+                    {loading && debugLog && (
+                        <div className="px-6 py-2 bg-black text-green-400 font-mono text-xs border-t border-slate-800">
+                            &gt; {debugLog}
+                        </div>
                     )}
                 </div>
             </div >

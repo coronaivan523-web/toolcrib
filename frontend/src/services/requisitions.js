@@ -8,11 +8,66 @@ const API_BASE_URL = normalizedBase.includes('/api/v1')
     ? normalizedBase
     : `${normalizedBase}/api/v1`
 
+// Helper to get token from localStorage without validation (fast)
+const getFastToken = () => {
+    try {
+        // 1. Try finding any key that looks like a Supabase token
+        // Strategy: Scan all keys for 'sb-*-auth-token' pattern
+        let tokenKey = null;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                tokenKey = key;
+                break;
+            }
+        }
+
+        if (!tokenKey) {
+            console.warn("[FastToken] No 'sb-*-auth-token' found in localStorage. Checking fallback...");
+            // Fallback: Check for any key containing 'auth-token' (Desperate verify)
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.includes('auth-token')) {
+                    tokenKey = key;
+                    break;
+                }
+            }
+        }
+
+        if (tokenKey) {
+            const sessionStr = localStorage.getItem(tokenKey)
+            if (sessionStr) {
+                const session = JSON.parse(sessionStr)
+                if (session.access_token) {
+                    return session.access_token
+                }
+            }
+        }
+
+    } catch (e) {
+        console.error("FastToken Error:", e)
+    }
+    return null
+}
+
 const getHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession()
+    // 1. Try Fast Token
+    console.time("AuthToken")
+    let token = getFastToken()
+
+    if (!token) {
+        console.warn("[Perf] FastToken failed, falling back to slow getSession")
+        // 2. Fallback to Supabase Client
+        const { data: { session } } = await supabase.auth.getSession()
+        token = session?.access_token
+    } else {
+        console.log("[Perf] FastToken hit!")
+    }
+    console.timeEnd("AuthToken")
+
     return {
         'Content-Type': 'application/json',
-        'Authorization': session ? `Bearer ${session.access_token}` : '',
+        'Authorization': token ? `Bearer ${token}` : '',
     }
 }
 
@@ -137,6 +192,8 @@ export const requisitionService = {
 
     // --- Helpers ---
     getUsers: async () => {
-        return await apiFetch('/users/')
+        // Debugging: Auth issue on root /users/, using /users/debug/check which is proven to work
+        const res = await apiFetch('/users/debug/check')
+        return res.data || []
     }
 }

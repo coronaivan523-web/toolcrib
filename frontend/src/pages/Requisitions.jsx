@@ -33,12 +33,11 @@ export default function Requisitions() {
     // View Mode
     const [viewMode, setViewMode] = useState('all') // 'all' | 'inbox'
 
-    // Fetch Data
-    const fetchData = async () => {
+    // Fetch just the requisitions (Fast Refresh)
+    const fetchRequisitions = async () => {
         setLoading(true)
         setError(null)
         try {
-            // 1. Fetch Requisitions
             let reqData = []
             if (viewMode === 'inbox') {
                 reqData = await requisitionService.getInbox()
@@ -49,14 +48,24 @@ export default function Requisitions() {
             }
             setRequisitions(reqData)
 
-            // Always fetch inbox count for the badge
+            // Inbox Count (Fast)
             try {
                 const inboxData = await requisitionService.getInbox()
                 setInboxCount(inboxData.length)
             } catch (ignore) { console.warn("Failed to fetch inbox count", ignore) }
 
+        } catch (err) {
+            console.error("Error fetching requisitions:", err)
+            setError(err.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Fetch Static Data (Materials, Users) - Run Once
+    const fetchStaticData = async () => {
+        try {
             // 2. Fetch Materials for Mapping (Lightweight)
-            // Added unit_of_measure to fix population issue reported by user
             const { data: matData } = await supabase
                 .from('materials')
                 .select('id, name, part_number, description, image_url, unit, unit_of_measure')
@@ -64,18 +73,15 @@ export default function Requisitions() {
             if (matData) {
                 const matMap = {}
                 matData.forEach(m => {
-                    // Fix Image URL: Prepend Supabase Storage URL if it's just a filename
                     let finalImageUrl = m.image_url
                     if (m.image_url && !m.image_url.startsWith('http')) {
                         finalImageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${m.image_url}`
                     }
-
-                    // Map unit_of_measure to unit to ensure compatibility with RequisitionFormModal
                     matMap[m.id] = {
                         ...m,
                         image_url: finalImageUrl,
                         unit: m.unit_of_measure || m.unit || 'EA',
-                        uom: m.unit_of_measure // Ensure fallback
+                        uom: m.unit_of_measure
                     }
                 })
                 setMaterials(matMap)
@@ -91,19 +97,15 @@ export default function Requisitions() {
                 setUsersList(users)
                 setUsersMap(uMap)
             }
-
-        } catch (err) {
-            console.error("Error fetching requisitions:", err)
-            console.error("[Requisitions.jsx] Load error details:", err.name, err.message)
-            setError(err.message)
-        } finally {
-            setLoading(false)
+        } catch (e) {
+            console.error("Error loading static data:", e)
         }
     }
 
     // Initial Fetch and Realtime Subscription
     useEffect(() => {
-        fetchData()
+        fetchStaticData()
+        fetchRequisitions()
 
         // Realtime Subscription
         const channel = supabase
@@ -113,7 +115,7 @@ export default function Requisitions() {
                 { event: '*', schema: 'public', table: 'requisitions' },
                 (payload) => {
                     console.log('Realtime change in requisitions:', payload)
-                    fetchData()
+                    fetchRequisitions()
                 }
             )
             .on(
@@ -121,7 +123,7 @@ export default function Requisitions() {
                 { event: '*', schema: 'public', table: 'requisition_approvals' },
                 (payload) => {
                     console.log('Realtime change in approvals:', payload)
-                    fetchData()
+                    fetchRequisitions()
                 }
             )
             .subscribe()
@@ -170,7 +172,7 @@ export default function Requisitions() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={fetchData}
+                        onClick={fetchRequisitions}
                         className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                         title="Refresh"
                     >
@@ -339,12 +341,21 @@ export default function Requisitions() {
                                                     req.priority === 'HIGH' ? 'text-orange-600' :
                                                         'text-slate-600'
                                             )}>
-                                                {req.priority === 'URGENT' && <AlertCircle size={12} />}
-                                                {req.priority}
+                                                {req.criticality_requested === 'C4' ? (
+                                                    <span className="text-purple-600 flex items-center gap-1">
+                                                        <AlertCircle size={12} />
+                                                        PROYECTO ESP.
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        {req.priority === 'URGENT' && <AlertCircle size={12} />}
+                                                        {req.priority}
+                                                    </>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
-                                            {req.requester?.full_name || req.requester?.email || 'Unknown'}
+                                            {req.requester_name || req.requester?.full_name || req.requester?.email || 'Unknown'}
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 text-xs">
                                             {new Date(req.submitted_at || req.created_at).toLocaleDateString()}
@@ -376,14 +387,14 @@ export default function Requisitions() {
                 materials={materials}
                 usersMap={usersMap}
                 currentUser={userProfile}
-                onActionSuccess={fetchData}
+                onActionSuccess={fetchRequisitions}
             />
 
             {/* Create Modal */}
             <RequisitionFormModal
                 isOpen={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
-                onSuccess={fetchData}
+                onSuccess={fetchRequisitions}
                 materials={materials}
                 users={usersList}
                 currentUser={userProfile}

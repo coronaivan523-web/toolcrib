@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList, User } from 'lucide-react'
 import clsx from 'clsx'
 
 const ALL_NAVIGATION = [
@@ -123,11 +123,11 @@ export default function Layout() {
                     </div>
                     {sidebarOpen && (
                         <div className="px-5 pb-4 border-b border-primary-800">
-                            <div className="flex items-center gap-4 mb-3">
-                                <div className="flex-shrink-0 h-12 w-12 rounded-full bg-primary-700 flex items-center justify-center text-white font-bold text-lg ring-2 ring-primary-600 overflow-hidden">
-                                    {session.user.user_metadata?.avatar_url ? (
+                            <Link to="/profile" className="flex flex-col items-center gap-4 mb-6 mt-4 p-2 rounded-xl hover:bg-primary-800 transition-all group">
+                                <div className="flex-shrink-0 h-44 w-44 rounded-full bg-primary-700 flex items-center justify-center text-white font-bold text-5xl ring-4 ring-primary-600 overflow-hidden group-hover:ring-primary-500 shadow-2xl transition-all">
+                                    {userProfile?.avatar_url ? (
                                         <img
-                                            src={session.user.user_metadata.avatar_url}
+                                            src={userProfile.avatar_url}
                                             alt="User Avatar"
                                             className="h-full w-full object-cover"
                                         />
@@ -135,11 +135,11 @@ export default function Layout() {
                                         session.user.email[0].toUpperCase()
                                     )}
                                 </div>
-                                <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-sm font-medium text-white break-words leading-tight">{session.user.email}</span>
-                                    <span className="text-xs text-primary-300 mt-0.5">Online</span>
+                                <div className="flex flex-col items-center text-center w-full min-w-0 px-1">
+                                    <span className="text-sm font-bold text-white break-words w-full leading-tight group-hover:text-primary-100 transition-colors">{session.user.email}</span>
+                                    <span className="text-xs text-primary-400 mt-1.5 group-hover:text-primary-300 font-medium tracking-wide">EDIT PROFILE</span>
                                 </div>
-                            </div>
+                            </Link>
                             {/* Admin View Selector Dropdown */}
                             {userProfile?.role === 'admin' && (
                                 <div className="relative">
@@ -247,7 +247,7 @@ export default function Layout() {
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <main className="flex-1 h-full flex flex-col">
+                <main className="flex-1 h-full flex flex-col overflow-auto">
                     <Outlet context={{ userProfile, adminViewMode }} />
                 </main>
             </div>

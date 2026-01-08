@@ -50,6 +50,8 @@ export default function RequisitionPrintView() {
         }
     }
 
+    const getCauseLabel = (code) => code || ''
+
     if (loading) return <div className="p-10 text-center">Loading print view...</div>
     if (!req) return <div className="p-10 text-center text-red-500">Requisition not found</div>
 
@@ -113,7 +115,7 @@ export default function RequisitionPrintView() {
                         <div className="flex">
                             <div className="w-1/2 flex p-1 items-center">
                                 <span className="w-20 font-bold">Solicitante:</span>
-                                <div className="flex-1 pl-1 truncate h-4">{req.requester?.full_name}</div>
+                                <div className="flex-1 pl-1 truncate h-4">{req.requester_name || req.requester?.full_name}</div>
                             </div>
                             <div className="w-1/2 flex p-1 items-center">
                                 <span className="w-28 font-bold">Fecha Elaboración:</span>
@@ -123,11 +125,11 @@ export default function RequisitionPrintView() {
                         <div className="flex">
                             <div className="w-1/2 flex p-1 items-center">
                                 <span className="w-20 font-bold">Puesto:</span>
-                                <div className="flex-1 pl-1 truncate h-4">{req.requester?.position || ''}</div>
+                                <div className="flex-1 pl-1 truncate h-4">{req.requester?.job_title || req.job_title || ''}</div>
                             </div>
                             <div className="w-1/2 flex p-1 items-center relative">
                                 <span className="w-28 font-bold">Departamento:</span>
-                                <div className="flex-1 pl-1 truncate h-4">{req.requester?.department || ''}</div>
+                                <div className="flex-1 pl-1 truncate h-4">{req.requester?.department || req.department || ''}</div>
                                 <div className="absolute right-1 top-1 text-red-600 font-bold text-[8px]">*SOLO COMPRA RECURRENTE</div>
                             </div>
                         </div>
@@ -151,11 +153,13 @@ export default function RequisitionPrintView() {
                                 const item = req.items[i]
                                 return (
                                     <tr key={i} className="h-[18px]">
-                                        <td className="border border-black px-1 text-left truncate align-middle">{item?.material_name || ''}</td>
-                                        <td className="border border-black align-middle">{item?.quantity || ''}</td>
-                                        <td className="border border-black align-middle"></td>
-                                        <td className="border border-black align-middle"></td>
-                                        <td className="border border-black align-middle">{req.cost_center || ''}</td>
+                                        <td className="border border-black px-1 text-left truncate align-middle font-bold overflow-hidden whitespace-nowrap">
+                                            {item?.notes || item?.material_name || ''}
+                                        </td>
+                                        <td className="border border-black align-middle">{item?.quantity_requested || item?.quantity || ''}</td>
+                                        <td className="border border-black align-middle uppercase">{item?.unit ? item.unit.substring(0, 4) : ''}</td>
+                                        <td className="border border-black align-middle">{getCauseLabel(item?.cause || req.cause)}</td>
+                                        <td className="border border-black align-middle">{item?.cost_center || ''}</td>
                                         <td className="border border-black align-middle">{item?.project_code || ''}</td>
                                         <td className="border border-black align-middle"></td>
                                     </tr>
@@ -187,7 +191,12 @@ export default function RequisitionPrintView() {
                             <div className="flex justify-between items-end mb-2">
                                 <div className="w-[50%] flex items-end">
                                     <span className="font-bold mr-1 w-20">Solicitante:</span>
-                                    <span className="border-b border-black flex-1 truncate">{req.requester?.full_name}</span>
+                                    <div className="border-b border-black flex-1 relative h-4">
+                                        {req.requester?.signature_url && (
+                                            <img src={req.requester.signature_url} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
+                                        )}
+                                        <span className="relative z-0 truncate w-full block pl-1"></span>
+                                    </div>
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
@@ -199,7 +208,12 @@ export default function RequisitionPrintView() {
                             <div className="flex justify-between items-end mb-2">
                                 <div className="w-[50%] flex items-end">
                                     <span className="font-bold mr-1 w-20">Gerente MX:</span>
-                                    <span className="border-b border-black flex-1 truncate text-green-700">{mxManager ? mxManager.approver?.full_name + '' : ''}</span>
+                                    <div className="border-b border-black flex-1 relative h-4">
+                                        {mxManager?.approver?.signature_url && (
+                                            <img src={mxManager.approver.signature_url} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
+                                        )}
+                                        <span className="relative z-0 truncate w-full block pl-1 text-green-700"></span>
+                                    </div>
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
@@ -211,7 +225,12 @@ export default function RequisitionPrintView() {
                             <div className="flex justify-between items-end mb-2">
                                 <div className="w-[50%] flex items-end">
                                     <span className="font-bold mr-1 w-20">Gerente CH:</span>
-                                    <span className="border-b border-black flex-1 truncate text-blue-700">{chManager ? chManager.approver?.full_name + '' : ''}</span>
+                                    <div className="border-b border-black flex-1 relative h-4">
+                                        {chManager?.approver?.signature_url && (
+                                            <img src={chManager.approver.signature_url} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
+                                        )}
+                                        <span className="relative z-0 truncate w-full block pl-1 text-blue-700"></span>
+                                    </div>
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
@@ -274,18 +293,22 @@ export default function RequisitionPrintView() {
                                     </thead>
                                     <tbody>
                                         {[
-                                            { id: 'C1', label: 'Normal', match: req.priority === 'NORMAL' },
-                                            { id: 'C2', label: 'Urgent', match: req.priority === 'HIGH' },
-                                            { id: 'C3', label: 'Crítico', match: req.priority === 'URGENT' },
-                                            { id: 'C4', label: 'Proyecto Esp.', match: false },
-                                        ].map(r => (
-                                            <tr key={r.id}>
-                                                <td className="border border-black text-left px-1 py-0.5">({r.id}) {r.label}</td>
-                                                <td className="border border-black font-bold"></td>
-                                                <td className="border border-black"></td>
-                                                <td className="border border-black"></td>
-                                            </tr>
-                                        ))}
+                                            { id: 'C1', label: 'Normal' },
+                                            { id: 'C2', label: 'Urgent' },
+                                            { id: 'C3', label: 'Crítico' },
+                                            { id: 'C4', label: 'Proyecto Esp.' },
+                                        ].map(r => {
+                                            const val = (req.criticality || req.criticality_requested || req.priority || '').toUpperCase()
+                                            const match = val.includes(r.id) || val.includes(r.label.toUpperCase()) || (r.id === 'C1' && val === 'NORMAL') || (r.id === 'C2' && val === 'HIGH') || (r.id === 'C3' && val === 'URGENT')
+                                            return (
+                                                <tr key={r.id}>
+                                                    <td className="border border-black text-left px-1 py-0.5">({r.id}) {r.label}</td>
+                                                    <td className="border border-black text-sm leading-none align-middle bg-white">{match ? 'X' : ''}</td>
+                                                    <td className="border border-black bg-white"></td>
+                                                    <td className="border border-black"></td>
+                                                </tr>
+                                            )
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

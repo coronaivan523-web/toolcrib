@@ -14,6 +14,7 @@ import RoleBasedHome from './components/RoleBasedHome'
 
 import Requisitions from './pages/Requisitions'
 import RequisitionPrintView from './pages/RequisitionPrintView'
+import Profile from './pages/Profile'
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/tickets" element={<Tickets />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

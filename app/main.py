@@ -27,6 +27,7 @@ app.include_router(requisitions.router, prefix=f"{settings.API_V1_STR}/requisiti
 
 @app.get("/")
 def root():
+    print("DEBUG: Root endpoint accessed.")
     return {"message": "Welcome to Tool Crib API (Supabase Edition)"}
 
 @app.get("/health/supabase")

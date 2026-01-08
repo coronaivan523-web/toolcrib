@@ -117,6 +117,7 @@ class RequisitionBase(BaseModel):
     cause: Optional[str] = None
     criticality_requested: Optional[str] = None # C1, C2, C3, C4
     criticality_assigned: Optional[str] = None
+    requester_name: Optional[str] = None
 
 class RequisitionCreate(RequisitionBase):
     items: List[RequisitionItemCreate]

@@ -12,17 +12,31 @@ from app.schemas.requisition import (
 )
 
 class RequisitionService:
-    @staticmethod
-    def _get_admin_client():
+    _cached_admin_client = None
+
+    @classmethod
+    def _get_admin_client(cls):
+        if cls._cached_admin_client:
+            return cls._cached_admin_client
+
         # Prefer global admin client, fallback to manual creation, fallback to anon
         if supabase_admin:
+            cls._cached_admin_client = supabase_admin
             return supabase_admin
+            
         if settings.SUPABASE_SERVICE_KEY:
-            return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            print("[INFO] Creating new Supabase Admin Client (Cached)")
+            cls._cached_admin_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+            return cls._cached_admin_client
+            
         return supabase
     
     @staticmethod
     def create_draft(requester_id: UUID, data: RequisitionCreate) -> Dict[str, Any]:
+        import time
+        t_start = time.time()
+        print(f"[SVC] create_draft start for {requester_id}")
+        
         # Use admin client to bypass RLS for creation (API layer checks permissions)
         client = RequisitionService._get_admin_client()
         
@@ -38,12 +52,19 @@ class RequisitionService:
             "job_title": data.job_title,
             "cause": data.cause,
             "criticality_requested": data.criticality_requested,
-            "criticality_assigned": data.criticality_assigned
+            "criticality_assigned": data.criticality_assigned,
+            "requester_name": data.requester_name
         }
-        res = client.table('requisitions').insert(req_data).execute()
         
+        try:
+            res = client.table('requisitions').insert(req_data).execute()
+        except Exception as e:
+            sk_len = len(settings.SUPABASE_SERVICE_KEY) if settings.SUPABASE_SERVICE_KEY else 0
+            client_type = "ADMIN" if client == cls._cached_admin_client and settings.SUPABASE_SERVICE_KEY else "ANON/FALLBACK"
+            raise HTTPException(status_code=400, detail=f"DB Insert Failed: {e} | Client: {client_type} | SK_Len: {sk_len}")
+
         if not res.data:
-            raise HTTPException(status_code=500, detail="Failed to create requisition")
+            raise HTTPException(status_code=500, detail="Failed to create requisition - No data returned")
             
         requisition = res.data[0]
         req_id = requisition['id']
@@ -62,9 +83,12 @@ class RequisitionService:
                     "supplier": item.supplier,
                     "cost_center": item.cost_center,
                     "project_code": item.project_code,
-                    "monthly_consumption": item.monthly_consumption
+                    "monthly_consumption": item.monthly_consumption,
+                    "monthly_consumption": item.monthly_consumption,
+                    "cause": item.cause
                 })
             
+            # print(f"\\n[DEBUG] Inserting items data: {items_data}\\n")
             client.table('requisition_items').insert(items_data).execute()
 
         # 3. Insert Attachments (if any)
@@ -345,21 +369,28 @@ class RequisitionService:
         if not req_ids:
              return []
              
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*)').in_('id', req_ids).execute()
+        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').in_('id', req_ids).execute()
             
         return res.data
 
-    @staticmethod
-    def get_requisitions(
-        skip: int = 0, 
-        limit: int = 100, 
-        status: Optional[str] = None,
-        requester_id: Optional[UUID] = None
-    ) -> List[Dict[str, Any]]:
+    @classmethod
+    def get_user_role(cls, user_id: str) -> str:
+        """ Fetch user role using Admin Client to bypass RLS and potential timeouts. """
+        client = cls._get_admin_client()
+        try:
+            res = client.table('profiles').select('role').eq('id', user_id).single().execute()
+            if res.data:
+                return res.data.get('role', 'user')
+        except Exception as e:
+            print(f"[WARN] Failed to fetch role for {user_id}: {e}")
+        return 'user'
+
+    @classmethod
+    def get_requisitions(cls, skip: int = 0, limit: int = 100, status: Optional[str] = None, requester_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
         # Use admin client to ensure visibility if RLS is strict
-        client = RequisitionService._get_admin_client()
+        client = cls._get_admin_client()
         
-        query = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*)').order('created_at', desc=True)
+        query = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
         if status:
             query = query.eq('status', status)
         if requester_id:
@@ -373,7 +404,7 @@ class RequisitionService:
         # Use admin client to ensure visibility
         client = RequisitionService._get_admin_client()
         
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*)').eq('id', req_id).single().execute()
+        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').eq('id', req_id).single().execute()
         if not res.data:
              raise HTTPException(status_code=404, detail="Requisition not found")
              
