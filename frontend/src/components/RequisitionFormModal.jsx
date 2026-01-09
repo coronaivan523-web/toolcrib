@@ -24,9 +24,10 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const [header, setHeader] = useState({
         priority: 'NORMAL',
         justification: '',
-        department: currentUser?.department || '',
-        job_title: currentUser?.job_title || '', // If avail in profile
-        requester_name: '', // Empty by default
+        department: '',
+        job_title: '',
+        requester_name: '',
+        requester_id: '',
         cause: '', // OP, LS, etc.
         criticality_requested: '', // C1-C4
     })
@@ -109,9 +110,10 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             setHeader({
                 priority: 'NORMAL',
                 justification: '',
-                department: currentUser?.department || '',
-                job_title: currentUser?.job_title || '',
+                department: '',
+                job_title: '',
                 requester_name: '',
+                requester_id: '',
                 cause: '',
                 criticality_requested: ''
             })
@@ -241,6 +243,19 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         if (items.length > 1) setItems(items.filter(i => i.id !== id))
     }
 
+    const handleRequesterSelect = (userId) => {
+        const selectedUser = users.find(u => u.id === userId)
+        if (selectedUser) {
+            setHeader({
+                ...header,
+                requester_id: userId,
+                requester_name: selectedUser.full_name || selectedUser.username || '',
+                department: selectedUser.department || '',
+                job_title: selectedUser.job_title || ''
+            })
+        }
+    }
+
     const handleUploadClick = (itemId) => {
         setUploadTargetId(itemId)
         fileInputRef.current.click()
@@ -298,6 +313,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const validate = (isSubmit = false) => {
         // Strict Validation - All Visible Fields
         // Header
+        if (!header.requester_id) return "Requester selection is required."
         if (!header.requester_name.trim()) return "Requester Name is required."
         if (!header.department.trim()) return "Department is required."
         if (!header.job_title.trim()) return "Job Title is required."
@@ -363,6 +379,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         setError(null)
         try {
             // 1. Create Payload (without attachments)
+            console.log("[DEBUG] Current Header before payload:", header);
             const payload = {
                 ...header,
                 priority: header.criticality_requested === 'C2' ? 'HIGH' : header.criticality_requested === 'C3' ? 'URGENT' : header.criticality_requested === 'C4' ? 'HIGH' : 'NORMAL', // Map C-levels to old Priority
@@ -498,12 +515,13 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
                                             <div>
                                                 <label className="text-[10px] uppercase text-slate-400 font-bold">Requester</label>
-                                                <input
-                                                    type="text"
-                                                    className="w-full bg-transparent border-none p-0 text-xs text-slate-700 focus:ring-0"
-                                                    placeholder="Enter Name"
-                                                    value={header.requester_name}
-                                                    onChange={e => setHeader({ ...header, requester_name: e.target.value })}
+                                                <UserAutocomplete
+                                                    key={`requester-${isOpen}`}
+                                                    users={users}
+                                                    selectedUserId={header.requester_id}
+                                                    onSelect={handleRequesterSelect}
+                                                    placeholder="Search Requester..."
+                                                    className="w-full text-xs text-slate-700 font-medium"
                                                 />
                                             </div>
                                             <div>
@@ -591,6 +609,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                             <tr key={item.id} className="hover:bg-slate-50">
                                                                 <td className="px-3 py-2">
                                                                     <MaterialAutocomplete
+                                                                        key={`mat-${item.id}-${isOpen}`}
                                                                         materials={materials}
                                                                         selectedMaterialId={item.material_id}
                                                                         onSelect={(id) => handleMaterialSelect(item.id, id)}
@@ -756,7 +775,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                         <UserAutocomplete
                                                             users={approverUsers}
                                                             selectedUserId={teamApprovers.mx2.userId}
-                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx1, userId: id } })}
+                                                            onSelect={id => setTeamApprovers({ ...teamApprovers, mx2: { ...teamApprovers.mx2, userId: id } })}
                                                             placeholder="Search User..."
                                                         />
                                                     </div>

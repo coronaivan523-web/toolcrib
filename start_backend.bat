@@ -73,7 +73,7 @@ echo [TX] Starting FastAPI on port 8001...
 echo [TX] Swagger UI: http://localhost:8001/docs
 echo.
 
-%PY_CMD% -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+%PY_CMD% -m uvicorn app.main:app --reload --reload-exclude frontend --host 0.0.0.0 --port 8001
 
 if %errorlevel% neq 0 (
     echo.

@@ -79,39 +79,32 @@ export default function RequisitionPrintView() {
     }
 
     // Map specific signatures based on the image form
-    // Gerente MX, Gerente CH, Gte.Compras, Gerente General
-    const mxManager = req.approvals?.find(a => a.step_name?.includes('Gerente Mexicano') || a.step_name?.includes('Team Mexicano') || a.step_name?.includes('Team Mexico'))
-    const chManager = req.approvals?.find(a => a.step_name?.includes('Gerente Chino') || a.step_name?.includes('Team Chino') || a.step_name?.includes('Team China'))
+    // Gerente MX, Gerente CH, etc.
+    // ONLY show if status is APPROVED
+    const mxManager = req.approvals?.find(a =>
+        (a.step_name?.includes('Gerente Mexicano')) &&
+        a.step_status === 'APPROVED'
+    )
+    const chManager = req.approvals?.find(a =>
+        (a.step_name?.includes('Gerente Chino')) &&
+        a.step_status === 'APPROVED'
+    )
 
-    // For other roles, we might look at who signed what, or leave blank if not applicable logic yet
-    // Helper to find valid signature for "Solicitante" line
-    // 1. If Creator (req.requester) name matches Manual Name (req.requester_name) -> Use Creator's signature
-    // 2. If not, look in approvals for someone whose name matches Manual Name -> Use Approver's signature
-    // 3. Fallback: null (Manually sign)
     let requesterSignatureUrl = null
-    let requesterSignatureDate = req.created_at
+    let requesterSignatureDate = null // Removed default req.created_at
 
-    // Check Creator
-    if (req.requester?.signature_url && (!req.requester_name || trainCase(req.requester_name) === trainCase(req.requester.full_name))) {
-        requesterSignatureUrl = req.requester.signature_url
-    }
+    // Check approvals for "SOLICITANTE" step
+    const solicitanteStep = req.approvals?.find(a => a.step_name === 'SOLICITANTE' && a.step_status === 'APPROVED')
 
-    // Fallback: Check approvals if we didn't find a valid creator match (or if creator didn't sign, though unlikely if they submitted)
-    // We prioritize the fallback if the Creator name DOES NOT match the Manual Name (which is the case here: Tool Room != Ivan Corona)
-    if (!requesterSignatureUrl && req.requester_name) {
-        const matchingApproval = req.approvals?.find(a => {
-            if (!a.approver?.full_name) return false
-            const approverName = trainCase(a.approver.full_name)
-            const manualName = trainCase(req.requester_name)
-            // Fuzzy match: check if one includes the other
-            return (manualName.includes(approverName) || approverName.includes(manualName)) && a.approver.signature_url
-        })
-        if (matchingApproval) {
-            requesterSignatureUrl = matchingApproval.approver.signature_url
-            if (matchingApproval.action_at) {
-                requesterSignatureDate = matchingApproval.action_at
-            }
-        }
+    if (solicitanteStep) {
+        // Check for signature in approved step
+        requesterSignatureUrl = solicitanteStep.approver?.signature_url
+        requesterSignatureDate = solicitanteStep.action_at
+    } else {
+        // Fallback for legacy: if creator signed it and it's already approved overall?
+        // No, let's keep it strict: if the SOLICITANTE step isn't approved, no signature.
+        // Exception: If the requisition is OLD and doesn't have a SOLICITANTE step but is approved?
+        // Let's stick to the new logic for now.
     }
 
     if (loading || !req) return <div>Loading...</div>
@@ -225,20 +218,73 @@ export default function RequisitionPrintView() {
 
                     <div className="flex flex-col gap-2">
                         <div className="text-[9px] w-full">
-                            {/* Solicitante */}
+                            {/* Solicitante (Multi-Sig Row) */}
                             <div className="flex justify-between items-end mb-2">
                                 <div className="w-[50%] flex items-end">
                                     <span className="font-bold mr-1 w-20">Solicitante:</span>
                                     <div className="border-b border-black flex-1 relative h-4">
-                                        {requesterSignatureUrl && (
-                                            <img src={requesterSignatureUrl} className="absolute bottom-0 left-4 h-8 w-auto object-contain z-10 opacity-90" style={{ mixBlendMode: 'multiply' }} />
-                                        )}
+                                        {(() => {
+                                            const primarySteps = req.approvals?.filter(a =>
+                                                a.step_status === 'APPROVED' &&
+                                                (a.step_name === 'SOLICITANTE' || a.step_name?.includes('Team')) &&
+                                                !a.step_name?.includes('Gerente')
+                                            ).sort((a, b) => a.step_order - b.step_order) || []
+
+                                            // Deduplicate by approver ID
+                                            const uniqueSignatures = [];
+                                            const seenApprovers = new Set();
+
+                                            primarySteps.forEach(step => {
+                                                const uid = step.approver?.id || step.assigned_to_user_id;
+                                                if (uid && !seenApprovers.has(uid)) {
+                                                    seenApprovers.add(uid);
+                                                    uniqueSignatures.push(step);
+                                                }
+                                            });
+
+                                            // If no approved primary steps, fallback to legacy check or empty
+                                            if (uniqueSignatures.length === 0) {
+                                                // Legacy fallback or just name
+                                                return (
+                                                    <span className="absolute bottom-0 left-2 text-[8px] italic font-serif text-slate-600 z-10 truncate w-full">
+                                                        {req.requester_name || req.requester?.full_name}
+                                                    </span>
+                                                )
+                                            }
+
+                                            return (
+                                                <div className="absolute inset-0 flex items-end justify-start pl-2 gap-2 z-10 pointer-events-none">
+                                                    {uniqueSignatures.map((step, idx) => (
+                                                        step.approver?.signature_url && (
+                                                            <img
+                                                                key={idx}
+                                                                src={step.approver.signature_url}
+                                                                alt={`Sig ${idx}`}
+                                                                className="h-8 w-auto object-contain opacity-90 max-w-[60px]"
+                                                                style={{ mixBlendMode: 'multiply' }}
+                                                            />
+                                                        )
+                                                    ))}
+                                                </div>
+                                            )
+                                        })()}
                                         <span className="relative z-0 truncate w-full block pl-1"></span>
                                     </div>
                                 </div>
                                 <div className="w-[45%] flex items-end pr-[20%]">
                                     <span className="font-bold mr-1 w-20 text-right">Fecha y Hora:</span>
-                                    <span className="border-b border-black flex-1 text-center">{safeDate(requesterSignatureDate)}</span>
+                                    {/* Use date from first primary approval or created_at */}
+                                    <span className="border-b border-black flex-1 text-center">
+                                        {(() => {
+                                            const firstStep = req.approvals?.filter(a =>
+                                                a.step_status === 'APPROVED' &&
+                                                (a.step_name === 'SOLICITANTE' || a.step_name?.includes('Team')) &&
+                                                !a.step_name?.includes('Gerente')
+                                            ).sort((a, b) => a.step_order - b.step_order)[0]
+
+                                            return safeDate(firstStep?.action_at || req.created_at)
+                                        })()}
+                                    </span>
                                 </div>
                             </div>
 

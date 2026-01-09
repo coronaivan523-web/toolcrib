@@ -123,6 +123,7 @@ export default function MaterialAutocomplete({ materials, selectedMaterialId, on
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
                 <input
                     type="text"
+                    autoComplete="off"
                     className={clsx(
                         "pl-9 pr-9 py-2 w-full rounded-lg border text-sm transition-colors",
                         error ? "border-red-300 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-primary-500 focus:ring-primary-200"

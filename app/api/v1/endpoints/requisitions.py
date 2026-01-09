@@ -78,7 +78,9 @@ def create_draft(
         print(f"\\n[DEBUG] create_draft called by {current_user.email}")
         print(f"[DEBUG] Payload: {requisition_in.dict()}")
         check_create_permission(current_user)
-        return RequisitionService.create_draft(current_user.id, requisition_in)
+        # Use requester_id from payload if available, else creator
+        target_requester_id = requisition_in.requester_id or current_user.id
+        return RequisitionService.create_draft(target_requester_id, requisition_in, creator_id=current_user.id)
         # raise HTTPException(status_code=400, detail="DEBUG: I AM RUNNING")
     except Exception as e:
         print(f"[ERROR] create_draft failed: {e}")

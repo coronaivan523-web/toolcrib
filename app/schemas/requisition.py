@@ -86,6 +86,7 @@ class RequisitionApprovalResponse(BaseModel):
     action_at: Optional[datetime] = None
     comment: Optional[str] = None
     created_at: datetime
+    approver: Optional[Dict[str, Any]] = None
 
 # --- Actions Payloads ---
 class CustomApprovalStep(BaseModel):
@@ -118,6 +119,7 @@ class RequisitionBase(BaseModel):
     criticality_requested: Optional[str] = None # C1, C2, C3, C4
     criticality_assigned: Optional[str] = None
     requester_name: Optional[str] = None
+    requester_id: Optional[UUID] = None
 
 class RequisitionCreate(RequisitionBase):
     items: List[RequisitionItemCreate]
@@ -140,6 +142,7 @@ class RequisitionResponse(RequisitionBase):
     approvals: List[RequisitionApprovalResponse] = []
     attachments: List[RequisitionAttachmentResponse] = []
     requester: Optional[Dict[str, Any]] = None
+    creator: Optional[Dict[str, Any]] = None
 
     # Approver assignments snapshot
     gerente_mx_id: Optional[UUID] = None

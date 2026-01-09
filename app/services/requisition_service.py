@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from datetime import datetime
+
 from fastapi import HTTPException
 
 from app.core.supabase import supabase, supabase_admin
@@ -32,10 +33,10 @@ class RequisitionService:
         return supabase
     
     @staticmethod
-    def create_draft(requester_id: UUID, data: RequisitionCreate) -> Dict[str, Any]:
+    def create_draft(requester_id: UUID, data: RequisitionCreate, creator_id: UUID = None) -> Dict[str, Any]:
         import time
         t_start = time.time()
-        print(f"[SVC] create_draft start for {requester_id}")
+        print(f"[SVC] create_draft start for requester={requester_id}, creator={creator_id}")
         
         # Use admin client to bypass RLS for creation (API layer checks permissions)
         client = RequisitionService._get_admin_client()
@@ -43,6 +44,7 @@ class RequisitionService:
         # 1. Insert Requisition (DRAFT)
         req_data = {
             "requester_id": str(requester_id),
+            "created_by": str(creator_id) if creator_id else str(requester_id),
             "priority": data.priority,
             "justification": data.justification,
             "status": RequisitionStatus.DRAFT,
@@ -182,15 +184,22 @@ class RequisitionService:
         else:
             # New Submission (From DRAFT) -> Create Steps
             
-            # Step 1: Solicitante (Auto-Approved)
+            # Step 1: Solicitante
+            # Assign to the requester_id stored in the requisition, NOT necessarily the submitting user
+            actual_requester_id = req.get('requester_id') or str(user_id)
+            
+            # Initial status for Step 1
+            is_auto_approved = str(actual_requester_id) == str(user_id)
+            
             steps_config = [
                 {
                     "step_order": 1, 
                     "step_name": ApprovalStepName.SOLICITANTE, 
-                    "assigned_to": str(user_id), 
-                    "status": StepStatus.APPROVED,
-                    "action_at": datetime.now().isoformat(), 
-                    "action_by": str(user_id)
+                    "assigned_to": str(actual_requester_id), 
+                    # Auto-approve ONLY if the submitting user IS the actual requester
+                    "status": StepStatus.APPROVED if is_auto_approved else StepStatus.PENDING,
+                    "action_at": datetime.now().isoformat() if is_auto_approved else None, 
+                    "action_by": str(user_id) if is_auto_approved else None
                 }
             ]
 
@@ -199,26 +208,33 @@ class RequisitionService:
                 sorted_approvals = sorted(submit_data.custom_approvals, key=lambda x: x.order)
                 
                 # We start from order 2, because 1 is Solicitante
-                # Wait, user might interpret order 1 as "First Approver".
-                # To be safe, we map user's Order 1 -> Workflow Step 2.
-                
-                # Check if orders are sequential or gaps? We just follow sort.
                 current_step_order = 2
                 
                 for cust_step in sorted_approvals:
+                    # Logic for sequential states:
+                    # Step 2 is PENDING ONLY IF Step 1 was APPROVED.
+                    # Otherwise, it stays WAITING.
+                    
+                    target_status = StepStatus.WAITING
+                    if current_step_order == 2 and is_auto_approved:
+                        target_status = StepStatus.PENDING
+
                     steps_config.append({
                         "step_order": current_step_order,
                         "step_name": cust_step.label,
                         "assigned_to": str(cust_step.user_id),
-                        "status": StepStatus.PENDING if current_step_order == 2 else StepStatus.WAITING
+                        "status": target_status
                     })
                     current_step_order += 1
                     
             else:
                 # Fallback to Old Fixed Logic (Legacy)
+                # Step 2 is PENDING ONLY IF Step 1 was APPROVED
+                status_step_2 = StepStatus.PENDING if is_auto_approved else StepStatus.WAITING
+                
                 steps_config.append({
                     "step_order": 2, "step_name": ApprovalStepName.GERENTE_MX, 
-                    "assigned_to": str(submit_data.gerente_mx_id), "status": StepStatus.PENDING
+                    "assigned_to": str(submit_data.gerente_mx_id), "status": status_step_2
                 })
                 steps_config.append({
                     "step_order": 3, "step_name": ApprovalStepName.GERENTE_CH, 
@@ -369,7 +385,7 @@ class RequisitionService:
         if not req_ids:
              return []
              
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').in_('id', req_ids).execute()
+        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').in_('id', req_ids).execute()
             
         return res.data
 
@@ -390,7 +406,7 @@ class RequisitionService:
         # Use admin client to ensure visibility if RLS is strict
         client = cls._get_admin_client()
         
-        query = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
+        query = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
         if status:
             query = query.eq('status', status)
         if requester_id:
@@ -404,7 +420,7 @@ class RequisitionService:
         # Use admin client to ensure visibility
         client = RequisitionService._get_admin_client()
         
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').eq('id', req_id).single().execute()
+        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').eq('id', req_id).single().execute()
         if not res.data:
              raise HTTPException(status_code=404, detail="Requisition not found")
              

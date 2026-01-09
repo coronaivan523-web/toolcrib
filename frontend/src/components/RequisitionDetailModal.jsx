@@ -172,7 +172,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-blue-100">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-blue-100">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-blue-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
@@ -202,13 +202,21 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/30">
 
                     {/* Basic Info Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
                             <span className="text-xs uppercase tracking-wider font-bold text-blue-500/80 flex items-center gap-1.5 mb-2">
-                                <User size={12} /> Requester
+                                <User size={12} /> Realizado por
                             </span>
                             <div className="font-semibold text-slate-800 text-lg">
-                                {requisition.requester_name || requisition.requester?.full_name || requisition.requester?.email || requisition.requester_id || 'Unknown'}
+                                {requisition.creator?.full_name || requisition.creator?.email || requisition.requester?.full_name || requisition.requester?.email || 'Unknown'}
+                            </div>
+                        </div>
+                        <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                            <span className="text-xs uppercase tracking-wider font-bold text-blue-500/80 flex items-center gap-1.5 mb-2">
+                                <User size={12} /> Solicitado por
+                            </span>
+                            <div className="font-semibold text-slate-800 text-lg">
+                                {requisition.requester_name || 'Unknown'}
                             </div>
                         </div>
                         <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
@@ -236,7 +244,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                 })()}
                             </div>
                         </div>
-                        <div className="p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="col-span-full p-5 bg-white rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
                             <span className="text-xs uppercase tracking-wider font-bold text-blue-500/80 flex items-center gap-1.5 mb-2">
                                 <FileText size={12} /> Justification
                             </span>
@@ -347,7 +355,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             Approval Workflow
                         </h3>
                         <div className="relative pl-4 border-l-2 border-blue-100 space-y-8 my-2">
-                            {(requisition.approvals || []).sort((a, b) => a.step_order - b.step_order).map((step) => (
+                            {(requisition.approvals || []).sort((a, b) => a.step_order - b.step_order).filter(step => step.step_name !== 'SOLICITANTE').map((step) => (
                                 <div key={step.id} className="relative pl-8">
                                     <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
                                         step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :
