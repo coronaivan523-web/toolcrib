@@ -6,10 +6,11 @@ import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 import RequisitionDetailModal from '../components/RequisitionDetailModal'
 import RequisitionFormModal from '../components/RequisitionFormModal'
+import PageHeader from '../components/PageHeader'
 
 export default function Requisitions() {
     const { userProfile } = useOutletContext()
-    const canCreate = ['supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'].includes(userProfile?.role?.trim().toLowerCase())
+    const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'].includes(userProfile?.role?.trim().toLowerCase())
 
     // State
     const [requisitions, setRequisitions] = useState([])
@@ -160,45 +161,22 @@ export default function Requisitions() {
     return (
         <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
             {/* Header */}
-            <div className="bg-white border-b border-primary-100 px-8 py-5 shadow-sm z-20 relative flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="bg-primary-50 p-2.5 rounded-lg border border-primary-100 text-primary-600">
-                        <ClipboardList size={24} />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Requisitions</h1>
-                        <p className="text-slate-500 text-sm font-medium">Manage and approve material requests</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={fetchRequisitions}
-                        className="p-2 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Refresh"
-                    >
-                        <RotateCw size={20} />
-                    </button>
-
-                    {canCreate && (
-                        <button
-                            onClick={() => setIsCreateOpen(true)}
-                            className="bg-primary-600 text-white px-4 py-2 rounded-lg font-medium shadow-md hover:bg-primary-700 transition-colors flex items-center gap-2">
-                            <Plus size={18} />
-                            Create Requisition
-                        </button>
-                    )}
-                </div>
-            </div>
+            <PageHeader
+                title="REQUISITIONS"
+                subtitle="Manage and approval material requests"
+                profile={userProfile}
+                bgColor="#0d9488"
+            />
 
             {/* Toolbar */}
-            <div className="px-8 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between z-10">
+            <div className="px-8 py-4 bg-teal-50 border-b border-teal-200 flex flex-col sm:flex-row gap-4 items-center justify-between z-10">
                 <div className="flex items-center gap-4 w-full sm:w-auto">
                     <div className="relative w-full sm:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
                         <input
                             type="text"
                             placeholder="Search by REQ # or Requester..."
-                            className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 text-sm focus:ring-primary-500 focus:border-primary-500"
+                            className="pl-9 pr-4 py-2 w-full rounded-lg border border-teal-200 text-sm focus:ring-teal-500 focus:border-teal-500"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -219,7 +197,7 @@ export default function Requisitions() {
                             onClick={() => setViewMode('inbox')}
                             className={clsx(
                                 "px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1.5",
-                                viewMode === 'inbox' ? "bg-white text-primary-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                viewMode === 'inbox' ? "bg-white text-teal-700 shadow-sm" : "text-slate-500 hover:text-teal-700"
                             )}>
                             Inbox
                             {inboxCount > 0 && (
@@ -235,7 +213,7 @@ export default function Requisitions() {
                     <div className="flex items-center gap-2">
                         <Filter size={16} className="text-slate-400" />
                         <select
-                            className="text-sm border-slate-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="text-sm border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
@@ -249,7 +227,7 @@ export default function Requisitions() {
                         </select>
 
                         <select
-                            className="text-sm border-slate-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
+                            className="text-sm border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500"
                             value={priorityFilter}
                             onChange={(e) => setPriorityFilter(e.target.value)}
                         >
@@ -275,6 +253,26 @@ export default function Requisitions() {
                             </button>
                         )}
                     </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={fetchRequisitions}
+                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                        title="Refresh"
+                    >
+                        <RotateCw size={20} />
+                    </button>
+
+                    {canCreate && (
+                        <button
+                            onClick={() => setIsCreateOpen(true)}
+                            className="bg-teal-600 text-white px-4 py-2 rounded-lg font-medium shadow-md hover:bg-teal-700 transition-colors flex items-center gap-2">
+                            <Plus size={18} />
+                            Create Requisition
+                        </button>
+                    )}
                 </div>
             </div>
 

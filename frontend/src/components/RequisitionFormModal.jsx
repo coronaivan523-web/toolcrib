@@ -18,6 +18,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const [uploadTargetId, setUploadTargetId] = useState(null) // itemId that triggered upload
     const [openCauseDropdownId, setOpenCauseDropdownId] = useState(null) // ID of item with open cause dropdown
     const [openCostCenterDropdownId, setOpenCostCenterDropdownId] = useState(null) // ID of item with open cost center dropdown
+    const [openProjectDropdownId, setOpenProjectDropdownId] = useState(null) // ID of item with open project dropdown
 
     // Form Data
     const [debugLog, setDebugLog] = useState("") // Visible debug for user
@@ -94,6 +95,25 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         { value: 'TS010005', label: 'TS010005 (Sales Department for transformer)' },
         // Other
         { value: 'TBD', label: 'TBD (The distribution to the productive cc will start at the time of starting)' }
+    ]
+
+    const PROJECT_OPTIONS = [
+        { value: '9105854', label: '9105854 (34 Electric meter)' },
+        { value: '9105855', label: '9105855 (48 Electric meter)' },
+        { value: '9105930', label: '9105930 (Recloser)' },
+        { value: '9203255', label: '9203255 (Transformer-Self Produced,Own Production)' },
+        { value: '9203241', label: '9203241 (Non self produced ,Import Finished Goods)' },
+        { value: '9105856', label: '9105856 (Non self produced , ASELEC Customer (BESS))' },
+        { value: '9203240', label: '9203240 (non self produced)' },
+        { value: '9105874', label: '9105874 (Trillian Proyec)' },
+        { value: '9105875', label: '9105875 (America meter project)' },
+        { value: '9105936', label: '9105936 (8.H1A Proyect (AMI project))' },
+        { value: '9203264', label: '9203264 (Notself-produced TBEA power transformer Project)' },
+        { value: '9203266', label: '9203266 (Non self produced ,TECNO AHORRO Customer)' },
+        { value: '9105864', label: '9105864 (Ampliación del edificio en Mina de Guadalupe)' },
+        { value: '9105863', label: '9105863 (Planta de Inyección)' },
+        { value: '9203249', label: '9203249 (Building NO.5(IRAPUATO) Expenses related to for additions and improvements...)' },
+        { value: '9203301', label: '9203301 (The expenses paid for the Wasion Americas Company...)' }
     ]
 
     const CRITICALITY_OPTIONS = [
@@ -207,11 +227,27 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     }
 
     const handleAddItem = () => {
+        const lastItem = items[items.length - 1]
+        if (lastItem) {
+            const missingFields = []
+            if (!lastItem.material_id) missingFields.push("Material")
+            if (!lastItem.quantity) missingFields.push("Quantity")
+            if (!lastItem.cause) missingFields.push("Cause")
+            if (!lastItem.cost_center) missingFields.push("Cost Center")
+            // Project code is optional for now unless specified otherwise
+
+            if (missingFields.length > 0) {
+                setError(`Please complete the current line (${missingFields.join(', ')}) before adding a new one.`)
+                return
+            }
+        }
+        setError(null)
         setItems([...items, { id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
     }
 
     const handleItemChange = (id, field, value) => {
         setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i))
+        if (error) setError(null)
     }
 
     const handleMaterialSelect = (itemId, matId) => {
@@ -237,6 +273,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
             quantity: '',
             cause: ''
         } : i))
+        if (error) setError(null)
     }
 
     const handleRemoveItem = (id) => {
@@ -488,7 +525,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-primary-800 bg-primary-900 flex items-center justify-between shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-white tracking-wide">New Requisition <span className="text-xs opacity-50">Debug: U{users.length}/A{approverUsers.length}</span></h2>
+                        <h2 className="text-xl font-bold text-white tracking-wide">New Requisition</h2>
                     </div>
                     <button onClick={onClose} className="p-2 text-primary-200 hover:text-white hover:bg-primary-800 rounded-full transition-colors">
                         <X size={20} />
@@ -715,9 +752,35 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                                         </>
                                                                     )}
                                                                 </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
-                                                                        placeholder="Proj #" value={item.project_code} onChange={e => handleItemChange(item.id, 'project_code', e.target.value)} />
+                                                                <td className="px-2 py-2 relative">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setOpenProjectDropdownId(openProjectDropdownId === item.id ? null : item.id)}
+                                                                        className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
+                                                                    >
+                                                                        <span className="truncate">{item.project_code || "Select"}</span>
+                                                                        <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
+                                                                    </button>
+
+                                                                    {openProjectDropdownId === item.id && (
+                                                                        <>
+                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenProjectDropdownId(null)}></div>
+                                                                            <div className="absolute z-20 top-full right-0 w-64 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                {PROJECT_OPTIONS.map(opt => (
+                                                                                    <div
+                                                                                        key={opt.value}
+                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                        onClick={() => {
+                                                                                            handleItemChange(item.id, 'project_code', opt.value)
+                                                                                            setOpenProjectDropdownId(null)
+                                                                                        }}
+                                                                                    >
+                                                                                        {opt.label}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-2 py-2 text-center">
                                                                     <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>

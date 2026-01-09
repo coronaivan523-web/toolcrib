@@ -230,15 +230,21 @@ export default function RequisitionPrintView() {
                                                 !a.step_name?.includes('Gerente')
                                             ).sort((a, b) => a.step_order - b.step_order) || []
 
-                                            // Deduplicate by approver ID
+                                            // Deduplicate CONSECUTIVE signatures by same user
+                                            // This merges Step 1 (Solicitante) with Step 2 (First Team Approval) if they are the same person,
+                                            // but keeps later approvals by the same person if separated by others.
                                             const uniqueSignatures = [];
-                                            const seenApprovers = new Set();
-
-                                            primarySteps.forEach(step => {
-                                                const uid = step.approver?.id || step.assigned_to_user_id;
-                                                if (uid && !seenApprovers.has(uid)) {
-                                                    seenApprovers.add(uid);
+                                            primarySteps.forEach((step, idx) => {
+                                                if (idx === 0) {
                                                     uniqueSignatures.push(step);
+                                                } else {
+                                                    const prev = primarySteps[idx - 1];
+                                                    const currId = step.approver?.id || step.assigned_to_user_id;
+                                                    const prevId = prev.approver?.id || prev.assigned_to_user_id;
+
+                                                    if (currId !== prevId) {
+                                                        uniqueSignatures.push(step);
+                                                    }
                                                 }
                                             });
 

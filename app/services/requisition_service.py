@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
@@ -130,7 +130,7 @@ class RequisitionService:
         # 3. Update Status & Assignments
         requests_data = {
             "status": 'UNDER_APPROVAL',
-            "submitted_at": datetime.now().isoformat(),
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
             "req_number": req_number,
         }
         # Only update legacy columns if provided (backward compatibility)
@@ -176,7 +176,7 @@ class RequisitionService:
                       "step_name": rejected_step['step_name'],
                       "assigned_to_user_id": rejected_step['assigned_to_user_id'],
                       "step_status": 'PENDING',
-                      "assigned_at": datetime.now().isoformat(),
+                      "assigned_at": datetime.now(timezone.utc).isoformat(),
                       "comment": submit_data.resubmission_comment # The correction note from user
                   }
                   client.table('requisition_approvals').insert(new_step_data).execute()
@@ -198,7 +198,7 @@ class RequisitionService:
                     "assigned_to": str(actual_requester_id), 
                     # Auto-approve ONLY if the submitting user IS the actual requester
                     "status": StepStatus.APPROVED if is_auto_approved else StepStatus.PENDING,
-                    "action_at": datetime.now().isoformat() if is_auto_approved else None, 
+                    "action_at": datetime.now(timezone.utc).isoformat() if is_auto_approved else None, 
                     "action_by": str(user_id) if is_auto_approved else None
                 }
             ]
@@ -254,7 +254,7 @@ class RequisitionService:
                     "step_name": s['step_name'],
                     "assigned_to_user_id": s['assigned_to'],
                     "step_status": s['status'],
-                    "assigned_at": datetime.now().isoformat() if s['status'] in [StepStatus.PENDING, StepStatus.APPROVED] else None,
+                    "assigned_at": datetime.now(timezone.utc).isoformat() if s['status'] in [StepStatus.PENDING, StepStatus.APPROVED] else None,
                     "action_at": s.get('action_at'),
                     "action_by_user_id": s.get('action_by')
                 }
@@ -284,7 +284,7 @@ class RequisitionService:
         # 2. Update Current Step to APPROVED
         client.table('requisition_approvals').update({
             "step_status": 'APPROVED',
-            "action_at": datetime.now().isoformat(),
+            "action_at": datetime.now(timezone.utc).isoformat(),
             "action_by_user_id": str(user_id),
             "comment": data.comment
         }).eq('id', current_step['id']).execute()
@@ -302,7 +302,7 @@ class RequisitionService:
             # Set Next to PENDING
             client.table('requisition_approvals').update({
                 "step_status": 'PENDING',
-                "assigned_at": datetime.now().isoformat()
+                "assigned_at": datetime.now(timezone.utc).isoformat()
             }).eq('id', next_step['id']).execute()
             
             # Req Status remains UNDER_APPROVAL
@@ -334,7 +334,7 @@ class RequisitionService:
         # 2. Update Step to REJECTED
         client.table('requisition_approvals').update({
             "step_status": 'REJECTED',
-            "action_at": datetime.now().isoformat(),
+            "action_at": datetime.now(timezone.utc).isoformat(),
             "action_by_user_id": str(user_id),
             "comment": data.comment
         }).eq('id', current_step['id']).execute()
@@ -351,7 +351,7 @@ class RequisitionService:
         client = RequisitionService._get_admin_client()
         client.table('requisitions').update({
             "status": RequisitionStatus.CANCELED,
-            "closed_at": datetime.now().isoformat()
+            "closed_at": datetime.now(timezone.utc).isoformat()
         }).eq('id', req_id).execute()
         
         return RequisitionService.get_requisition_by_id(req_id)
