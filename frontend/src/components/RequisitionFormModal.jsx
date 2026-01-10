@@ -288,7 +288,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 requester_id: userId,
                 requester_name: selectedUser.full_name || selectedUser.username || '',
                 department: selectedUser.department || '',
-                job_title: selectedUser.job_title || ''
+                job_title: selectedUser.position || selectedUser.job_title || ''
             })
         }
     }

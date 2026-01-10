@@ -91,9 +91,9 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
         if (!response.ok) {
             // RETRY LOGIC: If 401, try to refresh session via getSession and retry once
             if ((response.status === 401 || response.status === 403) && !retried) {
-                console.warn("[apiFetch] 401 encountered, attempting token refresh via getSession...")
+                console.warn("[apiFetch] 401 encountered, attempting FORCE token refresh...")
                 // Force getSession to refresh token
-                const { data, error } = await supabase.auth.getSession()
+                const { data, error } = await supabase.auth.refreshSession()
                 if (data?.session?.access_token && !error) {
                     console.log("[apiFetch] Token refreshed, retrying request...")
                     // Update header in options (getHeaders will likely pick up new token, but let's be safe by recursing)
@@ -117,7 +117,11 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
             }
 
             // Handle Auth errors specifically (if retry failed or didn't happen)
-            if (response.status === 401 || response.status === 403) {
+            if (response.status === 403) {
+                throw new Error('Acceso denegado: No tienes permisos para realizar esta acción.')
+            }
+
+            if (response.status === 401) {
                 // Final failure - maybe clear storage to unstuck user?
                 // localStorage.clear() // Too aggressive?
                 throw new Error('No autenticado / sesión expirada. Por favor recarga o inicia sesión nuevamente.')

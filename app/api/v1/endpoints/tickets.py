@@ -20,8 +20,11 @@ def read_tickets(
     
     role_name = getattr(current_user.role, 'name', 'user')
     
-    # If not admin, only show own tickets
-    if role_name != "admin":
+    # Define privileged roles for tickets (who can see ALL tickets)
+    privileged_roles = ['admin', 'toolroom_staff', 'supervisor']
+
+    # If not privileged, only show own tickets
+    if role_name not in privileged_roles:
          query = query.eq('requester_id', current_user.id)
          
     res = query.execute()

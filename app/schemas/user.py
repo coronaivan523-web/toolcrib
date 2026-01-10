@@ -15,6 +15,8 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     employee_number: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
@@ -36,7 +38,10 @@ class UserResponse(UserBase):
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
+    password: Optional[str] = None
     full_name: Optional[str] = None
     employee_number: Optional[str] = None
     is_active: Optional[bool] = None
     role_name: Optional[str] = None
+    department: Optional[str] = None
+    position: Optional[str] = None

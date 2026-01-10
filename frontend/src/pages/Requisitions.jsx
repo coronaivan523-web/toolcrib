@@ -10,7 +10,7 @@ import PageHeader from '../components/PageHeader'
 
 export default function Requisitions() {
     const { userProfile } = useOutletContext()
-    const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'].includes(userProfile?.role?.trim().toLowerCase())
+    const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician', 'staff_level_1', 'staff_level_2'].includes(userProfile?.role?.trim().toLowerCase())
 
     // State
     const [requisitions, setRequisitions] = useState([])

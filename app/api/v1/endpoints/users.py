@@ -46,7 +46,9 @@ def read_users(
                 employee_number=p.get('employee_number'),
                 is_active=p.get('is_active', True),
                 role_name=p.get('role', 'user'),
-                role_id=0
+                role_id=0,
+                department=p.get('department'),
+                position=p.get('position')
             ))
         return users
     except Exception as e:
@@ -128,7 +130,9 @@ def create_user(
         
         supabase_admin.table('profiles').update({
             "employee_number": user_in.employee_number,
-            "role": user_in.role_name
+            "role": user_in.role_name,
+            "department": user_in.department,
+            "position": user_in.position
         }).eq('id', user_data.id).execute()
 
         return UserResponse(
@@ -139,7 +143,9 @@ def create_user(
             employee_number=user_in.employee_number,
             is_active=True,
             role_name=user_in.role_name,
-            role_id=0
+            role_id=0,
+            department=user_in.department,
+            position=user_in.position
         )
 
     except Exception as e:
@@ -168,7 +174,9 @@ def read_user_by_id(
         employee_number=p.get('employee_number'),
         is_active=p.get('is_active', True),
         role_name=p.get('role', 'user'),
-        role_id=0
+        role_id=0,
+        department=p.get('department'),
+        position=p.get('position')
     )
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -186,14 +194,66 @@ def update_user(
         # Just return current
         return read_user_by_id(user_id, current_user)
 
-    try:
-        # Update profile
-        res = supabase.table('profiles').update(updates).eq('id', user_id).execute()
+    # Handle Auth Updates (Password & Email)
+    auth_updates = {}
+    if "password" in updates:
+        auth_updates["password"] = updates.pop("password")
+    
+    # Check if email is being updated
+    if "email" in updates:
+        new_email = updates["email"]
         
-        if not res.data:
-             raise HTTPException(status_code=404, detail="User not found")
-             
-        p = res.data[0]
+        # KEY FIX: When Admin updates email, auto-confirm it so it changes immediately.
+        # Otherwise it waits for a confirmation email click.
+        auth_updates["email"] = new_email
+        auth_updates["email_confirm"] = True
+        
+        # We don't pop email because we also want to update the profile table
+
+    if auth_updates:
+        if not supabase_admin:
+             raise HTTPException(status_code=501, detail="Service Role Key required for auth updates")
+        try:
+            # Update Auth user
+            supabase_admin.auth.admin.update_user_by_id(user_id, auth_updates)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to update auth data: {str(e)}")
+
+    try:
+        # Update profile if there are other updates
+        if updates:
+            # FIX: Map role_name to role column
+            if "role_name" in updates:
+                updates["role"] = updates.pop("role_name")
+
+            # SYNC: Also update Supabase Auth Metadata so Dashboard matches
+            if supabase_admin:
+                try:
+                    metadata = {}
+                    if "full_name" in updates: metadata["full_name"] = updates["full_name"]
+                    if "role" in updates: metadata["role"] = updates["role"]
+                    if "department" in updates: metadata["department"] = updates["department"]
+                    if "position" in updates: metadata["position"] = updates["position"]
+                    if "employee_number" in updates: metadata["employee_number"] = updates["employee_number"]
+                    
+                    if metadata:
+                        supabase_admin.auth.admin.update_user_by_id(user_id, {"user_metadata": metadata})
+                except Exception as e:
+                    print(f"WARNING: Failed to sync auth metadata: {e}")
+
+            # FIX: Use supabase_admin (Service Key) to bypass RLS for admin updates
+            client = supabase_admin if supabase_admin else supabase
+            res = client.table('profiles').update(updates).eq('id', user_id).execute()
+            
+            if not res.data:
+                 raise HTTPException(status_code=404, detail="User not found")
+            p = res.data[0]
+        else:
+            # If only password was updated, fetch the profile to return
+             p = supabase.table('profiles').select('*').eq('id', user_id).single().execute().data
+             if not p:
+                 raise HTTPException(status_code=404, detail="User not found")
+
         return UserResponse(
             id=p['id'],
             username=p.get('username'),
@@ -202,7 +262,9 @@ def update_user(
             employee_number=p.get('employee_number'),
             is_active=p.get('is_active', True),
             role_name=p.get('role', 'user'),
-            role_id=0
+            role_id=0,
+            department=p.get('department'),
+            position=p.get('position')
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -236,7 +298,67 @@ def delete_user(
             employee_number=p.get('employee_number'),
             is_active=False,
             role_name=p.get('role', 'user'),
-            role_id=0
+            role_id=0,
+            department=p.get('department'),
+            position=p.get('position')
         )
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/{user_id}/impersonate")
+def impersonate_user(
+    *,
+    user_id: str,
+    current_user = Depends(get_current_active_superuser),
+) -> Any:
+    """
+    Generate a magic link to login as this user (Impersonation).
+    Returns the magic link URL.
+    """
+    if not supabase_admin:
+        raise HTTPException(status_code=501, detail="Service Role Key required")
+
+    try:
+        # Get user email
+        p = supabase.table('profiles').select('email').eq('id', user_id).single().execute().data
+        if not p or not p.get('email'):
+            raise HTTPException(status_code=404, detail="User or email not found")
+        
+        email = p['email']
+        
+        # Generate Magic Link
+        # Note: generate_link params depend on Supabase Python SDK version.
+        # Usually: generate_link(params={"type": "magiclink", "email": email})
+        res = supabase_admin.auth.admin.generate_link({
+            "type": "magiclink",
+            "email": email
+        })
+        
+        print(f"DEBUG: Magic Link Response: {res}")
+        
+        # res should contain properties like 'properties' or similar with 'action_link'
+        # Let's inspect structure if possible, but commonly: res.properties.action_link
+        
+        # Python SDK returns a UserResponse object usually? Or LinkResponse.
+        # It actually returns an object with `properties` which has `action_link`
+        
+        if hasattr(res, 'properties') and res.properties:
+             link = getattr(res.properties, 'action_link', None)
+        elif hasattr(res, 'action_link'):
+             link = res.action_link
+        else:
+             link = None
+        
+        if not link:
+            raise HTTPException(status_code=500, detail="Failed to generate magic link")
+            
+        # FIX: Supabase defaults to localhost:3000. We are running on 5173.
+        # Check if link contains localhost:3000 and replace it.
+        if "localhost:3000" in link:
+            link = link.replace("localhost:3000", "localhost:5173")
+            
+        return {"magic_link": link}
+
+    except Exception as e:
+        print(f"Impersonate Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))

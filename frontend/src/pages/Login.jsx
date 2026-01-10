@@ -15,8 +15,14 @@ export default function Login() {
         setLoading(true)
         setError(null)
 
+        // Support "username" login for internal users
+        let loginEmail = email.trim();
+        if (!loginEmail.includes('@')) {
+            loginEmail = `${loginEmail}@toolcrib.internal`;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
-            email,
+            email: loginEmail,
             password,
         })
 
@@ -60,10 +66,10 @@ export default function Login() {
                                         <User className="h-5 w-5 text-primary-300 group-focus-within:text-primary-600 transition-colors" />
                                     </div>
                                     <input
-                                        type="email"
+                                        type="text"
                                         required
                                         className="block w-full rounded-lg border border-primary-100 bg-primary-50/50 pl-10 p-3 text-primary-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all placeholder:text-primary-300"
-                                        placeholder="admin@toolcrib.com"
+                                        placeholder="admin@toolcrib.com or username"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
@@ -80,7 +86,7 @@ export default function Login() {
                                         type="password"
                                         required
                                         className="block w-full rounded-lg border border-primary-100 bg-primary-50/50 pl-10 p-3 text-primary-900 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all placeholder:text-primary-300"
-                                        placeholder="••••••••"
+                                        placeholder=""
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                     />

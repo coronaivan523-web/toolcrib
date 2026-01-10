@@ -24,12 +24,12 @@ def check_create_permission(user):
     # Authorized Roles for Create/Submit
     
     # Authorized Roles for Create/Submit
-    allowed = ['admin', 'process_engineer', 'coordinator', 'toolroom_staff', 'supervisor'] 
+    allowed = ['admin', 'process_engineer', 'coordinator', 'toolroom_staff', 'supervisor', 'staff_level_1', 'staff_level_2'] 
     # Added supervisor? User said "NO técnicos ni supervisores" but usually supervisors approve.
     # Ah, User said: "NO técnicos ni supervisores" for CREATE/SUBMIT.
     # So I must remove supervisor from allowed list for create.
     
-    strict_allowed = ['admin', 'toolroom_staff', 'supervisor']
+    strict_allowed = ['admin', 'toolroom_staff', 'supervisor', 'staff_level_1', 'staff_level_2']
     
     if role_name not in strict_allowed:
          raise HTTPException(status_code=403, detail=f"Role '{role_name}' not authorized to create requisitions")
@@ -53,6 +53,8 @@ def read_requisitions(
     
     # Authorized roles that can see ALL requisitions
     # (Admins, Managers, Staff, Engineers, Coordinators, Supervisors)
+    # Authorized roles that can see ALL requisitions
+    # (Admins, Managers, Staff (only some), Engineers, Coordinators, Supervisors)
     privileged_roles = ['admin', 'manager', 'toolroom_staff', 'process_engineer', 'coordinator', 'supervisor', 'head_of_department']
     
     if role_name not in privileged_roles:

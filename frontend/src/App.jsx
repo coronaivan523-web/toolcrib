@@ -14,6 +14,7 @@ import RoleBasedHome from './components/RoleBasedHome'
 
 import Requisitions from './pages/Requisitions'
 import RequisitionPrintView from './pages/RequisitionPrintView'
+import Users from './pages/Users'
 import Profile from './pages/Profile'
 
 function App() {
@@ -26,7 +27,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<RoleBasedHome />} />
           <Route path="/dashboard" element={
-            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'staff_level_1']}>
               <Dashboard />
             </ProtectedRoute>
           } />
@@ -43,8 +44,13 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/requisitions" element={
-            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']}>
+            <ProtectedRoute allowedRoles={['admin', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician', 'staff_level_1', 'staff_level_2']}>
               <Requisitions />
+            </ProtectedRoute>
+          } />
+          <Route path="/users" element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Users />
             </ProtectedRoute>
           } />
           <Route path="/tickets" element={<Tickets />} />
