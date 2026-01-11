@@ -203,8 +203,8 @@ function TicketsContent() {
                 const isAdminRole = profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'toolroom_staff'
                 setIsAdmin(isAdminRole)
 
-                // Fetch Tickets
-                let query = supabase.from('tickets')
+                // 1. Define Ticket Query
+                let ticketQuery = supabase.from('tickets')
                     .select(`
                     *, 
                     items:ticket_items(
@@ -225,15 +225,30 @@ function TicketsContent() {
                     requester:profiles!tickets_requester_id_fkey(email, full_name)
                 `)
                     .order('created_at', { ascending: false })
+                    .limit(200) // Optimization: Limit to recent tickets for speed
 
-                // Filter based on role (not view mode - filtering will be done in render)
                 if (profile?.role === 'user') {
-                    // Regular users - show only their own tickets
-                    query = query.eq('requester_id', user.id)
+                    ticketQuery = ticketQuery.eq('requester_id', user.id)
                 }
-                // Admin/Toolroom/Supervisor - fetch all tickets
 
-                const { data, error: queryError } = await query
+                // 2. Define Notification Query (Admin Only) - In Parallel
+                let notificationPromise = Promise.resolve({ data: [], error: null })
+                if (isAdminRole) {
+                    notificationPromise = supabase
+                        .from('notifications')
+                        .select('*')
+                        .eq('type', 'low_stock_alert')
+                        .eq('status', 'unread')
+                        .order('created_at', { ascending: false })
+                }
+
+                // 3. EXECUTE IN PARALLEL
+                const [ticketRes, notifRes] = await Promise.all([
+                    ticketQuery,
+                    notificationPromise
+                ])
+
+                const { data, error: queryError } = ticketRes
                 if (queryError) {
                     console.error("Error fetching tickets:", queryError)
                     setError(queryError)
@@ -260,76 +275,55 @@ function TicketsContent() {
                         }
                     }
 
-                    const ticketsWithSignedUrls = await Promise.all(
-                        data.map(async (ticket) => {
-                            if (!ticket.items) return ticket;
+                    // Optimization: Use public URLs instead of signing each one (N+1 query fix)
+                    const ticketsWithProcessedItems = data.map(ticket => {
+                        if (!ticket.items) return ticket;
 
-                            const itemsWithUrls = await Promise.all(
-                                ticket.items.map(async (item) => {
-                                    // Attach canceller manually
-                                    if (item.cancelled_by) {
-                                        item.canceller = cancellersMap[item.cancelled_by]
-                                    }
+                        const itemsWithUrls = ticket.items.map(item => {
+                            // Attach canceller manually
+                            if (item.cancelled_by) {
+                                item.canceller = cancellersMap[item.cancelled_by]
+                            }
 
-                                    if (item.material?.image_url) {
-                                        try {
-                                            const { data: signedData } = await supabase.storage
-                                                .from('material-images')
-                                                .createSignedUrl(item.material.image_url, 3600)
-
-                                            if (signedData?.signedUrl) {
-                                                item.material.signed_image_url = signedData.signedUrl
-                                            }
-                                        } catch (e) {
-                                            console.warn("Failed to sign URL for item", item.id, e)
-                                        }
-                                    }
-                                    return item
-                                })
-                            )
-                            return { ...ticket, items: itemsWithUrls }
+                            // Use Public URL directly
+                            if (item.material?.image_url) {
+                                let finalImageUrl = item.material.image_url
+                                if (!finalImageUrl.startsWith('http')) {
+                                    finalImageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${item.material.image_url}`
+                                }
+                                item.material.signed_image_url = finalImageUrl
+                            }
+                            return item
                         })
-                    )
-                    setTickets(ticketsWithSignedUrls)
+                        return { ...ticket, items: itemsWithUrls }
+                    })
+                    setTickets(ticketsWithProcessedItems)
                 }
 
                 // Fetch Notifications for Tool Room Staff
                 // Fetch Notifications for Tool Room Staff
                 // Manual Fetch & Join (Since FKs might be missing on notifications table)
                 if (isAdminRole) {
-                    // 1. Fetch raw notifications
-                    const { data: notifs, error: notifError } = await supabase
-                        .from('notifications')
-                        .select('*')
-                        .eq('type', 'low_stock_alert')
-                        .eq('status', 'unread') // Only show unread/active reports
-                        .order('created_at', { ascending: false })
+                    // Process Notifications (Using parallel result)
+                    const { data: notifs, error: notifError } = notifRes
 
-                    if (notifs && notifs.length > 0) {
-                        // 2. Extract IDs
+                    if (isAdminRole && notifs && notifs.length > 0) {
                         const senderIds = [...new Set(notifs.map(n => n.sender_id).filter(Boolean))]
                         const materialIds = [...new Set(notifs.map(n => n.material_id).filter(Boolean))]
 
-                        // 3. Fetch Senders
+                        // Fetch Senders & Materials in Parallel
+                        const [sendersRes, matsRes] = await Promise.all([
+                            senderIds.length > 0 ? supabase.from('profiles').select('id, full_name, email').in('id', senderIds) : Promise.resolve({ data: [] }),
+                            materialIds.length > 0 ? supabase.from('materials').select('id, name, part_number, unit, unit_of_measure, image_url').in('id', materialIds) : Promise.resolve({ data: [] })
+                        ])
+
                         let sendersMap = {}
-                        if (senderIds.length > 0) {
-                            const { data: senders } = await supabase.from('profiles').select('id, full_name, email').in('id', senderIds)
-                            if (senders) {
-                                senders.forEach(s => sendersMap[s.id] = s)
-                            }
-                        }
+                        if (sendersRes.data) sendersRes.data.forEach(s => sendersMap[s.id] = s)
 
-                        // 4. Fetch Materials
                         let materialsMap = {}
-                        if (materialIds.length > 0) {
-                            // Fetch more details for requisition (unit, etc)
-                            const { data: mats } = await supabase.from('materials').select('id, name, part_number, unit, unit_of_measure, image_url').in('id', materialIds)
-                            if (mats) {
-                                mats.forEach(m => materialsMap[m.id] = m)
-                            }
-                        }
+                        // Use forEach to map all materials, fixing previous find() inefficiency
+                        if (matsRes.data) matsRes.data.forEach(m => materialsMap[m.id] = m)
 
-                        // 5. Map Data
                         const enrichedReports = notifs.map(n => ({
                             ...n,
                             sender: sendersMap[n.sender_id] || { full_name: 'Unknown User', email: '' },
@@ -343,7 +337,6 @@ function TicketsContent() {
 
                     if (notifError) {
                         console.error("Error fetching notifications:", notifError)
-                        // Optional: show error toast, but maybe too noisy
                     }
                 }
             }

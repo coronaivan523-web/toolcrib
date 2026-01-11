@@ -7,13 +7,9 @@ import sys
 DB_URL = "postgresql://postgres.bykumuizmxsclsazeych:Changos3.3@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 
 SQL_MIGRATION = """
--- Add department and position columns to profiles table
+ALTER TABLE public.materials 
+ADD COLUMN IF NOT EXISTS plant text DEFAULT 'Planta 1';
 
-ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS department text,
-ADD COLUMN IF NOT EXISTS position text;
-
--- Notify pgrst to reload schema
 NOTIFY pgrst, 'reload schema';
 """
 
