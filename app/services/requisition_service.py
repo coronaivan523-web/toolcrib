@@ -410,9 +410,48 @@ class RequisitionService:
         if status:
             query = query.eq('status', status)
         if requester_id:
-            query = query.eq('requester_id', str(requester_id))
-        query = query.range(skip, skip + limit - 1)
-        res = query.execute()
+            # Modified to allow users to see requisitions they approved (History)
+            # FORCE ADMIN CLIENT CHECK
+            lookup_client = client
+            if settings.SUPABASE_SERVICE_KEY:
+                # Re-create to be 100% sure we have admin rights for this check
+                # print(f"[DEBUG] Using Fresh Admin Client for Approval Lookup. SK Length: {len(settings.SUPABASE_SERVICE_KEY)}")
+                try:
+                    lookup_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                except Exception as e:
+                    print(f"[ERROR] Failed to create fresh admin client: {e}")
+
+            # 1. Fetch IDs of requisitions where user was an approver
+            try:
+                # print(f"[DEBUG] querying requisition_approvals for {requester_id}")
+                ap_res = lookup_client.table('requisition_approvals').select('requisition_id').eq('assigned_to_user_id', str(requester_id)).execute()
+                approved_ids = list(set([item['requisition_id'] for item in ap_res.data])) if ap_res.data else []
+                # print(f"[DEBUG] found approved_ids: {len(approved_ids)}")
+                
+                if approved_ids:
+                    # Construct OR filter: requester_id == user OR id IN approved_ids
+                    # Syntax: "requester_id.eq.UID,id.in.(ID1,ID2)"
+                    ids_str = ",".join(approved_ids)
+                    or_cond = f"requester_id.eq.{requester_id},id.in.({ids_str})"
+                    query = query.or_(or_cond)
+                else:
+                    query = query.eq('requester_id', str(requester_id))
+            except Exception as e:
+                print(f"[WARN] Error fetching approval history for filter: {e}")
+                # Fallback to safe default
+                query = query.eq('requester_id', str(requester_id))
+        
+        # DEBUG LOGGING
+        print(f"[DEBUG] get_requisitions - Final Query Params: skip={skip}, limit={limit}, status={status}")
+        print(f"[DEBUG] get_requisitions - Requester ID Filter: {requester_id}")
+        
+        # Execute
+        res = query.range(skip, skip + limit - 1).execute()
+        
+        print(f"[DEBUG] get_requisitions - Result Count: {len(res.data) if res.data else 0}")
+        if requester_id and not res.data:
+            print("[DEBUG] WARNING: No requisitions found for this requester check.")
+            
         return res.data
 
     @staticmethod

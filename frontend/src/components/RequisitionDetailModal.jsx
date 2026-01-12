@@ -355,7 +355,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             Approval Workflow
                         </h3>
                         <div className="relative pl-4 border-l-2 border-blue-100 space-y-8 my-2">
-                            {(requisition.approvals || []).sort((a, b) => a.step_order - b.step_order).filter(step => step.step_name !== 'SOLICITANTE').map((step) => (
+                            {(requisition.approvals || []).sort((a, b) => a.step_order - b.step_order).map((step) => (
                                 <div key={step.id} className="relative pl-8">
                                     <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
                                         step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :

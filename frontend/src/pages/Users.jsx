@@ -774,7 +774,7 @@ export default function Users() {
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-4">
+                        <form onSubmit={isEditOpen ? handleUpdate : handleCreate} className="p-6 space-y-4" autoComplete="off">
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between mb-1">
                                     <label className="block text-xs font-bold text-purple-800/70 uppercase tracking-wider">Email</label>
@@ -810,6 +810,7 @@ export default function Users() {
                                 <input
                                     type="email"
                                     required
+                                    autoComplete="off"
                                     className={`w-full rounded-lg border-purple-200 focus:ring-purple-500 focus:border-purple-500 ${formData.isSystemEmail ? 'bg-purple-50/50' : 'bg-purple-50/30'}`}
                                     value={formData.email}
                                     placeholder={formData.isSystemEmail ? "Generado automáticamente..." : "usuario@wasion.cn"}
@@ -825,6 +826,7 @@ export default function Users() {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         required={!isEditOpen}
+                                        autoComplete="new-password"
                                         className="w-full rounded-lg border-purple-200 focus:ring-purple-500 focus:border-purple-500 bg-purple-50/30 pr-10"
                                         value={formData.password}
                                         placeholder={isEditOpen ? '(Unchanged)' : ''}

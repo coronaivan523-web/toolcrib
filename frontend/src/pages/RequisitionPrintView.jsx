@@ -251,11 +251,7 @@ export default function RequisitionPrintView() {
                                             // If no approved primary steps, fallback to legacy check or empty
                                             if (uniqueSignatures.length === 0) {
                                                 // Legacy fallback or just name
-                                                return (
-                                                    <span className="absolute bottom-0 left-2 text-[8px] italic font-serif text-slate-600 z-10 truncate w-full">
-                                                        {req.requester_name || req.requester?.full_name}
-                                                    </span>
-                                                )
+                                                return null
                                             }
 
                                             return (
@@ -288,7 +284,7 @@ export default function RequisitionPrintView() {
                                                 !a.step_name?.includes('Gerente')
                                             ).sort((a, b) => a.step_order - b.step_order)[0]
 
-                                            return safeDate(firstStep?.action_at || req.created_at)
+                                            return safeDate(firstStep?.action_at)
                                         })()}
                                     </span>
                                 </div>

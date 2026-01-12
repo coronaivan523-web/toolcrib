@@ -55,6 +55,7 @@ echo [INFO] Using Python: %PY_CMD%
 
 REM Check if requirements are installed
 echo [INFO] Checking dependencies...
+echo %PY_CMD% > python_path.txt
 %PY_CMD% -c "import fastapi, uvicorn, supabase" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [WARN] Missing dependencies. Installing...

@@ -41,6 +41,9 @@ class ErrorBoundary extends React.Component {
 }
 
 function TicketsContent() {
+    // Define privileged roles that can see ALL tickets
+    const privilegedRoles = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']
+
     const [tickets, setTickets] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -227,7 +230,7 @@ function TicketsContent() {
                     .order('created_at', { ascending: false })
                     .limit(200) // Optimization: Limit to recent tickets for speed
 
-                if (profile?.role === 'user') {
+                if (!privilegedRoles.includes(profile?.role)) {
                     ticketQuery = ticketQuery.eq('requester_id', user.id)
                 }
 
@@ -1391,8 +1394,8 @@ function TicketsContent() {
                         </button>
                     )}
 
-                    {/* Requirement Status - Only for normal users or admin in user view */}
-                    {(userProfile?.role === 'user' || (userProfile?.role === 'admin' && adminViewMode === 'user')) && (
+                    {/* Requirement Status - For non-privileged users (including 'user', 'staff_level_1', etc.) or admin in user view */}
+                    {(!privilegedRoles.includes(userProfile?.role) || (userProfile?.role === 'admin' && adminViewMode === 'user')) && (
                         <button
                             onClick={async () => {
                                 if (!selectedTicketItem) return;
@@ -2024,14 +2027,29 @@ function TicketsContent() {
                                                                     }`}>
                                                                     {item.material?.name || 'Unknown Item'}
                                                                 </p>
-                                                                <p className="text-xs text-slate-500 font-mono flex items-center gap-2">
-                                                                    {item.material?.part_number || 'N/A'}
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <p className="text-xs text-slate-500 font-mono">
+                                                                        {item.material?.part_number || 'N/A'}
+                                                                    </p>
                                                                     {isLowStock && (
-                                                                        <span className="inline-flex items-center gap-1 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                                                            Low Stock: {item.material?.current_stock}
-                                                                        </span>
+                                                                        <>
+                                                                            <span className="inline-flex items-center gap-1 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                                                Low Stock: {item.material?.current_stock}
+                                                                            </span>
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSelectedTicketItem(item);
+                                                                                    setIsRequirementModalOpen(true);
+                                                                                }}
+                                                                                className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm hover:bg-red-700 transition-colors animate-pulse"
+                                                                            >
+                                                                                <FileText size={10} />
+                                                                                REPORT / REQ
+                                                                            </button>
+                                                                        </>
                                                                     )}
-                                                                </p>
+                                                                </div>
                                                                 {(item.status === 'cancelled' || item.item_status === 'cancelled' || isLegacyCancelled || effectiveCancellationReason) && (
                                                                     <div className="mt-1.5 flex items-start gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-100">
                                                                         <AlertTriangle size={12} className="mt-0.5 shrink-0" />

@@ -47,6 +47,13 @@ export default function Requisitions() {
                     status: statusFilter !== 'all' ? statusFilter : undefined
                 })
             }
+
+            // --- ROLE BASED FILTERING ---
+            // Backend already handles filtering for non-privileged users via RequisitionService.
+            // We trust the API to return the correct list (My Reqs + My Approved Reqs).
+            // Removing redundant client-side filtering which was causing issues.
+            // -----------------------------
+
             setRequisitions(reqData)
 
             // Inbox Count (Fast)
@@ -132,7 +139,7 @@ export default function Requisitions() {
         return () => {
             supabase.removeChannel(channel)
         }
-    }, [statusFilter, priorityFilter, viewMode]) // Refetch on status or view change
+    }, [statusFilter, priorityFilter, viewMode, userProfile]) // Refetch on status or view change or profile load
 
     // Client-side Filtering for others
     const filteredRequisitions = requisitions.filter(req => {
@@ -388,7 +395,6 @@ export default function Requisitions() {
                 onActionSuccess={fetchRequisitions}
             />
 
-            {/* Create Modal */}
             <RequisitionFormModal
                 isOpen={isCreateOpen}
                 onClose={() => setIsCreateOpen(false)}
@@ -397,6 +403,11 @@ export default function Requisitions() {
                 users={usersList}
                 currentUser={userProfile}
             />
+
+            {/* DEBUGGING FOOTER */}
+            <div className="absolute bottom-1 right-1 text-[10px] text-slate-300 pointer-events-none z-50">
+                User: {userProfile?.full_name} ({userProfile?.id}) | Role: {userProfile?.role} | Count: {requisitions.length} | View: {viewMode}
+            </div>
         </div >
     )
 }
