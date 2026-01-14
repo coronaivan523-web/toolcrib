@@ -188,6 +188,13 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         }
     }
 
+    // Auto-load users if not provided (e.g. from Tickets page)
+    useEffect(() => {
+        if ((!propUsers || propUsers.length === 0) && users.length === 0) {
+            loadUsers()
+        }
+    }, [isOpen]) // Run on open if needed
+
     // --- Handlers ---
     // Filter users for approver dropdowns (Exclude basic 'user' role)
     // Filter users for approver dropdowns (Exclude basic 'user' role)
@@ -540,7 +547,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                             {!isSubmittingMode ? (
                                 <>
                                     {/* STATIC HEADER: Info & Justification */}
-                                    <div className="p-4 space-y-3 shrink-0 border-b border-slate-100 shadow-sm z-10 bg-white">
+                                    <div className="p-4 space-y-3 shrink-0 border-b border-slate-100 shadow-sm relative z-30 bg-white">
                                         {error && (
                                             <div className="p-3 bg-red-50 text-red-700 rounded-lg flex items-center gap-2 text-sm border border-red-200 shadow-sm">
                                                 <AlertCircle size={16} />

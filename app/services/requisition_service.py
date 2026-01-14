@@ -554,7 +554,7 @@ class RequisitionService:
                 movement_type='IN',
                 quantity=item_data.quantity,
                 reference_type='REQUISITION',
-                # reference_id=req_id,
+                reference_id=req.get('folio'),
                 notes=f"Incoming from Requisition {req.get('req_number')}"
             )
             InventoryService.create_movement(inv_mov, user_id)

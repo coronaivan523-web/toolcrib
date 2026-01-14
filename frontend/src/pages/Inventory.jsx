@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { Plus, Search, Package, AlertCircle, Loader2, UploadCloud, Box, ClipboardList, MapPin, User, Check, X, Tag, Minus, History, Info } from 'lucide-react'
 import clsx from 'clsx'
+import MaterialHistoryModal from '../components/MaterialHistoryModal'
+import MaterialHistoryView from '../components/MaterialHistoryView'
 
 export default function Inventory() {
     const [materials, setMaterials] = useState([])
@@ -31,6 +33,7 @@ export default function Inventory() {
     const [selectedItemAction, setSelectedItemAction] = useState(null)
     const [isActionMenuOpen, setIsActionMenuOpen] = useState(false)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [isEnhancedHistoryOpen, setIsEnhancedHistoryOpen] = useState(false) // NEW
     const [detailTab, setDetailTab] = useState('info') // 'info' | 'history'
     const [itemHistory, setItemHistory] = useState([])
     const [previewImage, setPreviewImage] = useState(null)
@@ -454,10 +457,10 @@ export default function Inventory() {
 
     const handleOpenHistory = () => {
         if (selectedItemAction) {
-            fetchHistory(selectedItemAction.id);
             setDetailTab('history');
             setIsActionMenuOpen(false);
             setIsDetailModalOpen(true);
+            setIsEnhancedHistoryOpen(false); // Disable Enhanced Modal, prioritize Tab View
         }
     }
 
@@ -2158,96 +2161,8 @@ export default function Inventory() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200/60 shadow-xl overflow-hidden flex flex-col min-h-[500px]">
-                                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-orange-100/50 p-2.5 rounded-xl text-orange-600 shadow-sm border border-orange-100">
-                                                    <History size={20} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Audit Trail</h4>
-                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Track all movements and modifications</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-[10px] font-bold text-slate-500 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-                                                {itemHistory.length} Record{itemHistory.length !== 1 && 's'} Found
-                                            </div>
-                                        </div>
-
-                                        <div className="overflow-x-auto flex-1">
-                                            <table className="w-full text-left border-collapse">
-                                                <thead>
-                                                    <tr className="bg-slate-50/80 border-b border-slate-100">
-                                                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Timestamp</th>
-                                                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Event Type</th>
-                                                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">User Identity</th>
-                                                        <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Event Detail</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {/* Initial Creation Record */}
-                                                    {itemHistory.length === 0 && (
-                                                        <tr className="bg-slate-50/20">
-                                                            <td className="px-8 py-5 text-xs text-slate-500 font-mono">
-                                                                {new Date(selectedItemAction.created_at).toLocaleString()}
-                                                            </td>
-                                                            <td className="px-8 py-5">
-                                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                                                    System Entry
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-8 py-5 text-xs text-slate-400 italic">
-                                                                System
-                                                            </td>
-                                                            <td className="px-8 py-5 text-xs text-slate-500 italic">
-                                                                Item created in initial registry
-                                                            </td>
-                                                        </tr>
-                                                    )}
-
-                                                    {itemHistory.map(event => (
-                                                        <tr key={event.id} className="hover:bg-blue-50/30 transition-colors group">
-                                                            <td className="px-8 py-5 text-xs text-slate-600 font-mono whitespace-nowrap">
-                                                                <div className="font-bold text-slate-700">{new Date(event.created_at).toLocaleDateString()}</div>
-                                                                <div className="text-[10px] text-slate-400 mt-1">{new Date(event.created_at).toLocaleTimeString()}</div>
-                                                            </td>
-                                                            <td className="px-8 py-5">
-                                                                <span className={clsx(
-                                                                    "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border shadow-sm",
-                                                                    event.event_type === 'CREATED' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
-                                                                        event.event_type === 'UPDATED' ? "bg-blue-50 text-blue-700 border-blue-100" :
-                                                                            event.event_type === 'DEACTIVATED' ? "bg-rose-50 text-rose-700 border-rose-100" :
-                                                                                event.event_type === 'REACTIVATED' ? "bg-teal-50 text-teal-700 border-teal-100" :
-                                                                                    "bg-slate-50 text-slate-600 border-slate-200"
-                                                                )}>
-                                                                    <div className={clsx(
-                                                                        "w-1.5 h-1.5 rounded-full",
-                                                                        event.event_type === 'CREATED' ? "bg-emerald-500" :
-                                                                            event.event_type === 'UPDATED' ? "bg-blue-500" :
-                                                                                event.event_type === 'DEACTIVATED' ? "bg-rose-500" :
-                                                                                    event.event_type === 'REACTIVATED' ? "bg-teal-500" :
-                                                                                        "bg-slate-500"
-                                                                    )}></div>
-                                                                    {event.event_type}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-8 py-5">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-slate-100 to-white text-slate-500 flex items-center justify-center text-[10px] font-black border border-slate-200 shadow-sm">
-                                                                        {(event.performed_by_user?.email || '?').charAt(0).toUpperCase()}
-                                                                    </div>
-                                                                    <span className="text-xs font-bold text-slate-700">{event.performed_by_user?.email || 'Unknown User'}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-8 py-5 text-xs text-slate-600 font-medium max-w-xs truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:max-w-none transition-all">
-                                                                {event.notes}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[500px]">
+                                        <MaterialHistoryView materialId={selectedItemAction.id} materialName={selectedItemAction.name} />
                                     </div>
                                 )}
                             </div>
@@ -2255,6 +2170,15 @@ export default function Inventory() {
                     </div>
                 )
             }
+            {/* Enhanced History Modal */}
+            {isEnhancedHistoryOpen && selectedItemAction && (
+                <MaterialHistoryModal
+                    materialId={selectedItemAction.id}
+                    materialName={selectedItemAction.name}
+                    onClose={() => setIsEnhancedHistoryOpen(false)}
+                />
+            )}
+
             {/* Image Preview Modal (Corporate Style) */}
             {/* Limit History Modal */}
 
