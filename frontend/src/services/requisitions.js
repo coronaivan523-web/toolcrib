@@ -1,12 +1,11 @@
 import { supabase } from '../lib/supabase'
 
-// Normalization: Ensure NO double slash, but always end in /api/v1
-const rawBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
-const normalizedBase = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase
-// If user put /api/v1 in env, don't duplicate it. If missing, add it.
-const API_BASE_URL = normalizedBase.includes('/api/v1')
-    ? normalizedBase
-    : `${normalizedBase}/api/v1`
+// Normalization: TRUST THE ENV VARIABLE
+// .env has: http://127.0.0.1:8001/api/v1
+// We should use it directly without complex parsing that might break the port or path.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1'
+
+console.log('[DEBUG] RequisitionService using API_BASE_URL:', API_BASE_URL)
 
 // Helper to get token from localStorage without validation (fast)
 const getFastToken = () => {
@@ -210,6 +209,14 @@ export const requisitionService = {
         return await apiFetch(`/requisitions/${id}/submit`, {
             method: 'POST',
             body: JSON.stringify(submitPayload)
+        })
+    },
+
+    // POST /requisitions/{id}/incoming
+    processIncoming: async (id, items) => {
+        return await apiFetch(`/requisitions/${id}/incoming`, {
+            method: 'POST',
+            body: JSON.stringify({ items })
         })
     },
 

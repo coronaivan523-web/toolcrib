@@ -1,7 +1,7 @@
 from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.deps import get_current_active_user
-from app.core.supabase import supabase
+from app.core.supabase import supabase, supabase_admin
 from app.schemas.ticket import TicketCreate, TicketUpdate, TicketResponse, TicketItemCreate
 
 router = APIRouter()
@@ -94,16 +94,20 @@ def close_ticket(
     Only Admins or Tool Crib Managers should do this.
     """
     role_name = getattr(current_user.role, 'name', 'user')
-    if role_name != "admin": # Add other roles if needed
-        raise HTTPException(status_code=403, detail="Not authorized to close tickets")
+    allowed_roles = ["admin", "toolroom_staff", "supervisor", "manager"]
+    if role_name not in allowed_roles:
+        raise HTTPException(status_code=403, detail=f"Role '{role_name}' not authorized to close tickets")
 
     # 1. Fetch Ticket & Items
-    res = supabase.table('tickets').select('*, items:ticket_items(*)').eq('id', ticket_id).single().execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+    print(f"[DEBUG] Fetching ticket {ticket_id} with Admin Client")
+    res = supabase_admin.table('tickets').select('*, items:ticket_items(*)').eq('id', ticket_id).execute()
     
-    ticket = res.data
-    if ticket['status'] in ['ENTREGADO', 'RECHAZADO']:
+    if not res.data or len(res.data) == 0:
+        print(f"[ERROR] Ticket {ticket_id} not found in DB")
+        raise HTTPException(status_code=404, detail="Ticket not found in database")
+    
+    ticket = res.data[0]
+    if ticket['status'] in ['ENTREGADO', 'RECHAZADO', 'CLOSED']:
         raise HTTPException(status_code=400, detail="Ticket already processed")
         
     items = ticket.get('items', [])
@@ -114,7 +118,7 @@ def close_ticket(
         mat_id = item['material_id']
         
         # Lock/Get material
-        mat_res = supabase.table('materials').select('current_stock, name').eq('id', mat_id).single().execute()
+        mat_res = supabase_admin.table('materials').select('current_stock, name').eq('id', mat_id).single().execute()
         if not mat_res.data:
              continue # Skip if deleted?
              
@@ -126,10 +130,10 @@ def close_ticket(
         # For this iteration, let's allow it to go negative or 0.
         
         # Update Material
-        supabase.table('materials').update({'current_stock': new_stock}).eq('id', mat_id).execute()
+        supabase_admin.table('materials').update({'current_stock': new_stock}).eq('id', mat_id).execute()
         
         # Update Item Fulfilled
-        supabase.table('ticket_items').update({'quantity_fulfilled': wanted}).eq('id', item['id']).execute()
+        supabase_admin.table('ticket_items').update({'quantity_fulfilled': wanted}).eq('id', item['id']).execute()
         
         # Log Event (Optional but recommended)
         event_data = {
@@ -139,13 +143,46 @@ def close_ticket(
             "requested_by": ticket['requester_id'],
             "notes": f"Ticket {ticket_id} fulfilled. Qty: {wanted}"
         }
-        supabase.table('material_events').insert(event_data).execute()
+        supabase_admin.table('material_events').insert(event_data).execute()
+
+        # 4. Record Inventory Movement (For History)
+        print(f"[DEBUG] Attempting to record movement for ticket {ticket_id}. Admin Client: {supabase_admin is not None}")
+        if supabase_admin:
+            try:
+                folio = ticket.get('folio', 0)
+                print(f"[DEBUG] Using Folio: {folio}, User: {current_user.id}")
+                movement_data = {
+                    "material_id": mat_id,
+                    "movement_type": "OUT",
+                    "quantity": wanted,
+                    "user_id": str(current_user.id),
+                    "reference_type": "TICKET",
+                    "reference_id": folio,
+                    "notes": f"Ticket #{folio or ticket_id} - Dispensed to {ticket.get('requester', {}).get('full_name') or 'User'}"
+                }
+                res = supabase_admin.table('inventory_movements').insert(movement_data).execute()
+                print(f"[DEBUG] Movement Insert Result: {res.data}")
+            except Exception as e:
+                print(f"[ERROR] Failed to insert movement: {e}")
+        else:
+            print("[ERROR] supabase_admin is None. Cannot record movement.")
 
     # 3. Update Ticket Status
-    update_res = supabase.table('tickets').update({
-        'status': 'ENTREGADO', 
-        'assigned_to': str(current_user.id),
-        'updated_at': 'now()'
-    }).eq('id', ticket_id).select('*, items:ticket_items(*), requester:profiles!requester_id(*)').single().execute()
-    
-    return update_res.data
+    try:
+        update_res = supabase_admin.table('tickets').update({
+            'status': 'ENTREGADO', 
+            'assigned_to': str(current_user.id),
+            'updated_at': 'now()'
+        }).eq('id', ticket_id).execute()
+        
+        # Manually return a dict that matches TicketResponse schema roughly or just success
+        # The frontend refreshes so exact shape matches are less critical if we don't crash
+        if update_res.data:
+             return update_res.data[0]
+        return {"status": "success", "message": "Ticket closed"}
+        
+    except Exception as e:
+        print(f"[CRITICAL ERROR] Failed to update ticket status: {e}")
+        # We should probably rollback stock here? (Not easy without transactions)
+        # For now, just raise so user sees it
+        raise HTTPException(status_code=500, detail=f"Stock deducted but failed to close ticket: {str(e)}")

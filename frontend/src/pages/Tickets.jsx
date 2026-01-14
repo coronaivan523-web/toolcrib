@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2, FileWarning, History } from 'lucide-react'
+import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircle, Info, Box, AlertTriangle, MapPin, Image, Loader2, FileWarning, History, Activity, CheckCircle, List } from 'lucide-react'
 import { useOutletContext } from 'react-router-dom'
+import { ticketService } from '../services/tickets'
 import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
 import RequisitionFormModal from '../components/RequisitionFormModal' // Import Modal
@@ -716,80 +717,11 @@ function TicketsContent() {
         setActionProcessingId(ticketId)
 
         try {
-            // 1. Get ticket with items to deduct stock
-            const { data: ticket, error: fetchError } = await supabase
-                .from('tickets')
-                .select(`
-                    *,
-                    items:ticket_items(
-                        id,
-                        material_id,
-                        quantity_requested,
-                        item_status
-                    )
-                `)
-                .eq('id', ticketId)
-                .single()
+            // Use Backend API to close ticket (handles stock deduction + history logging)
+            await ticketService.closeTicket(ticketId)
 
-            if (fetchError) throw fetchError
-
-            // 2. Deduct stock for each fulfilled item
-            for (const item of ticket.items) {
-                // Determine if item should be processed (fulfilled or pending/implicit)
-                const shouldProcess = item.item_status === 'fulfilled' || !item.item_status || item.item_status === 'pending';
-
-                if (shouldProcess) {
-                    // Get current stock
-                    const { data: material, error: materialError } = await supabase
-                        .from('materials')
-                        .select('current_stock, name')
-                        .eq('id', item.material_id)
-                        .single()
-
-                    if (materialError) {
-                        console.error('Error fetching material stock:', materialError)
-                        throw materialError
-                    }
-
-                    // Check for sufficient stock before deducting
-                    if ((material.current_stock || 0) < item.quantity_requested) {
-                        throw new Error(`Insufficient stock for ${material.name}. Requesting ${item.quantity_requested} but only ${material.current_stock || 0} available.`)
-                    }
-
-                    // Calculate new stock
-                    const newStock = (material.current_stock || 0) - item.quantity_requested
-
-                    // Update material stock
-                    const { error: updateError } = await supabase
-                        .from('materials')
-                        .update({ current_stock: newStock })
-                        .eq('id', item.material_id)
-
-                    if (updateError) {
-                        console.error('Error updating material stock (RLS?):', updateError)
-                        throw updateError
-                    }
-
-                    // Also ensure line item is marked fulfilled if it wasn't
-                    if (item.item_status !== 'fulfilled') {
-                        await supabase.from('ticket_items').update({
-                            item_status: 'fulfilled',
-                            fulfilled_at: new Date().toISOString()
-                        }).eq('id', item.id)
-                    }
-                }
-            }
-
-            // 3. Update ticket status to CLOSED
-            const { error } = await supabase
-                .from('tickets')
-                .update({
-                    status: 'CLOSED',
-                    closed_at: new Date().toISOString()
-                })
-                .eq('id', ticketId)
-
-            if (error) throw error
+            // Legacy Client-Side Logic Removed to prevent duplication/errors
+            // Backend now handles: Stock Deduction, Status Update, History Logging
 
             setSelectedTicket(null) // Clear selection
             fetchUserAndTickets(true)
@@ -1615,18 +1547,41 @@ function TicketsContent() {
 
                     {/* Filter Bar - Hide in cancelled view to keep it clean, or keep it if needed. Let's hide for table purity */}
                     {!showCancelledView && (
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 flex gap-4 items-center">
-                            <div className="flex items-center gap-2">
+                        <div className="bg-blue-600/10 rounded-xl shadow-sm border border-blue-200 py-1 px-4 mb-4 flex gap-4 items-center backdrop-blur-sm -mt-2">
+                            <div className="flex items-center gap-3">
                                 <label className="text-sm font-bold text-slate-700">Status:</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="active">Active (Pending/In Process/Ready)</option>
-                                    <option value="closed">Delivered/Closed/Cancelled</option>
-                                    <option value="all">All Tickets</option>
-                                </select>
+                                <div className="flex bg-blue-50 p-1 rounded-xl shadow-inner gap-1 border border-blue-100">
+                                    <button
+                                        onClick={() => setStatusFilter('active')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${statusFilter === 'active'
+                                            ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                            : 'bg-transparent text-slate-500 hover:bg-white hover:text-blue-600 hover:shadow-sm'
+                                            }`}
+                                    >
+                                        <Activity size={16} />
+                                        Active
+                                    </button>
+                                    <button
+                                        onClick={() => setStatusFilter('closed')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${statusFilter === 'closed'
+                                            ? 'bg-emerald-600 text-white shadow-md transform scale-105'
+                                            : 'bg-transparent text-slate-500 hover:bg-white hover:text-emerald-600 hover:shadow-sm'
+                                            }`}
+                                    >
+                                        <CheckCircle size={16} />
+                                        Finished
+                                    </button>
+                                    <button
+                                        onClick={() => setStatusFilter('all')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${statusFilter === 'all'
+                                            ? 'bg-slate-700 text-white shadow-md transform scale-105'
+                                            : 'bg-transparent text-slate-500 hover:bg-white hover:text-slate-700 hover:shadow-sm'
+                                            }`}
+                                    >
+                                        <List size={16} />
+                                        All
+                                    </button>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2 flex-1">
                                 <label className="text-sm font-bold text-slate-700">Search Folio:</label>

@@ -62,6 +62,20 @@ export default function Requisitions() {
                 setInboxCount(inboxData.length)
             } catch (ignore) { console.warn("Failed to fetch inbox count", ignore) }
 
+            // Update selectedReq if open (Refresh Modal)
+            if (isDetailOpen && selectedReq) {
+                const updatedSelected = reqData.find(r => r.id === selectedReq.id)
+                if (updatedSelected) {
+                    // Re-hydrate items (maintain consistency with handleOpenDetail)
+                    const hydratedItems = updatedSelected.items?.map(item => ({
+                        ...item,
+                        material_name: materials[item.material_id]?.name || item.material?.name || 'Unknown Material',
+                        part_number: materials[item.material_id]?.part_number || item.material?.part_number || 'N/A'
+                    }))
+                    setSelectedReq({ ...updatedSelected, items: hydratedItems })
+                }
+            }
+
         } catch (err) {
             console.error("Error fetching requisitions:", err)
             setError(err.message)
@@ -404,10 +418,7 @@ export default function Requisitions() {
                 currentUser={userProfile}
             />
 
-            {/* DEBUGGING FOOTER */}
-            <div className="absolute bottom-1 right-1 text-[10px] text-slate-300 pointer-events-none z-50">
-                User: {userProfile?.full_name} ({userProfile?.id}) | Role: {userProfile?.role} | Count: {requisitions.length} | View: {viewMode}
-            </div>
+
         </div >
     )
 }

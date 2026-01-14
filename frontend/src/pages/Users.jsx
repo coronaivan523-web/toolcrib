@@ -239,7 +239,14 @@ export default function Users() {
                 throw new Error("No magic link returned");
             }
         } catch (error) {
-            alert('Impersonation failed: ' + error.message);
+            console.error("Impersonation Error:", error);
+            if (error.message && error.message.includes("Session from session_id claim in JWT does not exist")) {
+                alert("Tu sesión ha expirado o no es válida. Por favor inicia sesión nuevamente.");
+                await supabase.auth.signOut();
+                window.location.reload();
+            } else {
+                alert('Impersonation failed: ' + error.message);
+            }
             setImpersonateLoading(false);
             setImpersonateModalOpen(false);
         }

@@ -153,13 +153,36 @@ class RequisitionService:
              
              approvals = req.get('approvals', [])
              rejected_step = None
-             for step in approvals:
-                  if step['step_status'] == 'REJECTED':
-                      rejected_step = step
-                      break
+             
+             # Filter REJECTED steps
+             rejected_steps = [s for s in approvals if s['step_status'] == 'REJECTED']
+             
+             if rejected_steps:
+                 # Sort by action_at descending (latest first) to get the most recent rejection
+                 # This ensures we resume from the *last* person who rejected, not a previous one
+                 try:
+                     rejected_steps.sort(key=lambda x: str(x.get('action_at') or ''), reverse=True)
+                     rejected_step = rejected_steps[0]
+                 except Exception as e:
+                     print(f"[ERROR] Sorting rejected steps failed: {e}")
+                     # Fallback to first
+                     rejected_step = rejected_steps[0]
              
              # Debugging print
              print(f"[DEBUG] Resubmitting. Status: {req['status']}, Rejected Step: {rejected_step}")
+             print(f"[DEBUG] All Approvals: {[(a['step_order'], a['step_status'], a.get('action_at')) for a in approvals]}")
+             print(f"[DEBUG] Rejected Steps (Before Sort): {[(a['step_order'], a.get('action_at')) for a in rejected_steps]}")
+
+             if rejected_steps:
+                 # Sort by action_at descending (latest first)
+                 try:
+                     rejected_steps.sort(key=lambda x: str(x.get('action_at') or ''), reverse=True)
+                     rejected_step = rejected_steps[0]
+                     print(f"[DEBUG] Selected Rejected Step (After Sort): Step {rejected_step['step_order']} at {rejected_step.get('action_at')}")
+                 except Exception as e:
+                     print(f"[ERROR] Sorting rejected steps failed: {e}")
+                     # Fallback to first
+                     rejected_step = rejected_steps[0]
 
              if rejected_step:
                  # Reset future steps
@@ -179,7 +202,14 @@ class RequisitionService:
                       "assigned_at": datetime.now(timezone.utc).isoformat(),
                       "comment": submit_data.resubmission_comment # The correction note from user
                   }
-                  client.table('requisition_approvals').insert(new_step_data).execute()
+                  
+                  try:
+                      client.table('requisition_approvals').insert(new_step_data).execute()
+                  except Exception as e:
+                      print(f"[ERROR] Failed to insert new step during resubmission: {e}")
+                      # REVERT Status to REWORK_REQUIRED to avoid Limbo
+                      client.table('requisitions').update({"status": 'REWORK_REQUIRED'}).eq('id', req_id).execute()
+                      raise HTTPException(status_code=500, detail=f"Failed to create resubmission step: {e}")
                   
         else:
             # New Submission (From DRAFT) -> Create Steps
@@ -406,27 +436,50 @@ class RequisitionService:
         # Use admin client to ensure visibility if RLS is strict
         client = cls._get_admin_client()
         
-        query = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
+        query = client.table('requisitions').select('*, items:requisition_items(*, material:materials(*)), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
         if status:
             query = query.eq('status', status)
         if requester_id:
             # Modified to allow users to see requisitions they approved (History)
             # FORCE ADMIN CLIENT CHECK
             lookup_client = client
-            if settings.SUPABASE_SERVICE_KEY:
-                # Re-create to be 100% sure we have admin rights for this check
-                # print(f"[DEBUG] Using Fresh Admin Client for Approval Lookup. SK Length: {len(settings.SUPABASE_SERVICE_KEY)}")
+            
+            # 1. Try Settings
+            service_key = settings.SUPABASE_SERVICE_KEY
+            
+            # 2. If missing, try robust manual .env load
+            if not service_key:
                 try:
-                    lookup_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                    import os
+                    from pathlib import Path
+                    
+                    # Robust find: Go up 3 levels from app/services/requisition_service.py to root
+                    current_file = Path(__file__).resolve()
+                    project_root = current_file.parent.parent.parent
+                    env_path = project_root / ".env"
+                    
+                    if env_path.exists():
+                        with open(env_path, "r") as f:
+                            for line in f:
+                                if line.strip().startswith("SUPABASE_SERVICE_KEY="):
+                                    service_key = line.strip().split("=", 1)[1]
+                                    break
                 except Exception as e:
-                    print(f"[ERROR] Failed to create fresh admin client: {e}")
+                    print(f"[WARN] Failed to manually load .env: {e}")
+
+            if service_key:
+                # Re-create to be 100% sure we have admin rights for this check
+                try:
+                    lookup_client = create_client(settings.SUPABASE_URL, service_key)
+                except Exception as e:
+                    print(f"[WARN] Failed to create fresh admin client: {e}")
+            else:
+                 print("[WARN] No SERVICE_KEY available. Using default client.")
 
             # 1. Fetch IDs of requisitions where user was an approver
             try:
-                # print(f"[DEBUG] querying requisition_approvals for {requester_id}")
                 ap_res = lookup_client.table('requisition_approvals').select('requisition_id').eq('assigned_to_user_id', str(requester_id)).execute()
                 approved_ids = list(set([item['requisition_id'] for item in ap_res.data])) if ap_res.data else []
-                # print(f"[DEBUG] found approved_ids: {len(approved_ids)}")
                 
                 if approved_ids:
                     # Construct OR filter: requester_id == user OR id IN approved_ids
@@ -437,21 +490,12 @@ class RequisitionService:
                 else:
                     query = query.eq('requester_id', str(requester_id))
             except Exception as e:
-                print(f"[WARN] Error fetching approval history for filter: {e}")
+                print(f"[ERROR] Error fetching approval history: {e}")
                 # Fallback to safe default
                 query = query.eq('requester_id', str(requester_id))
         
-        # DEBUG LOGGING
-        print(f"[DEBUG] get_requisitions - Final Query Params: skip={skip}, limit={limit}, status={status}")
-        print(f"[DEBUG] get_requisitions - Requester ID Filter: {requester_id}")
-        
         # Execute
         res = query.range(skip, skip + limit - 1).execute()
-        
-        print(f"[DEBUG] get_requisitions - Result Count: {len(res.data) if res.data else 0}")
-        if requester_id and not res.data:
-            print("[DEBUG] WARNING: No requisitions found for this requester check.")
-            
         return res.data
 
     @staticmethod
@@ -459,7 +503,7 @@ class RequisitionService:
         # Use admin client to ensure visibility
         client = RequisitionService._get_admin_client()
         
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').eq('id', req_id).single().execute()
+        res = client.table('requisitions').select('*, items:requisition_items(*, material:materials(*)), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').eq('id', req_id).single().execute()
         if not res.data:
              raise HTTPException(status_code=404, detail="Requisition not found")
              
@@ -467,3 +511,70 @@ class RequisitionService:
             res.data['approvals'].sort(key=lambda x: x['step_order'])
             
         return res.data
+
+    @staticmethod
+    def incoming_materials(req_id: str, items: List[Any], user_id: str) -> Dict[str, Any]:
+        """
+        Process incoming materials.
+        items: List of objects with material_id, quantity, item_id
+        """
+        # Imports inside method to avoid circular deps
+        from app.services.inventory_service import InventoryService
+        from app.schemas.inventory import InventoryMovementCreate
+        
+        client = RequisitionService._get_admin_client()
+        
+        # 1. Get Requisition
+        req = RequisitionService.get_requisition_by_id(req_id)
+        
+        # 2. Process Items
+        # Re-fetch items to verify completion status later
+        
+        for item_data in items:
+            # Update Requisition Item
+            # We need to fetch current quantity_received to add, or just increment
+            # Supabase doesn't support increment via update easily without function, so read-update
+            
+            # Fetch item
+            r_item = client.table('requisition_items').select('*').eq('id', str(item_data.item_id)).single().execute()
+            if not r_item.data:
+                continue # Skip invalid
+                
+            current_rec = r_item.data.get('quantity_received', 0) or 0
+            new_rec = current_rec + item_data.quantity
+            
+            # Prevent over-receiving? Optionally. For now assume user knows best.
+            
+            client.table('requisition_items').update({'quantity_received': new_rec}).eq('id', str(item_data.item_id)).execute()
+            
+            # Inventory Movement
+            # Assuming material_id is correct
+            inv_mov = InventoryMovementCreate(
+                material_id=item_data.material_id,
+                movement_type='IN',
+                quantity=item_data.quantity,
+                reference_type='REQUISITION',
+                # reference_id=req_id,
+                notes=f"Incoming from Requisition {req.get('req_number')}"
+            )
+            InventoryService.create_movement(inv_mov, user_id)
+            
+        # 3. Check Overall Status
+        # We need to check ALL items, not just the ones passed.
+        # Re-fetch all items
+        updated_req = RequisitionService.get_requisition_by_id(req_id)
+        all_completed = True
+        for item in updated_req['items']:
+            q_req = item['quantity_requested']
+            q_rec = item.get('quantity_received', 0) or 0
+            if q_rec < q_req:
+                all_completed = False
+                break
+        
+        # If all items are fully received, update status
+        # ALSO, if status was ORDERED or APPROVED, we can move to RECEIVED.
+        # Note: If it's already CLOSED, we might leave it.
+        if all_completed and req['status'] not in ['RECEIVED', 'CLOSED', 'CANCELLED']:
+             client.table('requisitions').update({'status': 'RECEIVED'}).eq('id', req_id).execute()
+             
+        return RequisitionService.get_requisition_by_id(req_id)

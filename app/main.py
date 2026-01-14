@@ -1,8 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import auth, users, inventory, tickets, requisitions
 from app.core.supabase import supabase
+
+# Import routers directly to avoid __init__ issues
+from app.api.v1.endpoints.auth import router as auth_router
+from app.api.v1.endpoints.users import router as users_router
+from app.api.v1.endpoints.inventory import router as inventory_router
+from app.api.v1.endpoints.tickets import router as tickets_router
+from app.api.v1.endpoints.requisitions import router as requisitions_router
+from app.api.v1.endpoints.materials import router as materials_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -19,11 +26,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
-app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-app.include_router(inventory.router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
-app.include_router(tickets.router, prefix=f"{settings.API_V1_STR}/tickets", tags=["tickets"])
-app.include_router(requisitions.router, prefix=f"{settings.API_V1_STR}/requisitions", tags=["requisitions"])
+app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+app.include_router(inventory_router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
+app.include_router(tickets_router, prefix=f"{settings.API_V1_STR}/tickets", tags=["tickets"])
+app.include_router(requisitions_router, prefix=f"{settings.API_V1_STR}/requisitions", tags=["requisitions"])
+app.include_router(materials_router, prefix=f"{settings.API_V1_STR}/materials", tags=["materials"])
 
 @app.get("/")
 def root():
@@ -34,9 +42,6 @@ def root():
 def health_supabase():
     try:
         # Simple query to check if we can reach Supabase
-        # We can query 'locations' or just check auth status (though auth is client side mostly)
-        # Checking a public table or just a simple rpc if available.
-        # Let's try selecting from 'locations' (limit 1)
         res = supabase.table('locations').select('id').limit(1).execute()
         return {"status": "ok", "supabase": "connected"}
     except Exception as e:

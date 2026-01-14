@@ -9,11 +9,23 @@ from app.schemas.requisition import (
     RequisitionSubmit,
     RequisitionApprove,
     RequisitionReject,
-    RequisitionStatus
+    RequisitionStatus,
+    IncomingPayload
 )
 from app.services.requisition_service import RequisitionService
 
 router = APIRouter()
+print("DEBUG: requisitions.py module loaded. Incoming Endpoint Active!")
+
+@router.post("/{requisition_id}/incoming", response_model=RequisitionResponse)
+def incoming_materials(
+    requisition_id: str,
+    payload: IncomingPayload,
+    current_user = Depends(get_current_active_user),
+) -> Any:
+    """ Process incoming materials. """
+    # Ideally check permissions here (e.g. toolroom_staff only)
+    return RequisitionService.incoming_materials(requisition_id, payload.items, current_user.id)
 
 # --- Permissions Helpers ---
 def check_create_permission(user):
@@ -22,12 +34,7 @@ def check_create_permission(user):
     role_name = RequisitionService.get_user_role(user.id)
         
     # Authorized Roles for Create/Submit
-    
-    # Authorized Roles for Create/Submit
     allowed = ['admin', 'process_engineer', 'coordinator', 'toolroom_staff', 'supervisor', 'staff_level_1', 'staff_level_2'] 
-    # Added supervisor? User said "NO técnicos ni supervisores" but usually supervisors approve.
-    # Ah, User said: "NO técnicos ni supervisores" for CREATE/SUBMIT.
-    # So I must remove supervisor from allowed list for create.
     
     strict_allowed = ['admin', 'toolroom_staff', 'supervisor', 'staff_level_1', 'staff_level_2']
     
@@ -42,6 +49,7 @@ def read_requisitions(
     current_user = Depends(get_current_active_user),
 ) -> Any:
     """ List requisitions. """
+    
     requester_id = None
     
     # Force DB lookup for role to ensure accuracy (metadata in token might be stale)
@@ -51,14 +59,26 @@ def read_requisitions(
     except:
         role_name = 'user'
     
+    try:
+        with open("backend_debug_router.log", "a") as f:
+             f.write(f"API Evaluated Role: {role_name}\n")
+    except:
+        pass
+
     # Authorized roles that can see ALL requisitions
-    # (Admins, Managers, Staff, Engineers, Coordinators, Supervisors)
-    # Authorized roles that can see ALL requisitions
-    # (Admins, Managers, Staff (only some), Engineers, Coordinators, Supervisors)
     privileged_roles = ['admin', 'manager', 'toolroom_staff', 'process_engineer', 'coordinator', 'supervisor', 'head_of_department']
     
     if role_name not in privileged_roles:
         requester_id = current_user.id
+        try:
+             with open("backend_debug_router.log", "a") as f:
+                  f.write(f"Standard user detected. Filtering by requester_id={requester_id}\n")
+        except: pass
+    else:
+        try:
+             with open("backend_debug_router.log", "a") as f:
+                  f.write(f"Privileged user detected. No ID filter passed to service.\n")
+        except: pass
         
     return RequisitionService.get_requisitions(skip=skip, limit=limit, status=status, requester_id=requester_id)
 
@@ -83,7 +103,6 @@ def create_draft(
         # Use requester_id from payload if available, else creator
         target_requester_id = requisition_in.requester_id or current_user.id
         return RequisitionService.create_draft(target_requester_id, requisition_in, creator_id=current_user.id)
-        # raise HTTPException(status_code=400, detail="DEBUG: I AM RUNNING")
     except Exception as e:
         print(f"[ERROR] create_draft failed: {e}")
         import traceback

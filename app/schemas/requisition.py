@@ -10,8 +10,16 @@ class RequisitionStatus(str, Enum):
     UNDER_APPROVAL = "UNDER_APPROVAL"
     REWORK_REQUIRED = "REWORK_REQUIRED"
     APPROVED_PRE_PURCHASE = "APPROVED_PRE_PURCHASE"
-    CANCELED = "CANCELED"
-    REJECTED_FINAL = "REJECTED_FINAL"
+    APPROVED = "APPROVED"
+    ORDERED = "ORDERED"
+    RECEIVED = "RECEIVED"
+    PARTIALLY_RECEIVED = "PARTIALLY_RECEIVED"
+    CLOSED = "CLOSED"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    CANCELED = "CANCELED" # Legacy?
+    CANCELLED = "CANCELLED" # Constraint
+    REJECTED = "REJECTED" # Constraint
+    REJECTED_FINAL = "REJECTED_FINAL" # Legacy?
 
 class StepStatus(str, Enum):
     WAITING = "WAITING"
@@ -71,7 +79,18 @@ class RequisitionItemResponse(RequisitionItemBase):
     id: UUID
     requisition_id: UUID
     quantity_approved: Optional[int] = None
+    quantity_received: Optional[int] = 0
     material_name: Optional[str] = None 
+    material: Optional[Dict[str, Any]] = None
+
+# --- Incoming Payloads ---
+class IncomingItem(BaseModel):
+    item_id: UUID
+    material_id: int
+    quantity: int
+
+class IncomingPayload(BaseModel):
+    items: List[IncomingItem]
 
 # --- Requisition Approvals (Workflows) ---
 class RequisitionApprovalResponse(BaseModel):

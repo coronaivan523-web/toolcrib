@@ -207,7 +207,9 @@ export default function RequisitionPrintView() {
 
                     <div className="p-1 mb-2 h-12 text-[10px] flex items-start">
                         <span className="font-bold mr-2 whitespace-nowrap">Justificación de la compra:</span>
-                        <span className="italic text-slate-800 break-words leading-tight">{req.comments || req.justification || req.purchase_justification || ''}</span>
+                        <span className="italic text-slate-800 break-words leading-tight">
+                            {(req.comments || req.justification || req.purchase_justification || '') + (req.req_number ? ` - ${req.req_number}` : '')}
+                        </span>
                     </div>
 
                     <div className="text-red-600 text-[9px] font-bold leading-tight">
