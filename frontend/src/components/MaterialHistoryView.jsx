@@ -8,6 +8,31 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
     const [error, setError] = useState(null)
     const [data, setData] = useState(null)
     const [previewImage, setPreviewImage] = useState(null)
+    const [filterType, setFilterType] = useState('all') // 'all', 'in', 'out'
+
+    const filteredMovements = (data?.movements || []).filter(m => {
+        if (filterType === 'in') return m.movement_type === 'IN';
+        if (filterType === 'out') return m.movement_type === 'OUT';
+        return true;
+    });
+
+    const getAggregatedStats = (keyField) => {
+        const stats = {};
+        // Use filtered movements to respect the current view
+        filteredMovements.forEach(m => {
+            const key = m[keyField] || 'Unknown';
+            if (!stats[key]) stats[key] = { in: 0, out: 0 };
+            if (m.movement_type === 'IN') stats[key].in += Number(m.quantity) || 0;
+            if (m.movement_type === 'OUT') stats[key].out += Number(m.quantity) || 0;
+        });
+        return Object.entries(stats).map(([name, counts]) => ({ name, ...counts }));
+    };
+
+    const getTotal = (type) => { // 'in' or 'out'
+        return filteredMovements
+            .filter(m => m.movement_type === type.toUpperCase())
+            .reduce((acc, m) => acc + (Number(m.quantity) || 0), 0);
+    };
 
     useEffect(() => {
         const loadHistory = async () => {
@@ -68,6 +93,43 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
                                     Current Stock: <span className="text-white font-bold">{data?.current_stock ?? '-'}</span>
                                 </span>
                             </h3>
+
+                            {/* Filters moved here */}
+                            <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-slate-700 ml-8">
+                                <button
+                                    onClick={() => setFilterType('all')}
+                                    className={clsx(
+                                        "px-3 py-1.5 rounded-md text-xs font-bold transition-all",
+                                        filterType === 'all'
+                                            ? "bg-slate-700 text-white shadow-sm"
+                                            : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                                    )}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('in')}
+                                    className={clsx(
+                                        "px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1",
+                                        filterType === 'in'
+                                            ? "bg-green-900/40 text-green-400 shadow-sm border border-green-900/50"
+                                            : "text-slate-400 hover:text-green-400 hover:bg-slate-700/50"
+                                    )}
+                                >
+                                    <ArrowDownLeft size={12} /> Received
+                                </button>
+                                <button
+                                    onClick={() => setFilterType('out')}
+                                    className={clsx(
+                                        "px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1",
+                                        filterType === 'out'
+                                            ? "bg-amber-900/40 text-amber-400 shadow-sm border border-amber-900/50"
+                                            : "text-slate-400 hover:text-amber-400 hover:bg-slate-700/50"
+                                    )}
+                                >
+                                    <ArrowUpRight size={12} /> Delivered
+                                </button>
+                            </div>
                         </div>
                         <p className="text-xs text-slate-500 font-mono">Reference ID: {materialId}</p>
                     </div>
@@ -82,137 +144,79 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
                 )}
             </div>
 
-            {/* Content Scrollable Area */}
-            <div className="flex-1 overflow-auto custom-scrollbar p-0">
-                {/* Consumption Summary Tables */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 pb-0 mb-6">
-                    {/* Plant Summary */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <div className="bg-slate-800 px-3 py-2 border-b border-slate-700 font-bold text-xs text-white uppercase tracking-wider flex items-center justify-between">
-                            <span>Consumption by Plant</span>
-                            <span className="text-white">{(data?.movements || []).filter(m => m.movement_type === 'OUT').reduce((acc, m) => acc + (Number(m.quantity) || 0), 0)}</span>
-                        </div>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-sm">
-                                <tbody className="divide-y divide-slate-100">
-                                    {Object.entries(
-                                        (data?.movements || [])
-                                            .filter(m => m.movement_type === 'OUT')
-                                            .reduce((acc, m) => {
-                                                const key = m.plant || 'Unknown';
-                                                acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                return acc;
-                                            }, {})
-                                    ).length === 0 ? (
-                                        <tr><td className="px-3 py-2 text-slate-400 text-xs italic">No consumption data</td></tr>
-                                    ) : (
-                                        Object.entries(
-                                            (data?.movements || [])
-                                                .filter(m => m.movement_type === 'OUT')
-                                                .reduce((acc, m) => {
-                                                    const key = m.plant || 'Unknown';
-                                                    acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                    return acc;
-                                                }, {})
-                                        ).map(([name, qty]) => (
-                                            <tr key={name}>
-                                                <td className="px-3 py-2 text-slate-600 font-medium">{name}</td>
-                                                <td className="px-3 py-2 text-right font-bold text-slate-800">{qty}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
 
-                    {/* Area Summary */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <div className="bg-slate-800 px-3 py-2 border-b border-slate-700 font-bold text-xs text-white uppercase tracking-wider flex items-center justify-between">
-                            <span>Consumption by Area</span>
-                            <span className="text-white">{(data?.movements || []).filter(m => m.movement_type === 'OUT').reduce((acc, m) => acc + (Number(m.quantity) || 0), 0)}</span>
-                        </div>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-sm">
-                                <tbody className="divide-y divide-slate-100">
-                                    {Object.entries(
-                                        (data?.movements || [])
-                                            .filter(m => m.movement_type === 'OUT')
-                                            .reduce((acc, m) => {
-                                                const key = m.area || 'Unknown';
-                                                acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                return acc;
-                                            }, {})
-                                    ).length === 0 ? (
-                                        <tr><td className="px-3 py-2 text-slate-400 text-xs italic">No consumption data</td></tr>
-                                    ) : (
-                                        Object.entries(
-                                            (data?.movements || [])
-                                                .filter(m => m.movement_type === 'OUT')
-                                                .reduce((acc, m) => {
-                                                    const key = m.area || 'Unknown';
-                                                    acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                    return acc;
-                                                }, {})
-                                        ).map(([name, qty]) => (
-                                            <tr key={name}>
-                                                <td className="px-3 py-2 text-slate-600 font-medium">{name}</td>
-                                                <td className="px-3 py-2 text-right font-bold text-slate-800">{qty}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            {/* Fixed Summary Section */}
+            <div className="shrink-0 bg-slate-50 border-b border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
+                    {['Plant', 'Area', 'Process'].map(field => {
+                        const lowerField = field.toLowerCase();
+                        const stats = getAggregatedStats(lowerField);
 
-                    {/* Process Summary */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <div className="bg-slate-800 px-3 py-2 border-b border-slate-700 font-bold text-xs text-white uppercase tracking-wider flex items-center justify-between">
-                            <span>Consumption by Process</span>
-                            <span className="text-white">{(data?.movements || []).filter(m => m.movement_type === 'OUT').reduce((acc, m) => acc + (Number(m.quantity) || 0), 0)}</span>
-                        </div>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-sm">
-                                <tbody className="divide-y divide-slate-100">
-                                    {Object.entries(
-                                        (data?.movements || [])
-                                            .filter(m => m.movement_type === 'OUT')
-                                            .reduce((acc, m) => {
-                                                const key = m.process || 'Unknown';
-                                                acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                return acc;
-                                            }, {})
-                                    ).length === 0 ? (
-                                        <tr><td className="px-3 py-2 text-slate-400 text-xs italic">No consumption data</td></tr>
-                                    ) : (
-                                        Object.entries(
-                                            (data?.movements || [])
-                                                .filter(m => m.movement_type === 'OUT')
-                                                .reduce((acc, m) => {
-                                                    const key = m.process || 'Unknown';
-                                                    acc[key] = (acc[key] || 0) + (Number(m.quantity) || 0);
-                                                    return acc;
-                                                }, {})
-                                        ).map(([name, qty]) => (
-                                            <tr key={name}>
-                                                <td className="px-3 py-2 text-slate-600 font-medium">{name}</td>
-                                                <td className="px-3 py-2 text-right font-bold text-slate-800">{qty}</td>
+                        const totalIn = stats.reduce((acc, s) => acc + s.in, 0);
+                        const totalOut = stats.reduce((acc, s) => acc + s.out, 0);
+
+                        // Determine title based on filter
+                        let title = `Activity by ${field}`;
+                        if (filterType === 'in') title = `Receipts by ${field}`;
+                        if (filterType === 'out') title = `Consumption by ${field}`;
+
+                        return (
+                            <div key={field} className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                                <div className="bg-slate-800 px-3 py-2 border-b border-slate-700 font-bold text-xs text-white uppercase tracking-wider flex items-center justify-between">
+                                    <span className="flex-1">{title}</span>
+                                    <div className="flex items-center mr-4">
+                                        {(filterType === 'all' || filterType === 'in') && (
+                                            <div className="w-20 text-right text-green-400 font-mono text-sm font-bold">
+                                                {totalIn > 0 ? `+${totalIn}` : ''}
+                                            </div>
+                                        )}
+                                        {(filterType === 'all' || filterType === 'out') && (
+                                            <div className="w-20 text-right text-amber-400 font-mono text-sm font-bold">
+                                                {totalOut > 0 ? `-${totalOut}` : ''}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="max-h-40 overflow-y-auto custom-scrollbar">
+                                    <table className="w-full text-sm table-fixed">
+                                        <thead className="bg-blue-100 text-slate-700 text-[10px] font-bold uppercase border-b border-blue-200 z-10 sticky top-0">
+                                            <tr>
+                                                <th className="px-3 py-1.5 text-left truncate">{field}</th>
+                                                {(filterType === 'all' || filterType === 'in') && <th className="px-3 py-1.5 text-right text-green-700 w-20">In</th>}
+                                                {(filterType === 'all' || filterType === 'out') && <th className="px-3 py-1.5 text-right text-amber-700 w-20">Out</th>}
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {stats.length === 0 ? (
+                                                <tr><td colSpan="3" className="px-3 py-2 text-slate-400 text-xs italic">No data</td></tr>
+                                            ) : (
+                                                stats.map(({ name, in: inQty, out: outQty }) => (
+                                                    <tr key={name}>
+                                                        <td className="px-3 py-2 text-slate-600 font-medium truncate">{name}</td>
+                                                        {(filterType === 'all' || filterType === 'in') && (
+                                                            <td className="px-3 py-2 text-right font-bold text-green-700 w-20">{inQty > 0 ? `+${inQty}` : '-'}</td>
+                                                        )}
+                                                        {(filterType === 'all' || filterType === 'out') && (
+                                                            <td className="px-3 py-2 text-right font-bold text-amber-700 w-20">{outQty > 0 ? `-${outQty}` : '-'}</td>
+                                                        )}
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
+            </div>
 
+            {/* Scrollable Activity List */}
+            <div className="flex-1 overflow-auto custom-scrollbar p-0 bg-white">
                 {/* Recent Activity Table */}
                 <div>
-                    <h4 className="font-bold text-slate-700 mb-0 flex items-center gap-2 text-sm px-6 py-4 bg-white border-b border-slate-100">
-                        <Calendar size={16} /> Recent Activity
-                    </h4>
-                    <div className="overflow-x-auto">
+                    {/* Removed inner overflow-x-auto to allow sticky header to work with parent scroll */}
+                    <div className="min-w-full">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-900 text-white font-medium border-b border-slate-800 sticky top-0 z-10 shadow-sm">
                                 <tr>
@@ -228,14 +232,14 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {data?.movements?.length === 0 ? (
+                                {filteredMovements.length === 0 ? (
                                     <tr>
                                         <td colSpan="9" className="px-4 py-8 text-center text-slate-400 text-xs italic">
                                             No recent movements found.
                                         </td>
                                     </tr>
                                 ) : (
-                                    data?.movements?.map((move) => (
+                                    filteredMovements.map((move) => (
                                         <tr key={move.id} className="hover:bg-slate-50/50">
                                             <td className="px-4 py-3">
                                                 <span className={clsx(

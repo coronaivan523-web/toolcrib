@@ -1808,7 +1808,7 @@ export default function Inventory() {
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 overflow-y-auto bg-slate-100/50 p-6 lg:p-10 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+                            <div className={`flex-1 bg-slate-100/50 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent ${detailTab === 'history' ? 'overflow-hidden p-0' : 'overflow-y-auto'} ${detailTab === 'info' ? 'p-6 lg:p-10' : ''} ${detailTab === 'limit_history' ? 'p-3' : ''}`}>
                                 {detailTab === 'info' ? (
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                                         {/* Left: Image & Quick Stats */}
@@ -1990,18 +1990,18 @@ export default function Inventory() {
                                         </div>
                                     </div>
                                 ) : detailTab === 'limit_history' ? (
-                                    <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-200/60 shadow-xl overflow-hidden flex flex-col min-h-[500px]">
-                                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <div className="w-full bg-white rounded-2xl border border-slate-200/60 shadow-xl overflow-hidden flex flex-col min-h-[500px]">
+                                        <div className="px-6 py-5 border-b border-purple-300 flex justify-between items-center bg-purple-200">
                                             <div className="flex items-center gap-3">
-                                                <div className="bg-purple-100/50 p-2.5 rounded-xl text-purple-600 shadow-sm border border-purple-100">
+                                                <div className="bg-white p-2.5 rounded-xl text-purple-600 shadow-sm border border-purple-100">
                                                     <History size={20} />
                                                 </div>
                                                 <div>
-                                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">Limit Audit</h4>
-                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">Track min/max stock changes</p>
+                                                    <h4 className="text-xs font-black text-purple-900 uppercase tracking-widest">Limit Audit</h4>
+                                                    <p className="text-[10px] text-purple-500 font-medium mt-0.5">Track min/max stock changes</p>
                                                 </div>
                                             </div>
-                                            <div className="text-[10px] font-bold text-slate-500 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+                                            <div className="text-[10px] font-bold text-purple-700 bg-white px-4 py-2 rounded-full border border-purple-200 shadow-sm">
                                                 {limitHistory.length} Record{limitHistory.length !== 1 && 's'} Found
                                             </div>
                                         </div>
@@ -2163,7 +2163,7 @@ export default function Inventory() {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-h-[500px]">
+                                    <div className="h-full w-full">
                                         <MaterialHistoryView materialId={selectedItemAction.id} materialName={selectedItemAction.name} />
                                     </div>
                                 )}
