@@ -1735,20 +1735,21 @@ export default function Inventory() {
                                     <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-600 uppercase tracking-widest transition-colors">Details</span>
                                 </button>
 
-                                {(userRole === 'admin' || userRole === 'supervisor') && (
-                                    <button
-                                        onClick={() => {
-                                            setIsActionMenuOpen(false)
-                                            handleOpenLimitHistory()
-                                        }}
-                                        className="col-span-2 py-4 rounded-xl bg-white border-2 border-slate-50 hover:border-purple-100 hover:bg-purple-50/50 flex flex-row items-center justify-center gap-3 transition-all group shadow-sm hover:shadow-md"
-                                    >
-                                        <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-purple-100 flex items-center justify-center transition-colors">
-                                            <History className="text-slate-400 group-hover:text-purple-600 transition-colors" size={16} />
-                                        </div>
-                                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-purple-600 uppercase tracking-widest transition-colors">Limit Changes</span>
-                                    </button>
-                                )}
+                                {/* Permission Check Removed temporarily as per user request to make it visible */}
+                                {/* (userRole === 'admin' || userRole === 'supervisor') && ( */}
+                                <button
+                                    onClick={() => {
+                                        setIsActionMenuOpen(false)
+                                        handleOpenLimitHistory()
+                                    }}
+                                    className="col-span-2 py-4 rounded-xl bg-white border-2 border-slate-50 hover:border-purple-100 hover:bg-purple-50/50 flex flex-row items-center justify-center gap-3 transition-all group shadow-sm hover:shadow-md"
+                                >
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 group-hover:bg-purple-100 flex items-center justify-center transition-colors">
+                                        <History className="text-slate-400 group-hover:text-purple-600 transition-colors" size={16} />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 group-hover:text-purple-600 uppercase tracking-widest transition-colors">Limit History</span>
+                                </button>
+                                {/* ) */}
                             </div>
 
                             <button
