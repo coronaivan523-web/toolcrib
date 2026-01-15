@@ -216,9 +216,6 @@ export default function Inventory() {
                 !editLimitsForm.requested_by?.trim() ||
                 !editLimitsForm.requested_by_position?.trim() ||
                 !editLimitsForm.justification?.trim() ||
-                !editLimitsForm.modifier_name?.trim() ||
-                !editLimitsForm.modifier_position?.trim() ||
-                !editLimitsForm.modifier_area?.trim() ||
                 !editLimitsForm.evidence_file // File is mandatory
             ) {
                 alert("All fields are mandatory without exception. Please fill in all details and upload evidence.")
@@ -285,7 +282,7 @@ export default function Inventory() {
             }
 
             if (changes.length > 0) {
-                await supabase.from('material_events').insert({
+                const { error: eventError } = await supabase.from('material_events').insert({
                     material_id: selectedItemAction.id,
                     event_type: 'LIMIT_UPDATE',
                     performed_by: user.id,
@@ -294,10 +291,15 @@ export default function Inventory() {
                     chinese_authorizer: editLimitsForm.chinese_auth ? editLimitsForm.chinese_authorizer : null,
                     // action_type removed from here, moved to material updates
                     evidence_image_path: evidenceImageUrl,
-                    modifier_name: editLimitsForm.modifier_name,
-                    modifier_position: editLimitsForm.modifier_position,
-                    modifier_area: editLimitsForm.modifier_area
+                    modifier_name: user.email?.split('@')[0] || 'System User', // Auto-fill from Auth
+                    modifier_position: 'System User', // Default since explicit input removed
+                    modifier_area: 'IT/Admin' // Default since explicit input removed
                 })
+
+                if (eventError) {
+                    console.error("Error saving material event:", eventError)
+                    alert("Warning: Functionality saved but audit history failed: " + eventError.message)
+                }
             }
 
             // 4. Refresh Data
@@ -2344,41 +2346,7 @@ export default function Inventory() {
                                     </div>
                                 </div>
 
-                                {/* Modifier Details Section (Full Width Bottom) */}
-                                <div className="mt-6 bg-slate-50 rounded-xl p-5 border border-slate-100">
-                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Modifier Details (You)</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Name</label>
-                                            <input
-                                                type="text"
-                                                value={editLimitsForm.modifier_name}
-                                                onChange={(e) => setEditLimitsForm({ ...editLimitsForm, modifier_name: e.target.value })}
-                                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Position</label>
-                                            <input
-                                                type="text"
-                                                value={editLimitsForm.modifier_position}
-                                                onChange={(e) => setEditLimitsForm({ ...editLimitsForm, modifier_position: e.target.value })}
-                                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-                                                placeholder="e.g. Supervisor"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Area / Dept</label>
-                                            <input
-                                                type="text"
-                                                value={editLimitsForm.modifier_area}
-                                                onChange={(e) => setEditLimitsForm({ ...editLimitsForm, modifier_area: e.target.value })}
-                                                className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-                                                placeholder="e.g. Warehouse"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+
                             </div>
 
                             <div className="bg-slate-50 px-8 py-5 flex justify-end gap-3 border-t border-slate-200 shrink-0">
