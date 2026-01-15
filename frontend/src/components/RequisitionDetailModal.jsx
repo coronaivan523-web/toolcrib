@@ -117,9 +117,12 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
             case 'PENDING': return <Clock size={18} className="text-blue-600 animate-pulse" />
             case 'WAITING': return <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
             case 'SKIPPED': return <div className="w-4 h-4 rounded-full bg-slate-200" />
+            // Custom for Correction History
+            case 'CORRECTION': return <RotateCw size={18} className="text-indigo-600" />
             default: return <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
         }
     }
+
 
     // --- Permissions Logic ---
     const currentUserId = currentUser?.id
@@ -417,59 +420,94 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             Approval Workflow
                         </h3>
                         <div className="relative pl-4 border-l-2 border-blue-100 space-y-8 my-2">
-                            {(requisition.approvals || []).sort((a, b) => a.step_order - b.step_order).map((step) => (
-                                <div key={step.id} className="relative pl-8">
-                                    <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
-                                        step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :
-                                            step.step_status === 'PENDING' ? "bg-blue-100 border-blue-200" :
-                                                step.step_status === 'REJECTED' ? "bg-red-100 border-red-200" :
-                                                    "bg-white border-slate-200"
-                                    )}>
-                                        {getStepIcon(step.step_status)}
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-white p-4 rounded-xl border border-blue-50 shadow-sm hover:border-blue-200 transition-colors">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md">Step {step.step_order}</span>
-                                            </div>
-                                            <h4 className="font-bold text-slate-800 text-base">{step.step_name.replace(/_/g, ' ')}</h4>
-                                            <div className="text-sm text-slate-500 mt-1 font-medium">
-                                                Assigned: <span className="text-slate-700 font-bold">
-                                                    {(() => {
-                                                        if (!step.assigned_to_user_id) return 'System';
-                                                        const name = effectiveUsersMap[step.assigned_to_user_id];
-                                                        return name || `Missing ID: ${step.assigned_to_user_id.substring(0, 8)}...`;
-                                                    })()}
-                                                </span>
-                                            </div>
+                            {(requisition.approvals || []).sort((a, b) => {
+                                // Sort by step_order first
+                                if (a.step_order !== b.step_order) return a.step_order - b.step_order
+
+                                const dateA = new Date(a.action_at || a.created_at).getTime()
+                                const dateB = new Date(b.action_at || b.created_at).getTime()
+
+                                if (dateA !== dateB) return dateA - dateB
+
+                                // Tie-breaker: "CORRECCIÓN" (Completed) < "PENDING" (Waiting)
+                                const isACorrection = a.step_name === 'CORRECCIÓN'
+                                const isBCorrection = b.step_name === 'CORRECCIÓN'
+
+                                if (isACorrection && !isBCorrection) return -1
+                                if (!isACorrection && isBCorrection) return 1
+
+                                return 0
+                            }).map((step) => {
+                                const isCorrection = step.step_name === 'CORRECCIÓN'
+
+                                return (
+                                    <div key={step.id} className="relative pl-8">
+                                        <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
+                                            isCorrection ? "bg-indigo-100 border-indigo-200" :
+                                                step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :
+                                                    step.step_status === 'PENDING' ? "bg-blue-100 border-blue-200" :
+                                                        step.step_status === 'REJECTED' ? "bg-red-100 border-red-200" :
+                                                            "bg-white border-slate-200"
+                                        )}>
+                                            {isCorrection ? getStepIcon('CORRECTION') : getStepIcon(step.step_status)}
                                         </div>
-                                        <div className="text-right flex flex-col items-end">
-                                            <span className={clsx(
-                                                "text-xs font-bold px-2.5 py-1 rounded-lg border uppercase shadow-sm tracking-wide",
-                                                step.step_status === 'APPROVED' ? "bg-green-50 text-green-700 border-green-200" :
-                                                    step.step_status === 'REJECTED' ? "bg-red-50 text-red-700 border-red-200" :
-                                                        step.step_status === 'PENDING' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                            "bg-slate-50 text-slate-400 border-slate-200"
-                                            )}>
-                                                {step.step_status}
-                                            </span>
-                                            {step.action_at && (
-                                                <div className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
-                                                    <Clock size={10} />
-                                                    {format(new Date(step.action_at), 'MMM d, p')}
+                                        <div className={clsx(
+                                            "flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 p-4 rounded-xl border shadow-sm transition-colors",
+                                            isCorrection ? "bg-indigo-50 border-indigo-100" : "bg-white border-blue-50 hover:border-blue-200"
+                                        )}>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={clsx(
+                                                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md",
+                                                        isCorrection ? "text-indigo-500 bg-indigo-100" : "text-blue-500 bg-blue-50"
+                                                    )}>
+                                                        {isCorrection ? "Respuesta" : `Step ${step.step_order}`}
+                                                    </span>
                                                 </div>
-                                            )}
+                                                <h4 className="font-bold text-slate-800 text-base">{step.step_name.replace(/_/g, ' ')}</h4>
+                                                <div className="text-sm text-slate-500 mt-1 font-medium">
+                                                    {isCorrection ? "Realizado por:" : "Assigned:"} <span className="text-slate-700 font-bold">
+                                                        {(() => {
+                                                            if (!step.assigned_to_user_id) return 'System';
+                                                            const name = effectiveUsersMap[step.assigned_to_user_id];
+                                                            return name || `User...`;
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex flex-col items-end">
+                                                <span className={clsx(
+                                                    "text-xs font-bold px-2.5 py-1 rounded-lg border uppercase shadow-sm tracking-wide",
+                                                    isCorrection ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                                        step.step_status === 'APPROVED' ? "bg-green-50 text-green-700 border-green-200" :
+                                                            step.step_status === 'REJECTED' ? "bg-red-50 text-red-700 border-red-200" :
+                                                                step.step_status === 'PENDING' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                                    "bg-slate-50 text-slate-400 border-slate-200"
+                                                )}>
+                                                    {isCorrection ? "ENVIADO" : step.step_status}
+                                                </span>
+                                                {step.action_at && (
+                                                    <div className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
+                                                        <Clock size={10} />
+                                                        {format(new Date(step.action_at), 'MMM d, p')}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
+                                        {/* Comments */}
+                                        {step.comment && (
+                                            <div className={clsx(
+                                                "mt-3 ml-2 p-3 rounded-lg border text-sm italic flex gap-3 shadow-sm",
+                                                isCorrection ? "bg-indigo-50 border-indigo-100 text-indigo-800" : "bg-amber-50 border-amber-100 text-amber-800"
+                                            )}>
+                                                <div className={clsx("mt-1", isCorrection ? "text-indigo-400" : "text-amber-400")}><FileText size={14} /></div>
+                                                "{step.comment}"
+                                            </div>
+                                        )}
                                     </div>
-                                    {/* Comments */}
-                                    {step.comment && (
-                                        <div className="mt-3 ml-2 bg-amber-50 p-3 rounded-lg border border-amber-100 text-sm text-amber-800 italic flex gap-3 shadow-sm">
-                                            <div className="mt-1 text-amber-400"><FileText size={14} /></div>
-                                            "{step.comment}"
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                )
+                            })}
+
                         </div>
                     </div>
 

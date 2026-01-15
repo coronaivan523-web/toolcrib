@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import HTTPException
 
@@ -200,16 +200,37 @@ class RequisitionService:
                       "assigned_to_user_id": rejected_step['assigned_to_user_id'],
                       "step_status": 'PENDING',
                       "assigned_at": datetime.now(timezone.utc).isoformat(),
-                      "comment": submit_data.resubmission_comment # The correction note from user
+                      "comment": None # The new step should start clean, the comment is in the history step
                   }
                   
                   try:
                       client.table('requisition_approvals').insert(new_step_data).execute()
                   except Exception as e:
                       print(f"[ERROR] Failed to insert new step during resubmission: {e}")
-                      # REVERT Status to REWORK_REQUIRED to avoid Limbo
                       client.table('requisitions').update({"status": 'REWORK_REQUIRED'}).eq('id', req_id).execute()
                       raise HTTPException(status_code=500, detail=f"Failed to create resubmission step: {e}")
+
+                  # [HISTORY FIX] Insert a permanent record of the CORRECTION action
+                  # This ensures the user's comment is preserved and visible in order
+                  try:
+                      history_correction_step = {
+                          "requisition_id": req_id,
+                          "step_order": rejected_step['step_order'], # Keep same order level
+                          "step_name": "CORRECCIÓN", # Distinct name
+                          "assigned_to_user_id": str(user_id),
+                          "step_status": "APPROVED", # Marked as done/approved action
+                          "assigned_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+                          "action_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+                          "action_by_user_id": str(user_id),
+                          "comment": submit_data.resubmission_comment
+                      }
+                      # We insert it. Since step_order is same as Rejected/Pending, 
+                      # sorting by action_at in frontend/backend will place it correctly in between.
+                      client.table('requisition_approvals').insert(history_correction_step).execute()
+                  except Exception as e:
+                      print(f"[WARN] Failed to insert correction history step: {e}")
+                      # Non-blocking error
+
                   
         else:
             # New Submission (From DRAFT) -> Create Steps
