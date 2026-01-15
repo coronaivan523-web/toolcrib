@@ -152,7 +152,15 @@ def get_material_history(
                 # 5c. Attach Data
                 for m in movements:
                     if m.get('reference_type') == 'REQUISITION':
-                        folio = m.get('reference_id') or m.get('fetched_folio')
+                        # Ensure folio is int for lookup
+                        raw_folio = m.get('reference_id') or m.get('fetched_folio')
+                        folio = None
+                        try:
+                            if raw_folio:
+                                folio = int(raw_folio)
+                        except:
+                            folio = raw_folio
+
                         if folio and folio in reqs_map:
                              req = reqs_map[folio]
                              # Requester
@@ -161,11 +169,16 @@ def get_material_history(
                                  m['requester_name'] = profile.get('full_name', 'Unknown')
                                  m['area'] = profile.get('department') # Map Department -> Area
                              
+                             # Attach UUID for drill-down
+                             m['requisition_id'] = req['id'] 
+
                              # Cost Center -> Plant, Project Code -> Process
                              item = items_map.get(req['id'])
                              if item:
                                  m['plant'] = item.get('cost_center')
                                  m['process'] = item.get('project_code') # Map Project Code -> Process
+                        else:
+                             m['requisition_id'] = None
         
         return {
             "material": material,

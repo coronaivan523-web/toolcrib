@@ -19,6 +19,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const [openCauseDropdownId, setOpenCauseDropdownId] = useState(null) // ID of item with open cause dropdown
     const [openCostCenterDropdownId, setOpenCostCenterDropdownId] = useState(null) // ID of item with open cost center dropdown
     const [openProjectDropdownId, setOpenProjectDropdownId] = useState(null) // ID of item with open project dropdown
+    const [openSupplierDropdownId, setOpenSupplierDropdownId] = useState(null) // ID of item with open supplier dropdown
 
     // Form Data
     const [debugLog, setDebugLog] = useState("") // Visible debug for user
@@ -121,6 +122,10 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         { value: 'C2', label: 'C2 - Urgente' },
         { value: 'C3', label: 'C3 - Crítico' },
         { value: 'C4', label: 'C4 - Proyecto Especial' }
+    ]
+
+    const SUPPLIER_OPTIONS = [
+        { value: 'Por definir', label: 'Por definir' }
     ]
 
     // --- Effects ---
@@ -695,9 +700,42 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                                         onChange={e => handleItemChange(item.id, 'unit', e.target.value)}
                                                                     />
                                                                 </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
-                                                                        placeholder="Optional" value={item.supplier} onChange={e => handleItemChange(item.id, 'supplier', e.target.value)} />
+                                                                <td className="px-2 py-2 relative">
+                                                                    <div className="flex">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="w-full border-slate-200 rounded-l px-1 py-1 text-slate-600 focus:border-primary-500 focus:z-10"
+                                                                            placeholder="Optional"
+                                                                            value={item.supplier}
+                                                                            onChange={e => handleItemChange(item.id, 'supplier', e.target.value)}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setOpenSupplierDropdownId(openSupplierDropdownId === item.id ? null : item.id)}
+                                                                            className="border border-l-0 border-slate-200 rounded-r px-1 bg-slate-50 hover:bg-slate-100 text-slate-400"
+                                                                        >
+                                                                            <ChevronDown size={14} />
+                                                                        </button>
+                                                                    </div>
+                                                                    {openSupplierDropdownId === item.id && (
+                                                                        <>
+                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenSupplierDropdownId(null)}></div>
+                                                                            <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                {SUPPLIER_OPTIONS.map(opt => (
+                                                                                    <div
+                                                                                        key={opt.value}
+                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                        onClick={() => {
+                                                                                            handleItemChange(item.id, 'supplier', opt.value)
+                                                                                            setOpenSupplierDropdownId(null)
+                                                                                        }}
+                                                                                    >
+                                                                                        {opt.label}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </>
+                                                                    )}
                                                                 </td>
                                                                 <td className="px-2 py-2 relative">
                                                                     <button

@@ -224,6 +224,8 @@ export const requisitionService = {
     getUsers: async () => {
         // Debugging: Auth issue on root /users/, using /users/debug/check which is proven to work
         const res = await apiFetch('/users/debug/check')
+        // Handle both: { data: [...] } and [...]
+        if (Array.isArray(res)) return res;
         return res.data || []
     }
 }

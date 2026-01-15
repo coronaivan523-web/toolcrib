@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react'
-import { X, Package, ArrowUpRight, ArrowDownLeft, Calendar, FileText, Info, AlertCircle, UploadCloud, Check, History } from 'lucide-react'
+import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react'
+import { X, Package, ArrowUpRight, ArrowDownLeft, Calendar, FileText, Info, AlertCircle, UploadCloud, Check, History, ExternalLink, Loader2 } from 'lucide-react'
 import clsx from 'clsx'
 import { materialService } from '../services/materials'
+import { requisitionService } from '../services/requisitions'
 
-export default function MaterialHistoryView({ materialId, materialName, onClose }) {
+// Lazy load to avoid circular dependency (RequisitionDetailModal -> MaterialHistoryModal -> MaterialHistoryView -> RequisitionDetailModal)
+const RequisitionDetailModal = lazy(() => import('./RequisitionDetailModal'))
+
+export default function MaterialHistoryView({ materialId, materialName, materialsMap = {}, usersMap = {}, onClose }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [data, setData] = useState(null)
     const [previewImage, setPreviewImage] = useState(null)
     const [filterType, setFilterType] = useState('all') // 'all', 'in', 'out'
+
+    // Requisition Drill-down State
+    const [showReqModal, setShowReqModal] = useState(false)
+    const [selectedReq, setSelectedReq] = useState(null)
+    const [loadingReq, setLoadingReq] = useState(false)
 
     const filteredMovements = (data?.movements || []).filter(m => {
         if (filterType === 'in') return m.movement_type === 'IN';
@@ -34,12 +43,29 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
             .reduce((acc, m) => acc + (Number(m.quantity) || 0), 0);
     };
 
+    console.log("MaterialHistoryView RENDER. Data:", data);
+    console.log("Filtered Movements:", filteredMovements);
+
+    // Debug: Check for movements with requisition_id
+    filteredMovements.forEach(m => {
+        if (m.reference_type === 'REQUISITION' && m.requisition_id) {
+            console.log(`Req Mov: ID=${m.id}, ReqID=${m.requisition_id}`);
+        }
+    });
+
     useEffect(() => {
         const loadHistory = async () => {
-            if (!materialId) return
+            console.log("[MaterialHistoryView] Prop materialId:", materialId); // DEBUG LOG
+            if (!materialId) {
+                console.error("[MaterialHistoryView] Error: materialId is missing/null/undefined");
+                setError("Error interno: El ID del material no es válido (NULL). Intente recargar.");
+                setLoading(false);
+                return;
+            }
             try {
                 setLoading(true)
                 const result = await materialService.getHistory(materialId)
+                console.log("[MaterialHistoryView] HISTORY DATA RECEIVED:", result); // DEBUG DATA
                 setData(result)
             } catch (err) {
                 console.error("Failed to load history:", err)
@@ -51,6 +77,70 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
         }
         loadHistory()
     }, [materialId])
+
+    const handleViewRequisition = async (reqId) => {
+        console.log("Click Req ID:", reqId);
+        if (!reqId) {
+            console.error("handleViewRequisition called with null ID");
+            window.alert("Error: El ID de la requisición no se encontró. El enlace puede estar roto.");
+            return;
+        }
+        setLoadingReq(true);
+        try {
+            const data = await requisitionService.getRequisitionById(reqId);
+
+            console.log("Requisition Data:", data);
+
+            // Hydrate items with material names and part numbers
+            const hydratedItems = data.items?.map(item => {
+                // Ensure we look up by string key
+                const matIdStr = String(item.material_id);
+                const mat = materialsMap?.[matIdStr] || materialsMap?.[item.material_id] || {};
+
+                console.log(`Hydrating Item ${item.id}: MatID=${matIdStr}, Found=${!!mat.name}`);
+
+                return {
+                    ...item,
+                    material_name: mat.name || item.material?.name || 'Unknown Material',
+                    part_number: mat.part_number || item.material?.part_number || 'N/A'
+                };
+            }) || [];
+
+            setSelectedReq({ ...data, items: hydratedItems });
+            setShowReqModal(true);
+        } catch (error) {
+            console.error("Error fetching requisition details:", error);
+            alert("No se pudo cargar el detalle de la requisición.");
+        } finally {
+            setLoadingReq(false);
+        }
+    };
+
+    // Ensure materials map has correct image_url property
+    const processedMaterialsMap = useMemo(() => {
+        const sourceMap = materialsMap || {};
+        console.log("[MaterialHistoryView] Processing Materials Map. Input Size:", Object.keys(sourceMap).length);
+
+        const newMap = {};
+        Object.values(sourceMap).forEach(m => {
+            // Force string key just in case
+            newMap[String(m.id)] = {
+                ...m,
+                image_url: m.signed_image_url || m.image_url
+            };
+        });
+        console.log("[MaterialHistoryView] Processed Materials Map Output Size:", Object.keys(newMap).length);
+        return newMap;
+    }, [materialsMap]);
+
+    // Debugging Users Map
+    useEffect(() => {
+        if (usersMap) {
+            console.log("Users Map received in History View:", Object.keys(usersMap).length, "entries");
+            console.log("Sample User:", Object.values(usersMap)[0]);
+        }
+    }, [usersMap]);
+
 
     if (loading) {
         return (
@@ -241,16 +331,31 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
                                 ) : (
                                     filteredMovements.map((move) => (
                                         <tr key={move.id} className="hover:bg-slate-50/50">
-                                            <td className="px-4 py-3">
-                                                <span className={clsx(
-                                                    "px-2 py-0.5 rounded text-[10px] font-bold border flex w-fit items-center gap-1",
-                                                    move.movement_type === 'IN'
-                                                        ? "bg-green-50 text-green-700 border-green-200"
-                                                        : "bg-amber-50 text-amber-700 border-amber-200"
-                                                )}>
-                                                    {move.movement_type === 'IN' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
-                                                    {move.movement_type === 'IN' ? 'RECEIPT' : 'USAGE'}
-                                                </span>
+                                            <td className="px-4 py-3 align-top">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className={clsx(
+                                                        "px-2 py-0.5 rounded text-[10px] font-bold border flex w-fit items-center gap-1",
+                                                        move.movement_type === 'IN'
+                                                            ? "bg-green-50 text-green-700 border-green-200"
+                                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                                    )}>
+                                                        {move.movement_type === 'IN' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
+                                                        {move.movement_type === 'IN' ? 'RECEIPT' : 'USAGE'}
+                                                    </span>
+
+                                                    {/* Drill-down Button for REQUISITIONS */}
+                                                    {move.movement_type === 'IN' && move.reference_type === 'REQUISITION' && move.requisition_id && (
+                                                        <button
+                                                            onClick={() => handleViewRequisition(move.requisition_id)}
+                                                            className="ml-0.5 mt-0.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded transition-colors flex items-center gap-1"
+                                                            title="Ver Detalle de Requisición"
+                                                            disabled={loadingReq}
+                                                        >
+                                                            {loadingReq ? <Loader2 size={12} className="animate-spin" /> : <ExternalLink size={12} />}
+                                                            <span className="text-[9px] font-medium underline decoration-dotted">View Req</span>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-4 py-3 font-medium text-slate-700">
                                                 {move.movement_type === 'OUT' ? '-' : '+'}{move.quantity}
@@ -327,7 +432,21 @@ export default function MaterialHistoryView({ materialId, materialName, onClose 
                         </div>
                     </div>
                 )}
+
+                {/* Requisition Detail Modal */}
+                <Suspense fallback={null}>
+                    <RequisitionDetailModal
+                        isOpen={showReqModal}
+                        onClose={() => setShowReqModal(false)}
+                        requisition={selectedReq}
+                        materials={processedMaterialsMap}
+                        usersMap={usersMap}
+                        currentUser={{ id: 'viewer', role: 'viewer' }}
+                        onActionSuccess={() => { }}
+                        disableHistoryLink={true} // Prevent infinite loop of history-in-history
+                    />
+                </Suspense>
             </div>
-        </div>
+        </div >
     )
 }

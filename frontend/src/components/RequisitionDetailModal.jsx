@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X, CheckCircle, Clock, XCircle, AlertCircle, FileText, User, Image as ImageIcon, Paperclip, RotateCw, Printer, PackageCheck, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { format } from 'date-fns'
@@ -7,11 +8,44 @@ import { supabase } from '../lib/supabase'
 import IncomingModal from './IncomingModal'
 import MaterialHistoryModal from './MaterialHistoryModal'
 
-export default function RequisitionDetailModal({ isOpen, onClose, requisition, materials, usersMap, currentUser, onActionSuccess }) {
+export default function RequisitionDetailModal({ isOpen, onClose, requisition, materials, usersMap, currentUser, onActionSuccess, disableHistoryLink }) {
     if (!isOpen || !requisition) return null
 
     const [actionLoading, setActionLoading] = useState(false)
     const [attachments, setAttachments] = useState([])
+    const [localUsersMap, setLocalUsersMap] = useState({})
+
+    // Self-healing: If prop usersMap is empty, fetch it ourselves
+    useEffect(() => {
+        const initUsers = async () => {
+            if (usersMap && Object.keys(usersMap).length > 0) {
+                setLocalUsersMap(usersMap)
+                return
+            }
+
+            console.log("[RequisitionDetailModal] usersMap missing/empty, fetching locally...")
+            try {
+                const users = await requisitionService.getUsers()
+                if (users && users.length > 0) {
+                    const map = users.reduce((acc, u) => ({
+                        ...acc,
+                        [u.id]: u.full_name || u.email
+                    }), {})
+                    console.log("[RequisitionDetailModal] Local fetch success. Keys:", Object.keys(map).length)
+                    setLocalUsersMap(map)
+                }
+            } catch (err) {
+                console.error("[RequisitionDetailModal] Local user fetch failed:", err)
+            }
+        }
+        initUsers()
+    }, [usersMap, isOpen])
+
+    // Compute effective map
+    const effectiveUsersMap = { ...localUsersMap, ...(usersMap || {}) }
+    const mapSize = Object.keys(effectiveUsersMap).length
+
+    console.log("[RequisitionDetailModal] RENDER. Map Size:", mapSize);
     const [loadingAttachments, setLoadingAttachments] = useState(false)
     const [expandedImage, setExpandedImage] = useState(null)
     const [isResubmitting, setIsResubmitting] = useState(false)
@@ -182,8 +216,8 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
         }
     }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+    return createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-blue-100">
 
                 {/* Header */}
@@ -212,6 +246,8 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
 
                 {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-slate-50/30">
+
+
 
                     {/* Basic Info Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -291,16 +327,18 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-800 flex items-center gap-2">
                                                     {materials?.[item.material_id]?.name || item.material_name || item.material_id}
-                                                    <button
-                                                        onClick={() => {
-                                                            setHistoryMaterial({ id: item.material_id, name: materials?.[item.material_id]?.name || item.material_name })
-                                                            setShowHistoryModal(true)
-                                                        }}
-                                                        className="text-blue-400 hover:text-blue-600 transition-colors"
-                                                        title="View Material History & Stock"
-                                                    >
-                                                        <Info size={16} />
-                                                    </button>
+                                                    {!disableHistoryLink && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setHistoryMaterial({ id: item.material_id, name: materials?.[item.material_id]?.name || item.material_name })
+                                                                setShowHistoryModal(true)
+                                                            }}
+                                                            className="text-blue-400 hover:text-blue-600 transition-colors"
+                                                            title="View Material History & Stock"
+                                                        >
+                                                            <Info size={16} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 <div className="text-xs text-slate-500 mt-0.5 font-medium">
                                                     Part #: {materials?.[item.material_id]?.part_number || item.part_number || 'N/A'} <span className="text-slate-300 mx-1">|</span> ID: {item.material_id}
@@ -397,7 +435,11 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                             <h4 className="font-bold text-slate-800 text-base">{step.step_name.replace(/_/g, ' ')}</h4>
                                             <div className="text-sm text-slate-500 mt-1 font-medium">
                                                 Assigned: <span className="text-slate-700 font-bold">
-                                                    {step.assigned_to_user_id ? (usersMap && usersMap[step.assigned_to_user_id] ? usersMap[step.assigned_to_user_id] : 'Loading...') : 'System'}
+                                                    {(() => {
+                                                        if (!step.assigned_to_user_id) return 'System';
+                                                        const name = effectiveUsersMap[step.assigned_to_user_id];
+                                                        return name || `Missing ID: ${step.assigned_to_user_id.substring(0, 8)}...`;
+                                                    })()}
                                                 </span>
                                             </div>
                                         </div>
@@ -558,6 +600,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                     onClose={() => setShowHistoryModal(false)}
                 />
             )}
-        </div >
+        </div >,
+        document.body
     )
 }

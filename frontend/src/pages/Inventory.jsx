@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { Plus, Search, Package, AlertCircle, Loader2, UploadCloud, Box, ClipboardList, MapPin, User, Check, X, Tag, Minus, History, Info } from 'lucide-react'
 import clsx from 'clsx'
+import { requisitionService } from '../services/requisitions'
 import MaterialHistoryModal from '../components/MaterialHistoryModal'
 import MaterialHistoryView from '../components/MaterialHistoryView'
 
@@ -12,6 +13,23 @@ export default function Inventory() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [searchTerm, setSearchTerm] = useState('')
+
+    // MEMOIZED MAPS
+    const materialsMap = useMemo(() => {
+        const map = materials.reduce((acc, m) => ({ ...acc, [m.id]: m }), {})
+        console.log("[Inv] Materials Map Size:", Object.keys(map).length)
+        return map
+    }, [materials])
+
+    const usersMap = useMemo(() => {
+        const map = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p.full_name || p.email }), {})
+        console.log("[Inv] Users Map Size:", Object.keys(map).length)
+        return map
+    }, [profiles])
+
+
+    // DEBUG STATS
+    const debugStats = `Mat:${materials.length} Prof:${profiles.length}`
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [uploading, setUploading] = useState(false)
 
@@ -437,19 +455,38 @@ export default function Inventory() {
 
     const fetchProfiles = async () => {
         try {
+            // Priority 1: Direct Table Access
             const { data, error } = await supabase
                 .from('profiles')
                 .select('id, full_name, email')
 
-            if (error) {
-                console.warn('Error fetching profiles (might not exist yet):', error)
+            if (!error && data && data.length > 0) {
+                console.log("[Inv] Profiles loaded directly:", data.length);
+                setProfiles(data)
                 return
             }
-            setProfiles(data || [])
+
+            console.warn('Direct profile fetch failed or empty, trying fallback...', error)
+
+            // Priority 2: Service Fallback
+            const fallbackUsers = await requisitionService.getUsers();
+            if (fallbackUsers && fallbackUsers.length > 0) {
+                // Map service structure to profile structure if needed
+                const mapped = fallbackUsers.map(u => ({
+                    id: u.id,
+                    full_name: u.full_name || u.email,
+                    email: u.email
+                }))
+                setProfiles(mapped)
+                console.log("Loaded profiles from fallback service:", mapped.length)
+            }
+
         } catch (error) {
             console.error('Error fetching profiles:', error)
         }
     }
+
+
 
     // Row Click Logic
     const handleRowClick = (item) => {
@@ -458,11 +495,14 @@ export default function Inventory() {
     }
 
     const handleOpenHistory = () => {
+        console.log("[Inventory] Opening History for Item:", selectedItemAction);
         if (selectedItemAction) {
             setDetailTab('history');
             setIsActionMenuOpen(false);
             setIsDetailModalOpen(true);
             setIsEnhancedHistoryOpen(false); // Disable Enhanced Modal, prioritize Tab View
+        } else {
+            console.error("[Inventory] Cannot open history: No item selected.");
         }
     }
 
@@ -2164,7 +2204,12 @@ export default function Inventory() {
                                     </div>
                                 ) : (
                                     <div className="h-full w-full">
-                                        <MaterialHistoryView materialId={selectedItemAction.id} materialName={selectedItemAction.name} />
+                                        <MaterialHistoryView
+                                            materialId={selectedItemAction.id}
+                                            materialName={selectedItemAction.name}
+                                            materialsMap={materialsMap}
+                                            usersMap={usersMap}
+                                        />
                                     </div>
                                 )}
                             </div>
@@ -2177,6 +2222,9 @@ export default function Inventory() {
                 <MaterialHistoryModal
                     materialId={selectedItemAction.id}
                     materialName={selectedItemAction.name}
+                    // REVERT TO INLINE TO RULE OUT MEMO ISSUES
+                    materialsMap={materials && materials.length > 0 ? materials.reduce((acc, m) => ({ ...acc, [m.id]: m }), {}) : {}}
+                    usersMap={profiles && profiles.length > 0 ? profiles.reduce((acc, p) => ({ ...acc, [p.id]: p.full_name || p.email }), {}) : {}}
                     onClose={() => setIsEnhancedHistoryOpen(false)}
                 />
             )}
