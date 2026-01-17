@@ -10,7 +10,8 @@ from app.schemas.requisition import (
     RequisitionApprove,
     RequisitionReject,
     RequisitionStatus,
-    IncomingPayload
+    IncomingPayload,
+    RequisitionUpdate
 )
 from app.services.requisition_service import RequisitionService
 
@@ -109,6 +110,16 @@ def create_draft(
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.put("/{requisition_id}", response_model=RequisitionResponse)
+def update_requisition(
+    requisition_id: str,
+    update_data: RequisitionUpdate,
+    current_user = Depends(get_current_active_user),
+) -> Any:
+    """ Update draft/rework requisition. """
+    check_create_permission(current_user)
+    return RequisitionService.update_requisition(requisition_id, update_data, current_user.id)
+
 @router.get("/{requisition_id}", response_model=RequisitionResponse)
 def read_requisition(
     requisition_id: str,
@@ -141,8 +152,17 @@ def reject_step(
     reject_data: RequisitionReject,
     current_user = Depends(get_current_active_user),
 ) -> Any:
-    """ Reject current pending step. Comment mandatory. """
+    """ Reject current pending step (Request Rework). Comment mandatory. """
     return RequisitionService.reject_step(requisition_id, current_user.id, reject_data)
+
+@router.post("/{requisition_id}/reject-final", response_model=RequisitionResponse)
+def reject_final(
+    requisition_id: str,
+    reject_data: RequisitionReject,
+    current_user = Depends(get_current_active_user),
+) -> Any:
+    """ Permanently reject the requisition. Comment mandatory. """
+    return RequisitionService.reject_final(requisition_id, current_user.id, reject_data)
 
 @router.post("/{requisition_id}/cancel", response_model=RequisitionResponse)
 def cancel_requisition(

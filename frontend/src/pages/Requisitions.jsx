@@ -157,7 +157,7 @@ export default function Requisitions() {
 
     // Client-side Filtering for others
     const filteredRequisitions = requisitions.filter(req => {
-        const matchesPriority = priorityFilter === 'all' || req.priority === priorityFilter
+        const matchesPriority = priorityFilter === 'all' || req.criticality_requested === priorityFilter
         const searchLower = searchTerm.toLowerCase()
         const matchesSearch =
             (req.req_number?.toLowerCase().includes(searchLower)) ||
@@ -171,8 +171,8 @@ export default function Requisitions() {
         // Hydrate items with material names
         const hydratedItems = req.items?.map(item => ({
             ...item,
-            material_name: materials[item.material_id]?.name || 'Unknown Material',
-            part_number: materials[item.material_id]?.part_number || 'N/A'
+            material_name: materials[item.material_id]?.name || item.material?.name || 'Unknown Material',
+            part_number: materials[item.material_id]?.part_number || item.material?.part_number || 'N/A'
         }))
 
         setSelectedReq({ ...req, items: hydratedItems })
@@ -229,51 +229,22 @@ export default function Requisitions() {
                         </button>
                     </div>
 
-                    <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
-
-                    <div className="flex items-center gap-2">
-                        <Filter size={16} className="text-slate-400" />
-                        <select
-                            className="text-sm border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                    {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm) && (
+                        <button
+                            onClick={() => {
+                                setStatusFilter('all')
+                                setPriorityFilter('all')
+                                setSearchTerm('')
+                            }}
+                            className="ml-2 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
+                            title="Clear All Filters"
                         >
-                            <option value="all">All Status</option>
-                            <option value="DRAFT">Draft</option>
-                            <option value="UNDER_APPROVAL">Under Approval</option>
-                            <option value="APPROVED_PRE_PURCHASE">Approved</option>
-                            <option value="REWORK_REQUIRED">Rework Required</option>
-                            <option value="CANCELED">Canceled</option>
-                            <option value="REJECTED_FINAL">Rejected</option>
-                        </select>
+                            <X size={16} />
+                            Clear
+                        </button>
+                    )}
 
-                        <select
-                            className="text-sm border-teal-200 rounded-lg focus:ring-teal-500 focus:border-teal-500"
-                            value={priorityFilter}
-                            onChange={(e) => setPriorityFilter(e.target.value)}
-                        >
-                            <option value="all">All Priority</option>
-                            <option value="NORMAL">Normal</option>
-                            <option value="HIGH">High</option>
-                            <option value="URGENT">Urgent</option>
-                            <option value="LOW">Low</option>
-                        </select>
 
-                        {(statusFilter !== 'all' || priorityFilter !== 'all' || searchTerm) && (
-                            <button
-                                onClick={() => {
-                                    setStatusFilter('all')
-                                    setPriorityFilter('all')
-                                    setSearchTerm('')
-                                }}
-                                className="ml-2 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold"
-                                title="Clear All Filters"
-                            >
-                                <X size={16} />
-                                Clear
-                            </button>
-                        )}
-                    </div>
                 </div>
 
                 {/* Actions */}
@@ -311,8 +282,36 @@ export default function Requisitions() {
                         <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4">REQ #</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4">Priority</th>
+                                <th className="px-6 py-4">
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="bg-transparent border-none text-slate-500 font-medium text-sm focus:ring-0 p-0 cursor-pointer outline-none hover:text-teal-600 transition-colors w-auto"
+                                    >
+                                        <option value="all">STATUS</option>
+                                        <option value="DRAFT">DRAFT</option>
+                                        <option value="UNDER_APPROVAL">UNDER APPROVAL</option>
+                                        <option value="APPROVED_PRE_PURCHASE">APPROVED PRE PURCHASE</option>
+                                        <option value="PARTIALLY_RECEIVED">INCOMPLETE</option>
+                                        <option value="RECEIVED">RECEIVED</option>
+                                        <option value="REWORK_REQUIRED">REWORK REQUIRED</option>
+                                        <option value="CANCELED">CANCELED</option>
+                                        <option value="REJECTED_FINAL">CANCELED</option>
+                                    </select>
+                                </th>
+                                <th className="px-6 py-4">
+                                    <select
+                                        value={priorityFilter}
+                                        onChange={(e) => setPriorityFilter(e.target.value)}
+                                        className="bg-transparent border-none text-slate-500 font-medium text-sm focus:ring-0 p-0 cursor-pointer outline-none hover:text-teal-600 transition-colors w-auto"
+                                    >
+                                        <option value="all">Priority</option>
+                                        <option value="C1">C1 - Normal</option>
+                                        <option value="C2">C2 - Urgent</option>
+                                        <option value="C3">C3 - Critical</option>
+                                        <option value="C4">C4 - Special Project</option>
+                                    </select>
+                                </th>
                                 <th className="px-6 py-4">Requester</th>
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4 text-center">Actions</th>
@@ -349,29 +348,30 @@ export default function Requisitions() {
                                                         req.status === 'APPROVED_PRE_PURCHASE' ? "bg-green-50 text-green-700 border-green-200" :
                                                             req.status === 'REWORK_REQUIRED' ? "bg-amber-50 text-amber-700 border-amber-200" :
                                                                 req.status === 'REJECTED_FINAL' ? "bg-red-50 text-red-700 border-red-200" :
-                                                                    "bg-slate-50 text-slate-500 border-slate-200"
+                                                                    req.status === 'PARTIALLY_RECEIVED' ? "bg-orange-50 text-orange-700 border-orange-200" :
+                                                                        "bg-slate-50 text-slate-500 border-slate-200"
                                             )}>
-                                                {req.status?.replace(/_/g, " ")}
+                                                {req.status === 'PARTIALLY_RECEIVED' ? 'INCOMPLETE' : req.status === 'REJECTED_FINAL' ? 'CANCELED' : req.status?.replace(/_/g, " ")}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <div className={clsx("font-bold text-xs inline-flex items-center gap-1",
-                                                req.priority === 'URGENT' ? 'text-red-600' :
-                                                    req.priority === 'HIGH' ? 'text-orange-600' :
-                                                        'text-slate-600'
-                                            )}>
-                                                {req.criticality_requested === 'C4' ? (
-                                                    <span className="text-purple-600 flex items-center gap-1">
-                                                        <AlertCircle size={12} />
-                                                        PROYECTO ESP.
+                                            {(() => {
+                                                const criticality = req.criticality_requested || 'C1'
+                                                const labels = {
+                                                    'C1': { text: 'C1 - Normal', style: 'text-slate-600 bg-slate-100 border-slate-200' },
+                                                    'C2': { text: 'C2 - Urgente', style: 'text-amber-700 bg-amber-50 border-amber-200' },
+                                                    'C3': { text: 'C3 - Crítico', style: 'text-red-700 bg-red-50 border-red-200' },
+                                                    'C4': { text: 'C4 - Proy. Esp.', style: 'text-purple-700 bg-purple-50 border-purple-200' },
+                                                }
+                                                // Fallback
+                                                const config = labels[criticality] || labels['C1']
+
+                                                return (
+                                                    <span className={clsx("text-xs font-bold px-2 py-0.5 rounded-md border", config.style)}>
+                                                        {config.text}
                                                     </span>
-                                                ) : (
-                                                    <>
-                                                        {req.priority === 'URGENT' && <AlertCircle size={12} />}
-                                                        {req.priority}
-                                                    </>
-                                                )}
-                                            </div>
+                                                )
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 text-slate-600">
                                             {req.requester_name || req.requester?.full_name || req.requester?.email || 'Unknown'}

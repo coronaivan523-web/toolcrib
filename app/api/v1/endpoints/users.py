@@ -1,5 +1,5 @@
 from typing import List, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.core.deps import get_current_user, get_current_active_superuser
 from app.core.supabase import supabase, supabase_admin
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
@@ -309,6 +309,7 @@ def delete_user(
 def impersonate_user(
     *,
     user_id: str,
+    request: Request,
     current_user = Depends(get_current_active_superuser),
 ) -> Any:
     """
@@ -352,10 +353,18 @@ def impersonate_user(
         if not link:
             raise HTTPException(status_code=500, detail="Failed to generate magic link")
             
-        # FIX: Supabase defaults to localhost:3000. We are running on 5173.
-        # Check if link contains localhost:3000 and replace it.
-        if "localhost:3000" in link:
-            link = link.replace("localhost:3000", "localhost:5173")
+        # FIX: Dynamically replace base URL with the request origin (frontend URL)
+        # Supabase defaults to localhost:3000. We want to valid for whatever port the frontend is on.
+        origin = request.headers.get("origin")
+        if origin and "localhost:3000" in link:
+             # Remove http:// or https:// if present in origin to match simpler replacement logic if needed,
+             # but "localhost:3000" usually includes port.
+             # Origin usually is "http://localhost:5174"
+             
+             # Extract scheme and integrity
+             link = link.replace("http://localhost:3000", origin)
+             link = link.replace("https://localhost:3000", origin)
+             link = link.replace("localhost:3000", origin.replace("http://", "").replace("https://", ""))
             
         return {"magic_link": link}
 

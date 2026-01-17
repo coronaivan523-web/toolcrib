@@ -5,7 +5,7 @@ import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList, Use
 import clsx from 'clsx'
 
 const ALL_NAVIGATION = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'staff_level_1'] },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'staff_level_1'] },
     { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2'] },
@@ -99,9 +99,19 @@ export default function Layout() {
         }
     }, [effectiveRole, location.pathname, navigate])
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut()
-        navigate('/login')
+    const handleLogout = async (e) => {
+        if (e) e.preventDefault()
+        try {
+            console.log("Logging out...")
+            const { error } = await supabase.auth.signOut()
+            if (error) console.error("Error signing out:", error)
+        } catch (err) {
+            console.error("Unexpected error during logout:", err)
+        } finally {
+            // Force navigation to login regardless of auth state
+            console.log("Navigating to login")
+            navigate('/login')
+        }
     }
 
     if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50">Loading...</div>

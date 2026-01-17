@@ -139,7 +139,7 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
         // Only classify as "Connection Failed" if it's a true network error (Failed to fetch)
         // AND it wasn't an auth error we just threw above.
         if (error instanceof TypeError && error.message === 'Failed to fetch') {
-            throw new Error('No se pudo conectar al backend. Verifica que el API esté corriendo en 8001 y que CORS permita http://localhost:5173')
+            throw new Error(`No se pudo conectar al backend (API). Verifica que el servidor esté corriendo en 8001. Si el problema persiste, revisa la configuración CORS para ${window.location.origin}`)
         }
         throw error
     }
@@ -183,6 +183,13 @@ export const requisitionService = {
         })
     },
 
+    rejectFinal: async (id, comment) => {
+        return await apiFetch(`/requisitions/${id}/reject-final`, {
+            method: 'POST',
+            body: JSON.stringify({ comment })
+        })
+    },
+
     resubmit: async (id, data = {}) => {
         return await apiFetch(`/requisitions/${id}/resubmit`, {
             method: 'POST',
@@ -201,6 +208,13 @@ export const requisitionService = {
     createDraft: async (data) => {
         return await apiFetch('/requisitions', {
             method: 'POST',
+            body: JSON.stringify(data)
+        })
+    },
+
+    updateRequisition: async (id, data) => {
+        return await apiFetch(`/requisitions/${id}`, {
+            method: 'PUT',
             body: JSON.stringify(data)
         })
     },

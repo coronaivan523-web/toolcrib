@@ -6,7 +6,7 @@ import UserAutocomplete from './UserAutocomplete'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 
-export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, users: propUsers, currentUser, initialItems = [] }) {
+export default function RequisitionFormModal({ isOpen, onClose, onSuccess, materials, users: propUsers, currentUser, initialItems = [], existingRequisition = null }) {
     if (!isOpen) return null
 
     // --- State ---
@@ -20,6 +20,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     const [openCostCenterDropdownId, setOpenCostCenterDropdownId] = useState(null) // ID of item with open cost center dropdown
     const [openProjectDropdownId, setOpenProjectDropdownId] = useState(null) // ID of item with open project dropdown
     const [openSupplierDropdownId, setOpenSupplierDropdownId] = useState(null) // ID of item with open supplier dropdown
+    const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([]) // Valid only for edit mode not implemented fully yet
 
     // Form Data
     const [debugLog, setDebugLog] = useState("") // Visible debug for user
@@ -32,6 +33,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         requester_id: '',
         cause: '', // OP, LS, etc.
         criticality_requested: '', // C1-C4
+        purchase_justification: '', // V2
     })
 
     const [items, setItems] = useState([
@@ -41,6 +43,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     // Attachments
     const [pendingFiles, setPendingFiles] = useState([]) // File objects
     const [previews, setPreviews] = useState([]) // Object URLs for preview
+    const [existingAttachments, setExistingAttachments] = useState([]) // For Edit Mode
 
     // Approvers
     const [users, setUsers] = useState([])
@@ -131,35 +134,75 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     // --- Effects ---
     useEffect(() => {
         if (isOpen) {
-            // Reset Form Fields
-            setHeader({
-                priority: 'NORMAL',
-                justification: '',
-                department: '',
-                job_title: '',
-                requester_name: '',
-                requester_id: '',
-                cause: '',
-                criticality_requested: ''
-            })
+            // EDIT MODE
+            if (existingRequisition) {
+                setHeader({
+                    priority: existingRequisition.priority || 'NORMAL',
+                    justification: existingRequisition.justification || '',
+                    department: existingRequisition.department || '',
+                    job_title: existingRequisition.job_title || '',
+                    requester_name: existingRequisition.requester_name || existingRequisition.requester?.full_name || '',
+                    requester_id: existingRequisition.requester_id || '',
+                    cause: existingRequisition.cause || '',
+                    criticality_requested: existingRequisition.criticality_requested || '',
+                    purchase_justification: existingRequisition.purchase_justification || ''
+                })
 
-            // Handle Initial Items
-            if (initialItems && initialItems.length > 0) {
-                const mappedItems = initialItems.map((item, index) => ({
-                    id: Date.now() + index,
-                    material_id: item.material_id,
-                    quantity: item.quantity || '',
-                    unit: item.unit || 'EA',
-                    notes: item.notes || '',
-                    supplier: '',
-                    cost_center: '',
-                    project_code: '',
-                    monthly_consumption: '',
-                    cause: ''
-                }))
-                setItems(mappedItems)
-            } else {
-                setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
+                if (existingRequisition.items && existingRequisition.items.length > 0) {
+                    setItems(existingRequisition.items.map(i => ({
+                        id: Date.now() + Math.random(), // New temporary ID for UI
+                        material_id: i.material_id,
+                        quantity: i.quantity_requested || i.quantity || '',
+                        unit: i.unit || 'EA',
+                        notes: i.notes || '',
+                        supplier: i.supplier || '',
+                        cost_center: i.cost_center || '',
+                        project_code: i.project_code || '',
+                        monthly_consumption: i.monthly_consumption || '',
+                        cause: i.cause || ''
+                    })))
+                } else {
+                    setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
+                }
+
+                setExistingAttachments(existingRequisition.attachments || [])
+
+            }
+            // CREATE MODE
+            else {
+                // Reset Form Fields
+                setHeader({
+                    priority: 'NORMAL',
+                    justification: '',
+                    department: '',
+                    job_title: '',
+                    requester_name: '',
+                    requester_id: '', // Should default to currentUser if possible? No, we force selection for now or let UserAutocomplete handle it.
+                    cause: '',
+                    criticality_requested: '',
+                    purchase_justification: ''
+                })
+
+                // Handle Initial Items (e.g. from Inventory Add)
+                if (initialItems && initialItems.length > 0) {
+                    const mappedItems = initialItems.map((item, index) => ({
+                        id: Date.now() + index,
+                        material_id: item.material_id,
+                        quantity: item.quantity || '',
+                        unit: item.unit || 'EA',
+                        notes: item.notes || '',
+                        supplier: '',
+                        cost_center: '',
+                        project_code: '',
+                        monthly_consumption: '',
+                        cause: ''
+                    }))
+                    setItems(mappedItems)
+                } else {
+                    setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
+                }
+
+                setExistingAttachments([])
             }
 
             setPendingFiles([])
@@ -175,7 +218,20 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 gch: { userId: '', order: '6' }
             })
         }
-    }, [isOpen])
+    }, [isOpen, existingRequisition])
+
+    // Auto-popuplate Request ID with current user if not editing
+    useEffect(() => {
+        if (isOpen && !existingRequisition && currentUser && !header.requester_id) {
+            setHeader(prev => ({
+                ...prev,
+                requester_id: currentUser.id,
+                requester_name: currentUser.full_name || currentUser.username || '',
+                department: currentUser.department || '',
+                job_title: currentUser.position || currentUser.job_title || ''
+            }))
+        }
+    }, [isOpen, currentUser]) // Run once when these change
 
     // Sync users prop to state
     useEffect(() => {
@@ -184,26 +240,6 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
         }
     }, [propUsers])
 
-    const loadUsers = async () => {
-        try {
-            const list = await requisitionService.getUsers()
-            setUsers(list)
-        } catch (e) {
-            console.error(e)
-        }
-    }
-
-    // Auto-load users if not provided (e.g. from Tickets page)
-    useEffect(() => {
-        if ((!propUsers || propUsers.length === 0) && users.length === 0) {
-            loadUsers()
-        }
-    }, [isOpen]) // Run on open if needed
-
-    // --- Handlers ---
-    // Filter users for approver dropdowns (Exclude basic 'user' role)
-    // Filter users for approver dropdowns (Exclude basic 'user' role)
-    // Filter users for approver dropdowns (Exclude basic 'user' role)
     const approverUsers = (users || []).filter(u => {
         if (!u) return false
         const role = (u.role_name || u.role || '').toLowerCase().trim()
@@ -440,14 +476,24 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                 attachments: [] // We add them via separate upload logic
             }
 
-            // 2. Create Draft in DB
+            // 2. Create Draft OR Update Existing
             let req;
             try {
-                setDebugLog("Sending to Backend (createDraft)...")
-                req = await requisitionService.createDraft(payload)
-                setDebugLog("Backend Responded! Draft ID: " + req.id)
+                if (existingRequisition) {
+                    setDebugLog("Updating Requisition (Update Mode)...")
+                    const updatePayload = {
+                        ...payload,
+                        // Ensure we don't accidentally send status or generated fields if they were in payload
+                    }
+                    req = await requisitionService.updateRequisition(existingRequisition.id, updatePayload)
+                    setDebugLog("Backend Responded! Updated ID: " + req.id)
+                } else {
+                    setDebugLog("Sending to Backend (createDraft)...")
+                    req = await requisitionService.createDraft(payload)
+                    setDebugLog("Backend Responded! Draft ID: " + req.id)
+                }
             } catch (err) {
-                console.error("Backend Draft Creation Failed", err)
+                console.error("Backend Draft Creation/Update Failed", err)
                 setDebugLog("Backend Failed: " + err.message)
                 throw new Error(`[Backend] ${err.message}`)
             }

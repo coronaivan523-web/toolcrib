@@ -7,10 +7,9 @@ import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 import IncomingModal from './IncomingModal'
 import MaterialHistoryModal from './MaterialHistoryModal'
+import RequisitionFormModal from './RequisitionFormModal'
 
 export default function RequisitionDetailModal({ isOpen, onClose, requisition, materials, usersMap, currentUser, onActionSuccess, disableHistoryLink }) {
-    if (!isOpen || !requisition) return null
-
     const [actionLoading, setActionLoading] = useState(false)
     const [attachments, setAttachments] = useState([])
     const [localUsersMap, setLocalUsersMap] = useState({})
@@ -53,13 +52,26 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
     const [showIncomingModal, setShowIncomingModal] = useState(false)
     const [showHistoryModal, setShowHistoryModal] = useState(false)
     const [historyMaterial, setHistoryMaterial] = useState(null)
-
     // Load attachments
     React.useEffect(() => {
         if (isOpen && requisition?.id) {
             loadAttachments(requisition.id)
         }
     }, [isOpen, requisition])
+
+    // Safety: If requisition status changes and we can no longer resubmit, close the mode
+    // This prevents "Zombie" resubmit UIs if status updates in background
+    React.useEffect(() => {
+        if (!requisition) return
+        const isOwner = requisition.requester_id === currentUser?.id
+        const canResubmit = requisition.status === 'REWORK_REQUIRED' && isOwner
+
+        if (!canResubmit && isResubmitting) {
+            setIsResubmitting(false)
+        }
+    }, [requisition, currentUser, isResubmitting])
+
+    if (!isOpen || !requisition) return null
 
     const loadAttachments = async (reqId) => {
         setLoadingAttachments(true)
@@ -160,17 +172,39 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
         }
     }
 
-    const handleReject = async () => {
-        const comment = prompt("Por favor, ingrese el motivo del rechazo o corrección requerida:")
-        if (comment === null) return // User cancelled prompt
+    const handleRequestChanges = async () => {
+        const comment = prompt("Reason for required correction (The user can edit and resubmit):")
+        if (comment === null) return
         if (!comment.trim()) {
-            alert("El comentario es obligatorio para rechazar.")
+            alert("Comment is required.")
             return
         }
 
         setActionLoading(true)
         try {
             await requisitionService.reject(requisition.id, comment)
+            onActionSuccess()
+            onClose()
+        } catch (e) {
+            alert(e.message)
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleRejectFinal = async () => {
+        const comment = prompt("Reason for FINAL REJECTION (This action will cancel the requisition and it cannot be reactivated):")
+        if (comment === null) return
+        if (!comment.trim()) {
+            alert("Comment is required for final rejection.")
+            return
+        }
+
+        if (!confirm("Are you sure you want to PERMANENTLY REJECT this requisition? This action cannot be undone.")) return
+
+        setActionLoading(true)
+        try {
+            await requisitionService.rejectFinal(requisition.id, comment)
             onActionSuccess()
             onClose()
         } catch (e) {
@@ -233,7 +267,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
                                 {requisition.req_number || 'New Draft'}
                                 <span className={clsx("text-xs px-2.5 py-0.5 rounded-full font-bold border shadow-sm", getStatusColor(requisition.status))}>
-                                    {requisition.status?.replace(/_/g, " ")}
+                                    {requisition.status === 'REJECTED_FINAL' ? 'CANCELED' : requisition.status?.replace(/_/g, " ")}
                                 </span>
                             </h2>
                             <p className="text-sm text-blue-600/80 font-medium flex items-center gap-2 mt-1">
@@ -420,93 +454,136 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                             Approval Workflow
                         </h3>
                         <div className="relative pl-4 border-l-2 border-blue-100 space-y-8 my-2">
-                            {(requisition.approvals || []).sort((a, b) => {
-                                // Sort by step_order first
-                                if (a.step_order !== b.step_order) return a.step_order - b.step_order
+                            {(() => {
+                                let steps = [...(requisition.approvals || [])]
 
-                                const dateA = new Date(a.action_at || a.created_at).getTime()
-                                const dateB = new Date(b.action_at || b.created_at).getTime()
+                                // Find the very last rejected step (by date) to distinguish Final Rejection from Reworks
+                                const rejectedSteps = steps.filter(s => s.step_status === 'REJECTED')
+                                const lastRejected = rejectedSteps.sort((a, b) => new Date(b.action_at) - new Date(a.action_at))[0]
 
-                                if (dateA !== dateB) return dateA - dateB
+                                // Inject Virtual Step for REWORK waiting on Requester
+                                if (requisition.status === 'REWORK_REQUIRED') {
+                                    if (lastRejected) {
+                                        steps.push({
+                                            id: 'virtual-rework-step',
+                                            step_order: lastRejected.step_order,
+                                            step_name: 'REWORK',
+                                            // Assign to Requester
+                                            assigned_to_user_id: requisition.requester_id,
+                                            step_status: 'PENDING_REWORK', // Custom status for UI
+                                            created_at: new Date().toISOString() // Current time roughly
+                                        })
+                                    }
+                                }
 
-                                // Tie-breaker: "CORRECCIÓN" (Completed) < "PENDING" (Waiting)
-                                const isACorrection = a.step_name === 'CORRECCIÓN'
-                                const isBCorrection = b.step_name === 'CORRECCIÓN'
+                                return steps.sort((a, b) => {
+                                    // 1. Sort by step_order first
+                                    if (a.step_order !== b.step_order) return a.step_order - b.step_order
 
-                                if (isACorrection && !isBCorrection) return -1
-                                if (!isACorrection && isBCorrection) return 1
+                                    // 2. Completed/Actioned comes before Pending/Waiting
+                                    // PENDING_REWORK is definitely a "Pending" state.
+                                    const isAPending = ['PENDING', 'WAITING', 'PENDING_REWORK'].includes(a.step_status)
+                                    const isBPending = ['PENDING', 'WAITING', 'PENDING_REWORK'].includes(b.step_status)
 
-                                return 0
-                            }).map((step) => {
-                                const isCorrection = step.step_name === 'CORRECCIÓN'
+                                    if (!isAPending && isBPending) return -1 // Completed before Pending
+                                    if (isAPending && !isBPending) return 1  // Pending after Completed
 
-                                return (
-                                    <div key={step.id} className="relative pl-8">
-                                        <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
-                                            isCorrection ? "bg-indigo-100 border-indigo-200" :
-                                                step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :
-                                                    step.step_status === 'PENDING' ? "bg-blue-100 border-blue-200" :
-                                                        step.step_status === 'REJECTED' ? "bg-red-100 border-red-200" :
-                                                            "bg-white border-slate-200"
-                                        )}>
-                                            {isCorrection ? getStepIcon('CORRECTION') : getStepIcon(step.step_status)}
-                                        </div>
-                                        <div className={clsx(
-                                            "flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 p-4 rounded-xl border shadow-sm transition-colors",
-                                            isCorrection ? "bg-indigo-50 border-indigo-100" : "bg-white border-blue-50 hover:border-blue-200"
-                                        )}>
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={clsx(
-                                                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md",
-                                                        isCorrection ? "text-indigo-500 bg-indigo-100" : "text-blue-500 bg-blue-50"
-                                                    )}>
-                                                        {isCorrection ? "Respuesta" : `Step ${step.step_order}`}
-                                                    </span>
-                                                </div>
-                                                <h4 className="font-bold text-slate-800 text-base">{step.step_name.replace(/_/g, ' ')}</h4>
-                                                <div className="text-sm text-slate-500 mt-1 font-medium">
-                                                    {isCorrection ? "Realizado por:" : "Assigned:"} <span className="text-slate-700 font-bold">
-                                                        {(() => {
-                                                            if (!step.assigned_to_user_id) return 'System';
-                                                            const name = effectiveUsersMap[step.assigned_to_user_id];
-                                                            return name || `User...`;
-                                                        })()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right flex flex-col items-end">
-                                                <span className={clsx(
-                                                    "text-xs font-bold px-2.5 py-1 rounded-lg border uppercase shadow-sm tracking-wide",
-                                                    isCorrection ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
-                                                        step.step_status === 'APPROVED' ? "bg-green-50 text-green-700 border-green-200" :
-                                                            step.step_status === 'REJECTED' ? "bg-red-50 text-red-700 border-red-200" :
-                                                                step.step_status === 'PENDING' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                                    "bg-slate-50 text-slate-400 border-slate-200"
-                                                )}>
-                                                    {isCorrection ? "ENVIADO" : step.step_status}
-                                                </span>
-                                                {step.action_at && (
-                                                    <div className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
-                                                        <Clock size={10} />
-                                                        {format(new Date(step.action_at), 'MMM d, p')}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Comments */}
-                                        {step.comment && (
-                                            <div className={clsx(
-                                                "mt-3 ml-2 p-3 rounded-lg border text-sm italic flex gap-3 shadow-sm",
-                                                isCorrection ? "bg-indigo-50 border-indigo-100 text-indigo-800" : "bg-amber-50 border-amber-100 text-amber-800"
+                                    // 3. Date Sort
+                                    const dateA = new Date(a.action_at || a.created_at).getTime()
+                                    const dateB = new Date(b.action_at || b.created_at).getTime()
+
+                                    return dateA - dateB
+                                }).map((step) => {
+                                    const isCorrection = step.step_name === 'CORRECCIÓN'
+                                    const isVirtualRework = step.step_status === 'PENDING_REWORK'
+
+                                    // Determine Label for REJECTED steps
+                                    // If this is the LAST rejected step AND the requisition is REJECTED_FINAL (CANCELED), show CANCELED
+                                    // Otherwise show REJECTED (for historical reworks)
+                                    const isLastRejectedStart = lastRejected && step.id === lastRejected.id
+                                    const showCanceledStep = step.step_status === 'REJECTED' &&
+                                        requisition.status === 'REJECTED_FINAL' &&
+                                        isLastRejectedStart
+
+                                    return (
+                                        <div key={step.id} className="relative pl-8">
+                                            <div className={clsx("absolute -left-[1.6rem] top-0 p-1.5 rounded-full border shadow-sm transition-all",
+                                                isCorrection ? "bg-indigo-100 border-indigo-200" :
+                                                    isVirtualRework ? "bg-amber-100 border-amber-200" :
+                                                        step.step_status === 'APPROVED' ? "bg-green-100 border-green-200" :
+                                                            step.step_status === 'REJECTED' ? (showCanceledStep ? "bg-red-100 border-red-200" : "bg-amber-100 border-amber-200") :
+                                                                step.step_status === 'PENDING' ? "bg-blue-100 border-blue-200" :
+                                                                    "bg-white border-slate-200"
                                             )}>
-                                                <div className={clsx("mt-1", isCorrection ? "text-indigo-400" : "text-amber-400")}><FileText size={14} /></div>
-                                                "{step.comment}"
+                                                {isCorrection ? getStepIcon('CORRECTION') :
+                                                    isVirtualRework ? <RotateCw size={18} className="text-amber-600 animate-pulse" /> :
+                                                        step.step_status === 'REJECTED' ? (showCanceledStep ? <XCircle size={18} className="text-red-600" /> : <XCircle size={18} className="text-amber-600" />) :
+                                                            getStepIcon(step.step_status)}
                                             </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
+                                            <div className={clsx(
+                                                "flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 p-4 rounded-xl border shadow-sm transition-colors",
+                                                isCorrection ? "bg-indigo-50 border-indigo-100" :
+                                                    isVirtualRework ? "bg-amber-50 border-amber-100" :
+                                                        "bg-white border-blue-50 hover:border-blue-200"
+                                            )}>
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={clsx(
+                                                            "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md",
+                                                            isCorrection ? "text-indigo-500 bg-indigo-100" :
+                                                                isVirtualRework ? "text-amber-600 bg-amber-100" :
+                                                                    "text-blue-500 bg-blue-50"
+                                                        )}>
+                                                            {isCorrection ? "Respuesta" : isVirtualRework ? "REWORK" : `Step ${step.step_order}`}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="font-bold text-slate-800 text-base">{step.step_name.replace(/_/g, ' ')}</h4>
+                                                    <div className="text-sm text-slate-500 mt-1 font-medium">
+                                                        {isCorrection ? "Realizado por:" : "Assigned:"} <span className="text-slate-700 font-bold">
+                                                            {(() => {
+                                                                if (!step.assigned_to_user_id) return 'System';
+                                                                const name = effectiveUsersMap[step.assigned_to_user_id];
+                                                                return name || `User...`;
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <span className={clsx(
+                                                        "text-xs font-bold px-2.5 py-1 rounded-lg border uppercase shadow-sm tracking-wide",
+                                                        isCorrection ? "bg-indigo-100 text-indigo-700 border-indigo-200" :
+                                                            isVirtualRework ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                                                step.step_status === 'APPROVED' ? "bg-green-50 text-green-700 border-green-200" :
+                                                                    step.step_status === 'REJECTED' ? (showCanceledStep ? "bg-red-50 text-red-700 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200") :
+                                                                        step.step_status === 'PENDING' ? "bg-blue-50 text-blue-700 border-blue-200" :
+                                                                            "bg-slate-50 text-slate-400 border-slate-200"
+                                                    )}>
+                                                        {isCorrection ? "ENVIADO" : isVirtualRework ? "WAITING" :
+                                                            showCanceledStep ? "CANCELED" :
+                                                                step.step_status}
+                                                    </span>
+                                                    {step.action_at && (
+                                                        <div className="text-xs text-slate-400 mt-2 font-medium flex items-center gap-1">
+                                                            <Clock size={10} />
+                                                            {format(new Date(step.action_at), 'MMM d, p')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Comments */}
+                                            {step.comment && (
+                                                <div className={clsx(
+                                                    "mt-3 ml-2 p-3 rounded-lg border text-sm italic flex gap-3 shadow-sm",
+                                                    isCorrection ? "bg-indigo-50 border-indigo-100 text-indigo-800" : "bg-amber-50 border-amber-100 text-amber-800"
+                                                )}>
+                                                    <div className={clsx("mt-1", isCorrection ? "text-indigo-400" : "text-amber-400")}><FileText size={14} /></div>
+                                                    "{step.comment}"
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })
+                            })()}
 
                         </div>
                     </div>
@@ -551,7 +628,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                                     disabled={actionLoading}
                                     className="px-4 py-2 bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700 shadow-md"
                                 >
-                                    Confirm
+                                    Confirm Resubmit
                                 </button>
                                 <button
                                     onClick={() => setIsResubmitting(false)}
@@ -586,11 +663,20 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                         {isAssignedApprover && (
                             <>
                                 <button
-                                    onClick={handleReject}
+                                    onClick={handleRequestChanges}
                                     disabled={actionLoading}
-                                    className="px-5 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors shadow-md shadow-red-200 disabled:opacity-50 btn-effect"
+                                    className="px-4 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition-colors shadow-md shadow-amber-200 disabled:opacity-50 btn-effect flex items-center gap-2"
                                 >
-                                    {actionLoading ? '...' : 'Rechazar / Corregir'}
+                                    <RotateCw size={18} />
+                                    {actionLoading ? '...' : 'Solicitar Corrección'}
+                                </button>
+                                <button
+                                    onClick={handleRejectFinal}
+                                    disabled={actionLoading}
+                                    className="px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors shadow-md shadow-red-200 disabled:opacity-50 btn-effect flex items-center gap-2"
+                                >
+                                    <XCircle size={18} />
+                                    {actionLoading ? '...' : 'Rechazar Definitivamente'}
                                 </button>
                                 <button
                                     onClick={handleApprove}
@@ -638,6 +724,7 @@ export default function RequisitionDetailModal({ isOpen, onClose, requisition, m
                     onClose={() => setShowHistoryModal(false)}
                 />
             )}
+
         </div >,
         document.body
     )

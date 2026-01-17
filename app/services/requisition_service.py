@@ -9,7 +9,8 @@ from app.core.config import settings
 from supabase import create_client
 from app.schemas.requisition import (
     RequisitionCreate, RequisitionStatus, ApprovalAction, RequisitionPriority, 
-    StepStatus, ApprovalStepName, RequisitionSubmit, RequisitionApprove, RequisitionReject
+    StepStatus, ApprovalStepName, RequisitionSubmit, RequisitionApprove, RequisitionReject,
+    RequisitionUpdate
 )
 
 class RequisitionService:
@@ -107,6 +108,72 @@ class RequisitionService:
             
         return RequisitionService.get_requisition_by_id(req_id)
 
+    @staticmethod
+    def update_requisition(req_id: str, data: RequisitionUpdate, user_id: UUID) -> Dict[str, Any]:
+        """ Update draft or rework requisition """
+        client = RequisitionService._get_admin_client()
+        
+        # 1. Get Current & Verify Status
+        current = RequisitionService.get_requisition_by_id(req_id)
+        if current['status'] not in [RequisitionStatus.DRAFT, RequisitionStatus.REWORK_REQUIRED]:
+            raise HTTPException(status_code=400, detail="Only DRAFT or REWORK_REQUIRED requisitions can be updated")
+            
+        # 2. Update Header
+        update_data = {
+            "priority": data.priority,
+            "justification": data.justification,
+            # V2 Fields
+            "purchase_justification": data.purchase_justification,
+            "department": data.department,
+            "job_title": data.job_title,
+            "cause": data.cause,
+            "criticality_requested": data.criticality_requested,
+            "criticality_assigned": data.criticality_assigned,
+            "requester_name": data.requester_name,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        # Filter None values to avoid overwriting with null if that's desired (but Pydantic defaults usually implied).
+        # However, for full update form, we expect all fields.
+        
+        client.table('requisitions').update(update_data).eq('id', req_id).execute()
+        
+        # 3. Update Items (Full Replace Strategy)
+        if data.items is not None:
+            # a) Delete existing items
+            client.table('requisition_items').delete().eq('requisition_id', req_id).execute()
+            
+            # b) Insert new items
+            if data.items:
+                items_data = []
+                for item in data.items:
+                    items_data.append({
+                        "requisition_id": req_id,
+                        "material_id": item.material_id,
+                        "quantity_requested": item.quantity_requested,
+                        "unit": item.unit,
+                        "notes": item.notes,
+                        # V2 Fields
+                        "supplier": item.supplier,
+                        "cost_center": item.cost_center,
+                        "project_code": item.project_code,
+                        "monthly_consumption": item.monthly_consumption,
+                        "cause": item.cause
+                    })
+                client.table('requisition_items').insert(items_data).execute()
+
+        # 4. Attachments (Append Only)
+        if data.attachments:
+            att_data = []
+            for att in data.attachments:
+                att_data.append({
+                    "requisition_id": req_id,
+                    "filename": att.filename,
+                    "url": att.url,
+                    "uploaded_by": str(user_id)
+                })
+            client.table('requisition_attachments').insert(att_data).execute()
+            
+        return RequisitionService.get_requisition_by_id(req_id)
     @staticmethod
     def submit_requisition(req_id: str, submit_data: RequisitionSubmit, user_id: UUID) -> Dict[str, Any]:
         # Use admin client to bypass RLS for workflow management
@@ -382,7 +449,7 @@ class RequisitionService:
         
         current_step = res.data[0]
         
-        # 2. Update Step to REJECTED
+        # 2. Update Step to REJECTED (Change Request)
         client.table('requisition_approvals').update({
             "step_status": 'REJECTED',
             "action_at": datetime.now(timezone.utc).isoformat(),
@@ -390,9 +457,40 @@ class RequisitionService:
             "comment": data.comment
         }).eq('id', current_step['id']).execute()
         
-        # 3. Update Requisition Status
+        # 3. Update Requisition Status to REWORK_REQUIRED
         client.table('requisitions').update({
             "status": 'REWORK_REQUIRED'
+        }).eq('id', req_id).execute()
+        
+        return RequisitionService.get_requisition_by_id(req_id)
+
+    @staticmethod
+    def reject_final(req_id: str, user_id: UUID, data: RequisitionReject) -> Dict[str, Any]:
+        """ Permanently reject the requisition (Final Rejection). """
+        # Use admin client
+        client = RequisitionService._get_admin_client()
+
+        # 1. Find Pending Step (if any) - optional but good for audit
+        res = client.table('requisition_approvals').select('*')\
+            .eq('requisition_id', req_id)\
+            .eq('step_status', 'PENDING')\
+            .eq('assigned_to_user_id', str(user_id))\
+            .execute()
+            
+        if res.data:
+            current_step = res.data[0]
+            # Update Step to REJECTED
+            client.table('requisition_approvals').update({
+                "step_status": 'REJECTED',
+                "action_at": datetime.now(timezone.utc).isoformat(),
+                "action_by_user_id": str(user_id),
+                "comment": data.comment + " (FINAL REJECTION)"
+            }).eq('id', current_step['id']).execute()
+        
+        # 2. Update Requisition Status to REJECTED_FINAL and Close it
+        client.table('requisitions').update({
+            "status": 'REJECTED_FINAL',
+            "closed_at": datetime.now(timezone.utc).isoformat()
         }).eq('id', req_id).execute()
         
         return RequisitionService.get_requisition_by_id(req_id)
@@ -411,32 +509,32 @@ class RequisitionService:
     def get_inbox(user_id: UUID) -> List[Dict[str, Any]]:
         client = RequisitionService._get_admin_client()
         print(f"\n[DEBUG] get_inbox for user_id: {user_id}")
-        
-        # Debug: Check if there are ANY approvals for this user, ignoring status
-        all_aps = client.table('requisition_approvals').select('*').eq('assigned_to_user_id', str(user_id)).execute()
-        print(f"[DEBUG] Total assignments for user: {len(all_aps.data)}")
-        for ap in all_aps.data:
-            s_status = ap.get('step_status')
-            print(f"  - Step: {ap.get('step_name')}, Status: '{s_status}', ReqID: {ap.get('requisition_id')}")
 
-        # Explicitly using string 'PENDING' to avoid Enum issues
+        # 1. Get Pending Approvals assigned to user
         steps = client.table('requisition_approvals').select('requisition_id')\
             .eq('assigned_to_user_id', str(user_id))\
             .eq('step_status', 'PENDING')\
             .execute()
-            
-        print(f"[DEBUG] Pending steps found: {len(steps.data)}")
+        
+        step_ids = [s['requisition_id'] for s in steps.data] if steps.data else []
 
-        if not steps.data:
+        # 2. Get Requisitions needing REWORK by this user (requester)
+        reworks = client.table('requisitions').select('id')\
+            .eq('status', 'REWORK_REQUIRED')\
+            .eq('requester_id', str(user_id))\
+            .execute()
+        
+        rework_ids = [r['id'] for r in reworks.data] if reworks.data else []
+        
+        # Combine unique IDs
+        all_ids = list(set(step_ids + rework_ids))
+        print(f"[DEBUG] Inbox IDs: {all_ids} (Steps: {len(step_ids)}, Reworks: {len(rework_ids)})")
+
+        if not all_ids:
             return []
             
-        req_ids = list(set([s['requisition_id'] for s in steps.data]))
-        print(f"[DEBUG] Req IDs to fetch: {req_ids}")
-        
-        if not req_ids:
-             return []
-             
-        res = client.table('requisitions').select('*, items:requisition_items(*), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').in_('id', req_ids).execute()
+        # Added material:materials(*) to items join
+        res = client.table('requisitions').select('*, items:requisition_items(*, material:materials(*)), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').in_('id', all_ids).execute()
             
         return res.data
 
@@ -460,46 +558,14 @@ class RequisitionService:
         query = client.table('requisitions').select('*, items:requisition_items(*, material:materials(*)), requester:profiles!requester_id(*), creator:profiles!created_by(*), approvals:requisition_approvals(*, approver:profiles!assigned_to_user_id(*))').order('created_at', desc=True)
         if status:
             query = query.eq('status', status)
+
         if requester_id:
             # Modified to allow users to see requisitions they approved (History)
-            # FORCE ADMIN CLIENT CHECK
-            lookup_client = client
+            # FORCE ADMIN CLIENT CHECK - client is already admin here
             
-            # 1. Try Settings
-            service_key = settings.SUPABASE_SERVICE_KEY
-            
-            # 2. If missing, try robust manual .env load
-            if not service_key:
-                try:
-                    import os
-                    from pathlib import Path
-                    
-                    # Robust find: Go up 3 levels from app/services/requisition_service.py to root
-                    current_file = Path(__file__).resolve()
-                    project_root = current_file.parent.parent.parent
-                    env_path = project_root / ".env"
-                    
-                    if env_path.exists():
-                        with open(env_path, "r") as f:
-                            for line in f:
-                                if line.strip().startswith("SUPABASE_SERVICE_KEY="):
-                                    service_key = line.strip().split("=", 1)[1]
-                                    break
-                except Exception as e:
-                    print(f"[WARN] Failed to manually load .env: {e}")
-
-            if service_key:
-                # Re-create to be 100% sure we have admin rights for this check
-                try:
-                    lookup_client = create_client(settings.SUPABASE_URL, service_key)
-                except Exception as e:
-                    print(f"[WARN] Failed to create fresh admin client: {e}")
-            else:
-                 print("[WARN] No SERVICE_KEY available. Using default client.")
-
             # 1. Fetch IDs of requisitions where user was an approver
             try:
-                ap_res = lookup_client.table('requisition_approvals').select('requisition_id').eq('assigned_to_user_id', str(requester_id)).execute()
+                ap_res = client.table('requisition_approvals').select('requisition_id').eq('assigned_to_user_id', str(requester_id)).execute()
                 approved_ids = list(set([item['requisition_id'] for item in ap_res.data])) if ap_res.data else []
                 
                 if approved_ids:
@@ -596,6 +662,10 @@ class RequisitionService:
         # ALSO, if status was ORDERED or APPROVED, we can move to RECEIVED.
         # Note: If it's already CLOSED, we might leave it.
         if all_completed and req['status'] not in ['RECEIVED', 'CLOSED', 'CANCELLED']:
-             client.table('requisitions').update({'status': 'RECEIVED'}).eq('id', req_id).execute()
+            client.table('requisitions').update({'status': 'RECEIVED'}).eq('id', req_id).execute()
+        elif not all_completed and req['status'] in ['APPROVED_PRE_PURCHASE', 'ORDERED', 'PARTIALLY_RECEIVED']:
+            # If not all completed, but we received SOMETHING (implied by this function being called),
+            # Set to PARTIALLY_RECEIVED
+            client.table('requisitions').update({'status': 'PARTIALLY_RECEIVED'}).eq('id', req_id).execute()
              
         return RequisitionService.get_requisition_by_id(req_id)

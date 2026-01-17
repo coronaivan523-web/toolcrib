@@ -144,6 +144,10 @@ class RequisitionCreate(RequisitionBase):
     items: List[RequisitionItemCreate]
     attachments: Optional[List[RequisitionAttachmentCreate]] = []
 
+class RequisitionUpdate(RequisitionBase):
+    items: Optional[List[RequisitionItemCreate]] = None
+    attachments: Optional[List[RequisitionAttachmentCreate]] = None
+
 class RequisitionResponse(RequisitionBase):
     id: UUID
     folio: int

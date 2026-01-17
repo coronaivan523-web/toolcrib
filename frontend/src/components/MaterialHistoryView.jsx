@@ -315,9 +315,9 @@ export default function MaterialHistoryView({ materialId, materialName, material
                                     <th className="px-4 py-3">Date</th>
                                     <th className="px-4 py-3">Reference/User</th>
                                     <th className="px-4 py-3">Requester</th>
-                                    <th className="px-4 py-3">Plant</th>
+                                    <th className="px-4 py-3">Plant/C.C</th>
                                     <th className="px-4 py-3">Area</th>
-                                    <th className="px-4 py-3">Process</th>
+                                    <th className="px-4 py-3">Process/Proyect</th>
                                     <th className="px-4 py-3">Machine</th>
                                 </tr>
                             </thead>

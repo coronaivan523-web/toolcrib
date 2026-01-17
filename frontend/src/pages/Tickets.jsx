@@ -235,8 +235,10 @@ function TicketsContent() {
                     ticketQuery = ticketQuery.eq('requester_id', user.id)
                 }
 
-                // 2. Define Notification Query (Admin Only) - In Parallel
+                // 2. Define Notification & Report Queries (Admin/Staff Only) - In Parallel
                 let notificationPromise = Promise.resolve({ data: [], error: null })
+                let qualityReportPromise = Promise.resolve({ data: [], error: null })
+
                 if (isAdminRole) {
                     notificationPromise = supabase
                         .from('notifications')
@@ -244,12 +246,19 @@ function TicketsContent() {
                         .eq('type', 'low_stock_alert')
                         .eq('status', 'unread')
                         .order('created_at', { ascending: false })
+
+                    qualityReportPromise = supabase
+                        .from('quality_reports')
+                        .select('*')
+                        .eq('action_taken', 'pending_review')
+                        .order('created_at', { ascending: false })
                 }
 
                 // 3. EXECUTE IN PARALLEL
-                const [ticketRes, notifRes] = await Promise.all([
+                const [ticketRes, notifRes, qualityRes] = await Promise.all([
                     ticketQuery,
-                    notificationPromise
+                    notificationPromise,
+                    qualityReportPromise
                 ])
 
                 const { data, error: queryError } = ticketRes
@@ -304,16 +313,41 @@ function TicketsContent() {
                     setTickets(ticketsWithProcessedItems)
                 }
 
-                // Fetch Notifications for Tool Room Staff
-                // Fetch Notifications for Tool Room Staff
-                // Manual Fetch & Join (Since FKs might be missing on notifications table)
+                // Fetch Notifications & Reports for Tool Room Staff
                 if (isAdminRole) {
-                    // Process Notifications (Using parallel result)
                     const { data: notifs, error: notifError } = notifRes
+                    const { data: qualityReports, error: qualityError } = qualityRes
 
-                    if (isAdminRole && notifs && notifs.length > 0) {
-                        const senderIds = [...new Set(notifs.map(n => n.sender_id).filter(Boolean))]
-                        const materialIds = [...new Set(notifs.map(n => n.material_id).filter(Boolean))]
+                    const allItems = []
+
+                    // Normalize Notifications
+                    if (notifs) {
+                        notifs.forEach(n => allItems.push({
+                            ...n,
+                            _globalType: 'notification',
+                            sender_id: n.sender_id,
+                            material_id: n.material_id
+                        }))
+                    }
+
+                    // Normalize Quality Reports
+                    if (qualityReports) {
+                        qualityReports.forEach(q => allItems.push({
+                            id: `qr-${q.id}`, // Avoid ID collisions
+                            created_at: q.created_at,
+                            message: `Quality Issue: ${q.description} (${q.issue_category})`,
+                            type: 'quality_report',
+                            status: 'unread', // UI treats them as unread/active
+                            sender_id: q.reported_by_id, // Match sender_id expectation
+                            material_id: q.material_id,   // Match material_id expectation
+                            _globalType: 'quality_report',
+                            original_data: q
+                        }))
+                    }
+
+                    if (allItems.length > 0) {
+                        const senderIds = [...new Set(allItems.map(n => n.sender_id).filter(Boolean))]
+                        const materialIds = [...new Set(allItems.map(n => n.material_id).filter(Boolean))]
 
                         // Fetch Senders & Materials in Parallel
                         const [sendersRes, matsRes] = await Promise.all([
@@ -328,20 +362,22 @@ function TicketsContent() {
                         // Use forEach to map all materials, fixing previous find() inefficiency
                         if (matsRes.data) matsRes.data.forEach(m => materialsMap[m.id] = m)
 
-                        const enrichedReports = notifs.map(n => ({
+                        const enrichedReports = allItems.map(n => ({
                             ...n,
                             sender: sendersMap[n.sender_id] || { full_name: 'Unknown User', email: '' },
                             material: materialsMap[n.material_id] || { name: 'Unknown Material', part_number: 'N/A' }
                         }))
+
+                        // Sort combined list by date desc
+                        enrichedReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
                         setReports(enrichedReports)
                     } else {
                         setReports([])
                     }
 
-                    if (notifError) {
-                        console.error("Error fetching notifications:", notifError)
-                    }
+                    if (notifError) console.error("Error fetching notifications:", notifError)
+                    if (qualityError) console.error("Error fetching quality reports:", qualityError)
                 }
             }
         } catch (err) {
@@ -400,23 +436,51 @@ function TicketsContent() {
 
         // Mark selected reports as read so they disappear from the list
         if (selectedReports.length > 0) {
+            const notificationIds = []
+            const qualityReportIds = []
+
+            selectedReports.forEach(id => {
+                if (String(id).startsWith('qr-')) {
+                    qualityReportIds.push(id.replace('qr-', ''))
+                } else {
+                    notificationIds.push(id)
+                }
+            })
+
             try {
-                const { data, error } = await supabase
-                    .from('notifications')
-                    .update({ status: 'read' })
-                    .in('id', selectedReports)
-                    .select() // Return updated rows to verify
+                let archivedCount = 0
 
-                if (error) throw error
-                console.log("Updated notifications:", data)
+                // 1. Update Notifications
+                if (notificationIds.length > 0) {
+                    const { data, error } = await supabase
+                        .from('notifications')
+                        .update({ status: 'read' })
+                        .in('id', notificationIds)
+                        .select()
 
-                if (data.length !== selectedReports.length) {
-                    console.warn(`Expected to update ${selectedReports.length} reports, but updated ${data.length}`)
+                    if (error) throw error
+                    if (data) archivedCount += data.length
                 }
 
-                showNotification(`Requisition created! Archived ${data.length} reports.`, "success")
+                // 2. Update Quality Reports
+                if (qualityReportIds.length > 0) {
+                    const { data, error } = await supabase
+                        .from('quality_reports')
+                        .update({ action_taken: 'accepted_with_note' }) // Moves them out of 'pending_review'
+                        .in('id', qualityReportIds)
+                        .select()
+
+                    if (error) throw error
+                    if (data) archivedCount += data.length
+                }
+
+                if (archivedCount !== selectedReports.length) {
+                    // console.warn optional
+                }
+
+                showNotification(`Requisition created! Archived ${selectedReports.length} reports.`, "success")
             } catch (err) {
-                console.error("Error updating notifications:", err)
+                console.error("Error updating reports:", err)
                 showNotification("Requisition created, but failed to hide reports. Please check console.", "error")
             }
         } else {
@@ -969,7 +1033,7 @@ function TicketsContent() {
             }
 
             if (requestedQty > 0 && affectedQty > requestedQty) {
-                showNotification(`Quantity affected (${affectedQty}) cannot be greater than requested quantity (${requestedQty})`, 'error')
+                showNotification(`Quantity affected (${affectedQty}) cannot be greater than requested quantity (${requestedQty})`, 'error', true)
                 return
             }
         }
@@ -1149,6 +1213,9 @@ function TicketsContent() {
             // Update local state to show "Sent" UI immediately
             setExistingNotification(data)
 
+            // Refresh global data (counters, report lists)
+            fetchUserAndTickets(true)
+
             // Show Success Modal
             setNotification({
                 type: 'info',
@@ -1326,74 +1393,7 @@ function TicketsContent() {
                         </button>
                     )}
 
-                    {/* Requirement Status - For non-privileged users (including 'user', 'staff_level_1', etc.) or admin in user view */}
-                    {(!privilegedRoles.includes(userProfile?.role) || (userProfile?.role === 'admin' && adminViewMode === 'user')) && (
-                        <button
-                            onClick={async () => {
-                                if (!selectedTicketItem) return;
-
-                                // 1. Check for Active Requisition (Global)
-                                try {
-                                    // Step A: Find Requisition IDs associated with this material
-                                    const { data: itemData, error: itemError } = await supabase
-                                        .from('requisition_items')
-                                        .select('requisition_id')
-                                        .eq('material_id', selectedTicketItem.material?.id)
-                                        .limit(5)
-
-                                    if (!itemError && itemData && itemData.length > 0) {
-                                        const reqIds = itemData.map(i => i.requisition_id).filter(Boolean)
-
-                                        if (reqIds.length > 0) {
-                                            // Step B: Fetch full details for these requisitions
-                                            const { data: reqs, error: reqError } = await supabase
-                                                .from('requisitions')
-                                                .select(`
-                                                    *,
-                                                    items:requisition_items (*),
-                                                    approvals:requisition_approvals (*)
-                                                `)
-                                                .in('id', reqIds)
-                                                .order('created_at', { ascending: false })
-
-                                            if (!reqError && reqs) {
-                                                const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL'].includes(r.status))
-
-                                                if (activeReq) {
-                                                    // Fetch requester profile separately if needed or try to include in above query.
-                                                    // For now, let's try to fetch it to ensure modal looks good.
-                                                    const { data: profile } = await supabase
-                                                        .from('profiles')
-                                                        .select('*')
-                                                        .eq('id', activeReq.requester_id)
-                                                        .single()
-
-                                                    if (profile) activeReq.requester = profile
-
-                                                    setViewingRequisition(activeReq)
-                                                    setIsRequisitionDetailOpen(true)
-                                                    return
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.error("Error checking requisitions:", e)
-                                }
-
-                                // 2. Check for Existing Report (Global)
-                                setIsRequirementModalOpen(true)
-                            }}
-                            disabled={!selectedTicketItem}
-                            className={`px-4 py-1.5 rounded-md flex items-center gap-2 font-bold transition-all text-sm border ${selectedTicketItem
-                                ? 'bg-pink-500/20 border-pink-400/30 text-white shadow-lg shadow-pink-900/20 hover:bg-pink-500/30 ring-1 ring-pink-500/50'
-                                : 'bg-slate-800/20 border-slate-700/30 text-slate-500 cursor-not-allowed opacity-40'
-                                }`}
-                        >
-                            <FileText size={16} strokeWidth={selectedTicketItem ? 2.5 : 2} className={selectedTicketItem ? 'text-pink-300' : ''} />
-                            {selectedTicketItem ? selectedTicketItem.material?.name : 'Requirement Status'}
-                        </button>
-                    )}
+                    {/* Requirement Status Button Removed - Consolidated into Item Actions */}
 
                     {/* Tool Room Staff Buttons - Only for toolroom staff, supervisor or admin in toolroom view */}
                     {(userProfile?.role === 'toolroom_staff' || userProfile?.role === 'supervisor' || (userProfile?.role === 'admin' && adminViewMode === 'toolroom')) && (
@@ -1992,9 +1992,59 @@ function TicketsContent() {
                                                                                 Low Stock: {item.material?.current_stock}
                                                                             </span>
                                                                             <button
-                                                                                onClick={(e) => {
+                                                                                onClick={async (e) => {
                                                                                     e.stopPropagation();
                                                                                     setSelectedTicketItem(item);
+
+                                                                                    // Check for Active Requisition before opening report modal
+                                                                                    try {
+                                                                                        // Step A: Find Requisition IDs associated with this material
+                                                                                        const { data: itemData, error: itemError } = await supabase
+                                                                                            .from('requisition_items')
+                                                                                            .select('requisition_id')
+                                                                                            .eq('material_id', item.material?.id)
+                                                                                            .limit(5)
+
+                                                                                        if (!itemError && itemData && itemData.length > 0) {
+                                                                                            const reqIds = itemData.map(i => i.requisition_id).filter(Boolean)
+
+                                                                                            if (reqIds.length > 0) {
+                                                                                                // Step B: Fetch full details for these requisitions
+                                                                                                const { data: reqs, error: reqError } = await supabase
+                                                                                                    .from('requisitions')
+                                                                                                    .select(`
+                                                                                                        *,
+                                                                                                        items:requisition_items (*),
+                                                                                                        approvals:requisition_approvals (*)
+                                                                                                    `)
+                                                                                                    .in('id', reqIds)
+                                                                                                    .order('created_at', { ascending: false })
+
+                                                                                                if (!reqError && reqs) {
+                                                                                                    // Check for any active status
+                                                                                                    const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL', 'CANCELLED', 'CLOSED', 'REJECTED'].includes(r.status))
+
+                                                                                                    if (activeReq) {
+                                                                                                        // Fetch requester profile
+                                                                                                        const { data: profile } = await supabase
+                                                                                                            .from('profiles')
+                                                                                                            .select('*')
+                                                                                                            .eq('id', activeReq.requester_id)
+                                                                                                            .single()
+
+                                                                                                        if (profile) activeReq.requester = profile
+
+                                                                                                        setViewingRequisition(activeReq)
+                                                                                                        setIsRequisitionDetailOpen(true)
+                                                                                                        return
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    } catch (e) {
+                                                                                        console.error("Error checking requisitions:", e)
+                                                                                    }
+
                                                                                     setIsRequirementModalOpen(true);
                                                                                 }}
                                                                                 className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm hover:bg-red-700 transition-colors animate-pulse"
@@ -2031,7 +2081,7 @@ function TicketsContent() {
 
 
 
-                                {ticket.status === 'CLOSED' && (
+                                {(ticket.status === 'CLOSED' || ticket.status === 'ENTREGADO') && (
                                     <div className="md:w-40 flex flex-col justify-center animate-in fade-in pl-4 border-l border-slate-100">
                                         <button
                                             onClick={(e) => {

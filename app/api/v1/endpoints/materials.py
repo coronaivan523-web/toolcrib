@@ -166,8 +166,17 @@ def get_material_history(
                              # Requester
                              profile = req.get('requester')
                              if profile:
-                                 m['requester_name'] = profile.get('full_name', 'Unknown')
-                                 m['area'] = profile.get('department') # Map Department -> Area
+                                 # Defensive check if profile is list (shouldn't be with single relation, but safe to check)
+                                 if isinstance(profile, list) and len(profile) > 0:
+                                     profile = profile[0]
+                                 
+                                 if isinstance(profile, dict):
+                                     m['requester_name'] = profile.get('full_name', 'Unknown')
+                                     m['area'] = profile.get('department') # Map Department -> Area
+                                 else:
+                                     print(f"[WARN] Profile for Folio {folio} has unexpected format: {type(profile)}")
+                             else:
+                                 print(f"[WARN] No profile data for Requisition Folio {folio}")
                              
                              # Attach UUID for drill-down
                              m['requisition_id'] = req['id'] 
@@ -178,6 +187,7 @@ def get_material_history(
                                  m['plant'] = item.get('cost_center')
                                  m['process'] = item.get('project_code') # Map Project Code -> Process
                         else:
+                             print(f"[DEBUG] Folio {folio} not found in reqs_map (Keys: {list(reqs_map.keys())})")
                              m['requisition_id'] = None
         
         return {
