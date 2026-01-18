@@ -188,11 +188,20 @@ export default function CycleCountDetail() {
         setFilters({
             description: '',
             partNumber: '',
+            location: '',
+            planned: '',
+            user: '',
             process: '',
             area: '',
             machine: ''
         })
+        setShowLowStockOnly(false)
     }
+
+    // Check if any filters are active
+    const hasActiveFilters = filters.description || filters.partNumber || filters.location ||
+        filters.planned || filters.user || filters.process ||
+        filters.area || filters.machine || showLowStockOnly
 
     const handleDeleteLine = async (lineId) => {
         if (!confirm('Are you sure?')) return
@@ -242,6 +251,27 @@ export default function CycleCountDetail() {
         const matchStock = !showLowStockOnly || (line.qty_system <= 5)
 
         return matchPart && matchDesc && matchLoc && matchProcess && matchArea && matchMachine && matchPlanned && matchUser && matchStock
+    })
+
+    // Filter materials for catalog
+    const filteredMaterials = allMaterials.filter(m => {
+        const matchDesc = !filters.description || (m.name && m.name.toLowerCase().includes(filters.description.toLowerCase()))
+        const matchPart = !filters.partNumber || (m.part_number && m.part_number.toLowerCase().includes(filters.partNumber.toLowerCase()))
+        const matchProcess = !filters.process || m.process === filters.process
+        const matchArea = !filters.area || m.area === filters.area
+        const matchMachine = !filters.machine || m.machine_asset === filters.machine
+
+        let locName = '-'
+        if (m.location_id) {
+            const l = allLocations.find(x => x.id === m.location_id)
+            if (l) locName = l.code
+        } else if (m.location) {
+            locName = m.location
+        }
+        const matchLoc = !filters.location || locName.toLowerCase().includes(filters.location.toLowerCase())
+        const matchStock = !showLowStockOnly || (m.current_stock <= 5)
+
+        return matchDesc && matchPart && matchProcess && matchArea && matchMachine && matchLoc && matchStock
     })
 
     return (
@@ -310,6 +340,26 @@ export default function CycleCountDetail() {
                             </>
                         )}
                     </div>
+
+                    {/* Filter Counter and Clear Button */}
+                    {showCatalog && (
+                        <div className="flex items-center gap-3 mt-2 mb-2">
+                            {/* Item Counter */}
+                            <div className="text-xs text-white/80">
+                                Showing <span className="font-bold text-white">{filteredMaterials.length}</span> of <span className="font-bold text-white">{allMaterials.length}</span>
+                            </div>
+
+                            {/* Clear Filters Button */}
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={handleClearFilters}
+                                    className="px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm border bg-red-600 text-white hover:bg-red-500 border-red-700"
+                                >
+                                    Clear Filters
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -337,7 +387,7 @@ export default function CycleCountDetail() {
                         <table className="w-full divide-y divide-stone-200 border-collapse text-center text-[10px]">
                             <thead className="bg-[#f0fdfa] border-b-2 border-stone-300">
                                 <tr>
-                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 sticky left-0 bg-[#f0fdfa] z-10">
                                         <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Part #</div>
                                         <input
                                             type="text"
@@ -347,7 +397,7 @@ export default function CycleCountDetail() {
                                             onChange={e => setFilters(prev => ({ ...prev, partNumber: e.target.value }))}
                                         />
                                     </th>
-                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 min-w-[300px] sticky left-[100px] bg-[#f0fdfa] z-10">
                                         <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Description</div>
                                         <input
                                             type="text"
@@ -450,16 +500,19 @@ export default function CycleCountDetail() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {filteredLines.map(line => {
+                                {filteredLines.map((line, index) => {
                                     const mat = allMaterials.find(m => m.id === line.material_id) || {}
                                     const adjustment = (line.qty_physical || 0) - (line.qty_system || 0)
                                     const isPositive = adjustment > 0
                                     const isNegative = adjustment < 0
 
                                     return (
-                                        <tr key={line.id} className="hover:bg-blue-50/20 transition-colors border-b border-stone-200">
-                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center">{line.material_part_number}</td>
-                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center">{line.material_name}</td>
+                                        <tr key={line.id} className={clsx(
+                                            "hover:bg-blue-50/40 transition-colors border-b border-stone-200",
+                                            index % 2 === 0 ? "bg-white" : "bg-stone-100"
+                                        )}>
+                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f5f5f4' }}>{line.material_part_number}</td>
+                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center sticky left-[100px] z-10" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f5f5f4' }}>{line.material_name}</td>
                                             <td className="px-2 py-1 border-r border-stone-200 text-center text-xs text-stone-700">
                                                 {line.location_name || '-'}
                                             </td>
@@ -531,7 +584,7 @@ export default function CycleCountDetail() {
                         <table className="w-full divide-y divide-stone-200 border-collapse text-center text-[10px]">
                             <thead className="bg-[#f0fdfa] border-b-2 border-stone-300 sticky top-0 z-20">
                                 <tr>
-                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 sticky left-0 bg-[#f0fdfa] z-10">
                                         <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Part #</div>
                                         <input
                                             type="text"
@@ -541,7 +594,7 @@ export default function CycleCountDetail() {
                                             onChange={e => setFilters(prev => ({ ...prev, partNumber: e.target.value }))}
                                         />
                                     </th>
-                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 min-w-[300px] sticky left-[100px] bg-[#f0fdfa] z-10">
                                         <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Description</div>
                                         <input
                                             type="text"
@@ -646,26 +699,7 @@ export default function CycleCountDetail() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {allMaterials.filter(m => {
-                                    const matchDesc = !filters.description || m.name.toLowerCase().includes(filters.description.toLowerCase())
-                                    const matchPart = !filters.partNumber || (m.part_number && m.part_number.toLowerCase().includes(filters.partNumber.toLowerCase()))
-                                    const matchProcess = !filters.process || m.process === filters.process
-                                    const matchArea = !filters.area || m.area === filters.area
-                                    const matchMachine = !filters.machine || m.machine_asset === filters.machine
-
-                                    // New Filters
-                                    let locName = '-'
-                                    if (m.location_id) {
-                                        const l = allLocations.find(x => x.id === m.location_id)
-                                        if (l) locName = l.code
-                                    } else if (m.location) {
-                                        locName = m.location
-                                    }
-                                    const matchLoc = !filters.location || locName.toLowerCase().includes(filters.location.toLowerCase())
-                                    const matchStock = !showLowStockOnly || (m.current_stock <= 5)
-
-                                    return matchDesc && matchPart && matchProcess && matchArea && matchMachine && matchLoc && matchStock
-                                }).slice(0, 100).map(mat => {
+                                {filteredMaterials.slice(0, 100).map((mat, index) => {
                                     // Calculate Adjustment Live
                                     const inputVal = catalogQuantities[mat.id]
                                     const hasInput = inputVal !== undefined && inputVal !== ''
@@ -685,9 +719,12 @@ export default function CycleCountDetail() {
                                     }
 
                                     return (
-                                        <tr key={mat.id} className="hover:bg-blue-50/20 transition-colors border-b border-stone-200">
-                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center">{mat.part_number}</td>
-                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center">{mat.name}</td>
+                                        <tr key={mat.id} className={clsx(
+                                            "hover:bg-blue-50/40 transition-colors border-b border-stone-200",
+                                            index % 2 === 0 ? "bg-white" : "bg-stone-100"
+                                        )}>
+                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center sticky left-0 z-10" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f5f5f4' }}>{mat.part_number}</td>
+                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center sticky left-[100px] z-10" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f5f5f4' }}>{mat.name}</td>
                                             <td className="px-2 py-1 text-center border-r border-stone-200 text-xs text-stone-700">
                                                 {locName}
                                             </td>
@@ -706,13 +743,11 @@ export default function CycleCountDetail() {
                                             <td className="px-2 py-1 border-r border-stone-200 text-center w-28">
                                                 <input
                                                     type="number"
-                                                    className="w-full rounded-sm border-stone-300 text-xs text-center focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm py-0.5"
+                                                    className="w-full rounded-sm border-stone-300 text-xs text-center focus:ring-blue-500 focus:border-blue-500 bg-gray-100 shadow-sm py-0.5 cursor-not-allowed"
                                                     placeholder="0"
                                                     value={catalogQuantities[mat.id] || ''}
-                                                    onChange={e => setCatalogQuantities({ ...catalogQuantities, [mat.id]: e.target.value })}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') handleAddFromCatalog(mat, catalogQuantities[mat.id])
-                                                    }}
+                                                    disabled
+                                                    title="This field will be populated by the counting process"
                                                 />
                                             </td>
                                             <td className={clsx(
