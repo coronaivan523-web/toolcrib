@@ -292,7 +292,7 @@ export default function CycleCountDetail() {
                 {/* Toolbar inside Header */}
                 <div className="px-6 pb-0 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/20 border-t border-white/10 text-white backdrop-blur-sm">
                     <div className="flex items-center gap-2 mt-2 mb-2">
-                        {isDraft && (
+                        {isDraft && (userProfile?.role === 'admin' || userProfile?.role === 'supervisor') && (
                             <>
                                 <button
                                     onClick={() => setShowCatalog(!showCatalog)}
@@ -300,8 +300,8 @@ export default function CycleCountDetail() {
                                     className={clsx(
                                         "px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm border",
                                         showCatalog
-                                            ? "bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-200"
-                                            : "bg-indigo-600 text-white hover:bg-indigo-500 border-indigo-400"
+                                            ? "bg-stone-200 text-stone-700 border-stone-300 hover:bg-stone-300"
+                                            : "bg-amber-600 text-white hover:bg-amber-500 border-amber-700"
                                     )}
                                 >
                                     {showCatalog ? 'HIDE CATALOG' : 'LOAD ITEMS'}
@@ -513,8 +513,13 @@ export default function CycleCountDetail() {
                         {filteredLines.length === 0 && lines.length > 0 && (
                             <div className="p-8 text-center text-gray-500">No matching items found.</div>
                         )}
-                        {lines.length === 0 && !isDraft && (
-                            <div className="p-8 text-center text-gray-500">No lines recorded.</div>
+                        {lines.length === 0 && (
+                            <div className="p-12 text-center">
+                                <p className="text-gray-400 text-sm italic">No items added to count yet.</p>
+                                {isDraft && (userProfile?.role === 'admin' || userProfile?.role === 'supervisor') && (
+                                    <p className="text-gray-500 text-xs mt-2">Click "LOAD ITEMS" to begin counting.</p>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -720,8 +725,8 @@ export default function CycleCountDetail() {
                                                 {hasInput ? (isPositive ? '+' : '') + adjustment : '-'}
                                             </td>
                                             <td className="px-2 py-1 text-[11px] text-stone-400 text-center border-r border-stone-200">-</td>
-                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">{new Date().toLocaleDateString()}</td>
-                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">{userProfile?.full_name || 'User'}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-400 text-center border-r border-stone-200">-</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-400 text-center border-r border-stone-200">-</td>
                                             <td className="px-2 py-1 text-center">
                                                 <button
                                                     onClick={() => handleAddFromCatalog(mat, catalogQuantities[mat.id])}
