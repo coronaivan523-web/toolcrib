@@ -73,6 +73,10 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
 
 // --- Material Service ---
 export const materialService = {
+    // GET /materials/
+    getMaterials: async () => {
+        return await apiFetch('/materials/')
+    },
     // GET /materials/{id}/history
     getHistory: async (id) => {
         return await apiFetch(`/materials/${id}/history`)

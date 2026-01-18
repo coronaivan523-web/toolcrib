@@ -10,6 +10,7 @@ from app.api.v1.endpoints.inventory import router as inventory_router
 from app.api.v1.endpoints.tickets import router as tickets_router
 from app.api.v1.endpoints.requisitions import router as requisitions_router
 from app.api.v1.endpoints.materials import router as materials_router
+from app.api.v1.endpoints.cycle_counts import router as cycle_counts_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,7 +28,9 @@ app.add_middleware(
         "http://127.0.0.1:5174",
         "http://localhost:3000",
         "http://localhost:8001",
-        "http://127.0.0.1:8001"
+        "http://127.0.0.1:8001",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -40,6 +43,7 @@ app.include_router(inventory_router, prefix=f"{settings.API_V1_STR}/inventory", 
 app.include_router(tickets_router, prefix=f"{settings.API_V1_STR}/tickets", tags=["tickets"])
 app.include_router(requisitions_router, prefix=f"{settings.API_V1_STR}/requisitions", tags=["requisitions"])
 app.include_router(materials_router, prefix=f"{settings.API_V1_STR}/materials", tags=["materials"])
+app.include_router(cycle_counts_router, prefix=f"{settings.API_V1_STR}/cycle-counts", tags=["cycle-counts"])
 
 @app.get("/")
 def root():
