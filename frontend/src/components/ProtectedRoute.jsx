@@ -1,37 +1,23 @@
-import { Navigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { Navigate, useOutletContext } from 'react-router-dom'
 
 export default function ProtectedRoute({ children, allowedRoles }) {
-    const [userRole, setUserRole] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const context = useOutletContext()
+    const userProfile = context?.userProfile
 
-    useEffect(() => {
-        const fetchUserRole = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+    // If we are active, Layout has already loaded.
+    // If no profile, we can't verify role. But Layout handles auth redirect.
+    // If userProfile is missing but we are here, something is odd, but let's assume valid for now or default to safe.
 
-            if (session) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('role')
-                    .eq('id', session.user.id)
-                    .single()
-
-                setUserRole(profile?.role)
-            }
-
-            setLoading(false)
-        }
-
-        fetchUserRole()
-    }, [])
-
-    if (loading) {
-        return <div className="flex h-screen items-center justify-center bg-slate-50">Loading...</div>
+    if (!userProfile) {
+        // Technically this shouldn't happen inside Layout if session is valid.
+        // But if it does, allowing render might expose content? 
+        // Better to redirect or return null.
+        return null
     }
 
-    // If user role is not in allowed roles, redirect to tickets
-    if (userRole && !allowedRoles.includes(userRole)) {
+    const { role } = userProfile
+
+    if (allowedRoles && !allowedRoles.includes(role)) {
         return <Navigate to="/tickets" replace />
     }
 

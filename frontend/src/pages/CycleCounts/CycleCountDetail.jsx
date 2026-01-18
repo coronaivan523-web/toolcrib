@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { cycleCounts } from '../../services/cycleCounts'
 import { materialService } from '../../services/materials'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Check, X, Plus, Trash2, Save, AlertTriangle, User, Search } from 'lucide-react'
+import { ArrowLeft, Check, CheckCircle, X, Plus, Trash2, Save, AlertTriangle, User, Search, ListPlus } from 'lucide-react'
 import MaterialAutocomplete from '../../components/MaterialAutocomplete'
 import clsx from 'clsx'
 import { useOutletContext } from 'react-router-dom'
@@ -12,6 +12,8 @@ export default function CycleCountDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
     const { userProfile } = useOutletContext()
+
+    const [activeSessionId, setActiveSessionId] = useState(id)
 
     const [session, setSession] = useState(null)
     const [lines, setLines] = useState([])
@@ -22,13 +24,18 @@ export default function CycleCountDetail() {
     const [allMaterials, setAllMaterials] = useState([])
     const [allLocations, setAllLocations] = useState([]) // We might need to fetch this
     // Filter States
+    const [sessionSearch, setSessionSearch] = useState('')
     const [filters, setFilters] = useState({
         description: '',
         partNumber: '',
         process: '',
         area: '',
-        machine: ''
+        machine: '',
+        location: '',
+        planned: '',
+        user: ''
     })
+    const [showLowStockOnly, setShowLowStockOnly] = useState(false)
 
     // Filter Options (computed from materials)
     const [filterOptions, setFilterOptions] = useState({
@@ -36,6 +43,8 @@ export default function CycleCountDetail() {
         areas: [],
         machines: []
     })
+
+    const [showCatalog, setShowCatalog] = useState(false)
 
     // Local state to hold quantity inputs for each material in the catalog view
     const [catalogQuantities, setCatalogQuantities] = useState({})
@@ -53,25 +62,53 @@ export default function CycleCountDetail() {
     const loadData = async () => {
         setLoading(true)
         try {
-            const sessionData = await cycleCounts.getSessionById(id)
-            setSession(sessionData)
-            setLines(sessionData.lines || [])
+            // Parallelize fetching to process faster
+            const promises = [
+                materialService.getMaterials(),
+                supabase.from('locations').select('*').order('code')
+            ]
 
-            // Load materials for autocomplete
-            const mats = await materialService.getMaterials()
+            let sessionId = id
+
+
+
+            // REMOVED: Automatic Draft Search. 
+            // The user wants NO "Session Process" on load.
+            // We load materials and wait for user action to establish context.
+
+            // Only fetch session if we have an ID
+            if (sessionId) {
+                promises.push(cycleCounts.getSessionById(sessionId))
+            } else {
+                promises.push(Promise.resolve(null)) // resolve null for session
+            }
+
+            // Await all data
+            const [mats, locsResult, sessionData] = await Promise.all(promises)
+
+            // Set Materials & Options
             setAllMaterials(mats)
-
-            // Extract Unique Filter Options
             const processes = [...new Set(mats.map(m => m.process).filter(Boolean))].sort()
             const areas = [...new Set(mats.map(m => m.area).filter(Boolean))].sort()
             const machines = [...new Set(mats.map(m => m.machine_asset).filter(Boolean))].sort()
             setFilterOptions({ processes, areas, machines })
 
-            // Load locations (simple fetch for now)
-            const { data: locs } = await supabase.from('locations').select('*').order('code')
-            setAllLocations(locs || [])
+            // Set Locations
+            setAllLocations(locsResult.data || [])
+
+            // Set Session Data (if found)
+            if (sessionId && sessionData) {
+                setActiveSessionId(sessionId)
+                setSession(sessionData)
+                setLines(sessionData.lines || [])
+            } else {
+                setActiveSessionId(null)
+                setSession(null)
+                setLines([])
+            }
 
         } catch (err) {
+            console.error("Error loading cycle count data:", err)
             setError(err.message)
         } finally {
             setLoading(false)
@@ -110,13 +147,37 @@ export default function CycleCountDetail() {
         }
 
         try {
-            await cycleCounts.addLine(id, {
+            let targetSessionId = activeSessionId
+
+            // Lazy Creation: If no session exists, create one NOW.
+            if (!targetSessionId) {
+                const today = new Date().toISOString().split('T')[0]
+                const newSession = await cycleCounts.createSession({
+                    count_date: today,
+                    notes: 'Auto-Created Session',
+                    location_scope: 'All'
+                })
+                targetSessionId = newSession.id
+                setActiveSessionId(targetSessionId)
+                setSession(newSession)
+            }
+
+            await cycleCounts.addLine(targetSessionId, {
                 material_id: material.id,
                 location_id: locId,
                 qty_physical: parseFloat(qty)
             })
 
-            loadData()
+            // Reload data to reflect changes (lines will be fetched in this call if we pass the ID, or we simple recall with current logic)
+            // But loadData uses 'id' param or 'activeSessionId' state?
+            // loadData reads from URL params 'id'. 
+            // We need to update lines manually or refactor loadData to accept an ID override.
+
+            // Simpler: Just fetch the fresh session data directly here
+            const sessionData = await cycleCounts.getSessionById(targetSessionId)
+            setSession(sessionData)
+            setLines(sessionData.lines || [])
+
             setCatalogQuantities(prev => ({ ...prev, [material.id]: '' })) // Clear input
         } catch (err) {
             alert(err.message)
@@ -136,7 +197,7 @@ export default function CycleCountDetail() {
     const handleDeleteLine = async (lineId) => {
         if (!confirm('Are you sure?')) return
         try {
-            await cycleCounts.deleteLine(id, lineId)
+            await cycleCounts.deleteLine(activeSessionId, lineId)
             setLines(lines.filter(l => l.id !== lineId))
         } catch (err) {
             alert(err.message)
@@ -144,7 +205,7 @@ export default function CycleCountDetail() {
     }
 
     const handleSubmit = async () => {
-        if (!confirm('Submit this session for approval? You cannot edit lines after submission.')) return
+        // Confirmation removed for direct access
         try {
             await cycleCounts.submitSession(id)
             loadData()
@@ -153,38 +214,40 @@ export default function CycleCountDetail() {
         }
     }
 
-    const handleApprove = async () => {
-        if (!confirm('Approve and adjust inventory? This is irreversible.')) return
-        try {
-            await cycleCounts.approveSession(id)
-            loadData()
-        } catch (err) {
-            alert(err.message)
-        }
-    }
+    // Render Helpers
+    // If no session, we are technically in a "Draft/New" state effectively
+    const isDraft = !session || session?.status === 'DRAFT'
+    // isSubmitted/isApprover removed as workflow is now direct Process action
 
-    const handleReject = async () => {
-        if (!confirm('Reject this session? No changes will be made.')) return
-        try {
-            await cycleCounts.rejectSession(id)
-            loadData()
-        } catch (err) {
-            alert(err.message)
-        }
-    }
+    // If no session but not loading, show empty state or create prompt
+    const showEmptyState = !loading && !session;
 
-    if (loading) return <div className="p-8 text-center">Loading...</div>
-    if (error) return <div className="p-8 text-red-600">Error: {error}</div>
-    if (!session) return <div className="p-8">Session not found</div>
 
-    const isDraft = session.status === 'DRAFT'
-    const isSubmitted = session.status === 'SUBMITTED'
-    const isApprover = userProfile?.role === 'admin' || userProfile?.role === 'supervisor'
+
+
+    const filteredLines = lines.filter(line => {
+        const mat = allMaterials.find(m => m.id === line.material_id) || {}
+
+        const matchPart = !filters.partNumber || (line.material_part_number || '').toLowerCase().includes(filters.partNumber.toLowerCase())
+        const matchDesc = !filters.description || (line.material_name || '').toLowerCase().includes(filters.description.toLowerCase())
+        const matchLoc = !filters.location || (line.location_name || '').toLowerCase().includes(filters.location.toLowerCase())
+
+        const matchProcess = !filters.process || (mat.process === filters.process)
+        const matchArea = !filters.area || (mat.area === filters.area)
+        const matchMachine = !filters.machine || (mat.machine_asset === filters.machine)
+
+        const matchPlanned = !filters.planned || (line.planned_date || '').includes(filters.planned)
+        const matchUser = !filters.user || (line.counted_by_name || '').toLowerCase().includes(filters.user.toLowerCase())
+
+        const matchStock = !showLowStockOnly || (line.qty_system <= 5)
+
+        return matchPart && matchDesc && matchLoc && matchProcess && matchArea && matchMachine && matchPlanned && matchUser && matchStock
+    })
 
     return (
-        <div className="flex flex-col h-full bg-slate-50 overflow-hidden">
+        <div className="flex flex-col h-full bg-[#fdfbf6] overflow-hidden">
             {/* Unified Header */}
-            <div className="bg-slate-900 shadow-md z-30 shrink-0" style={{ backgroundColor: '#0f172a' }}>
+            <div className="shadow-md z-30 shrink-0" style={{ backgroundColor: '#6b5d4f' }}>
                 <div className="relative px-8 py-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     {/* Logo Section */}
                     <div className="w-80 flex flex-col items-center">
@@ -218,213 +281,427 @@ export default function CycleCountDetail() {
                     {/* Page Title Section */}
                     <div className="text-center">
                         <h1 className="text-2xl font-extrabold text-white tracking-widest leading-tight uppercase">
-                            SESSION DETAIL
+                            CYCLE COUNT
                         </h1>
-                        <p className="text-primary-200 mt-0 text-sm font-medium tracking-wide">#{session.id.slice(0, 8)}</p>
+                        <p className="text-primary-200 mt-0 text-sm font-medium tracking-wide uppercase">
+                            {showCatalog ? 'Material Catalog' : 'Adjust Inventory & Stock'}
+                        </p>
                     </div>
                 </div>
 
                 {/* Toolbar inside Header */}
-                <div className="px-6 pb-0 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/20 border-t border-white/5 text-white backdrop-blur-sm">
-                    <div className="relative max-w-xs w-full mt-2 mb-2 flex items-center gap-6">
-                        <button onClick={() => navigate('/cycle-counts')} className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors text-xs font-bold uppercase tracking-wider">
-                            <ArrowLeft size={14} strokeWidth={3} /> Back to List
-                        </button>
-                        <span className={clsx(
-                            "px-2.5 py-0.5 rounded-full text-xs font-bold border",
-                            session.status === 'DRAFT' ? "bg-white/10 text-slate-200 border-white/20" :
-                                session.status === 'SUBMITTED' ? "bg-blue-500/20 text-blue-100 border-blue-400/30" :
-                                    session.status === 'APPROVED' ? "bg-green-500/20 text-green-100 border-green-400/30" :
-                                        "bg-red-500/20 text-red-100 border-red-400/30"
-                        )}>{session.status}</span>
-                    </div>
-
+                <div className="px-6 pb-0 pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-black/20 border-t border-white/10 text-white backdrop-blur-sm">
                     <div className="flex items-center gap-2 mt-2 mb-2">
                         {isDraft && (
-                            <button
-                                onClick={handleSubmit}
-                                className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-500 text-xs font-bold shadow-lg border border-blue-400"
-                            >
-                                <Save size={14} strokeWidth={3} /> Submit Session
-                            </button>
-                        )}
-                        {isSubmitted && isApprover && (
                             <>
                                 <button
-                                    onClick={handleReject}
-                                    className="flex items-center gap-2 bg-red-600 text-white px-3 py-1.5 rounded-md hover:bg-red-500 text-xs font-bold shadow-lg border border-red-400"
+                                    onClick={() => setShowCatalog(!showCatalog)}
+                                    // ... existing styling ...
+                                    className={clsx(
+                                        "px-3 py-1.5 rounded-md text-xs font-bold transition-all shadow-sm border",
+                                        showCatalog
+                                            ? "bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-200"
+                                            : "bg-indigo-600 text-white hover:bg-indigo-500 border-indigo-400"
+                                    )}
                                 >
-                                    <X size={14} strokeWidth={3} /> Reject
+                                    {showCatalog ? 'HIDE CATALOG' : 'LOAD ITEMS'}
                                 </button>
-                                <button
-                                    onClick={handleApprove}
-                                    className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-md hover:bg-green-500 text-xs font-bold shadow-lg border border-green-400"
-                                >
-                                    <Check size={14} strokeWidth={3} /> Approve Adjustment
-                                </button>
+                                {/* Process Button Removed: Inventory updates real-time now */}
                             </>
                         )}
                     </div>
                 </div>
             </div>
 
-            <div className="p-6 max-w-7xl mx-auto w-full overflow-y-auto space-y-6">
+            <div className="flex-1 p-0 overflow-auto relative">
+                {/* Loading Overlay */}
+
+
+                {/* Error State */}
+                {error && (
+                    <div className="p-8 flex justify-center">
+                        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-md border border-red-200 flex items-center gap-2">
+                            <AlertTriangle size={20} />
+                            {error}
+                        </div>
+                    </div>
+                )}
 
                 {/* Content */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Material</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Sys Qty</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Phys Qty</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Variance</th>
-                                {isDraft && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {lines.map(line => (
-                                <tr key={line.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900">{line.material_name}</div>
-                                        <div className="text-xs text-gray-500">{line.material_part_number}</div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">{line.location_name}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-500 text-right">{line.qty_system}</td>
-                                    <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">{line.qty_physical}</td>
-                                    <td className={clsx(
-                                        "px-6 py-4 text-sm font-bold text-right",
-                                        line.variance === 0 ? "text-gray-400" : line.variance > 0 ? "text-green-600" : "text-red-600"
-                                    )}>
-                                        {line.variance > 0 ? '+' : ''}{line.variance}
-                                    </td>
-                                    {isDraft && (
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={() => handleDeleteLine(line.id)}
-                                                className="text-red-400 hover:text-red-600 p-1"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
+                {!showCatalog && (
+                    <div className="bg-white shadow-none min-h-full">
+                        {/* Session Search Header */}
+                        {/* Session Header Removed */}
 
-                            {/* Removed Manual Add Row in favor of Catalog below */}
-                        </tbody>
-                    </table>
-                    {lines.length === 0 && !isDraft && (
-                        <div className="p-8 text-center text-gray-500">No lines recorded.</div>
-                    )}
-                </div>
+
+                        <table className="w-full divide-y divide-stone-200 border-collapse text-center text-[10px]">
+                            <thead className="bg-[#f0fdfa] border-b-2 border-stone-300">
+                                <tr>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Part #</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.partNumber}
+                                            onChange={e => setFilters(prev => ({ ...prev, partNumber: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Description</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.description}
+                                            onChange={e => setFilters(prev => ({ ...prev, description: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1">Location</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.location}
+                                            onChange={e => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-600 uppercase mb-1">Process</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.process}
+                                            onChange={e => setFilters(prev => ({ ...prev, process: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.processes.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-600 uppercase mb-1">Area</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.area}
+                                            onChange={e => setFilters(prev => ({ ...prev, area: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.areas.map(a => <option key={a} value={a}>{a}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-600 uppercase mb-1">Machine</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.machine}
+                                            onChange={e => setFilters(prev => ({ ...prev, machine: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.machines.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 w-28">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase mb-1">Stock</div>
+                                        <div className="flex justify-center pb-0.5">
+                                            <button
+                                                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                                                className={clsx(
+                                                    "p-1 rounded-md transition-colors border",
+                                                    showLowStockOnly
+                                                        ? "bg-red-100 border-red-200 text-red-600 shadow-sm"
+                                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                                )}
+                                                title="Toggle Low Stock (<= 5)"
+                                            >
+                                                <AlertTriangle size={16} strokeWidth={2.5} />
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-bold text-blue-800 uppercase tracking-wider border-r border-stone-200 w-28">
+                                        <div className="mb-2">Real Qty</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-bold text-slate-800 uppercase tracking-wider border-r border-stone-200">
+                                        <div className="mb-2">Adjustment</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">Planned</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Date..."
+                                            value={filters.planned}
+                                            onChange={e => setFilters(prev => ({ ...prev, planned: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-medium text-stone-500 uppercase border-r border-stone-200">
+                                        <div className="mb-2">Real Date</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">User</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="User..."
+                                            value={filters.user}
+                                            onChange={e => setFilters(prev => ({ ...prev, user: e.target.value }))}
+                                        />
+                                    </th>
+                                    {isDraft && <th className="px-2 py-2 text-center align-bottom text-[11px] font-medium text-stone-500 uppercase"><div className="mb-2">Action</div></th>}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {filteredLines.map(line => {
+                                    const mat = allMaterials.find(m => m.id === line.material_id) || {}
+                                    const adjustment = (line.qty_physical || 0) - (line.qty_system || 0)
+                                    const isPositive = adjustment > 0
+                                    const isNegative = adjustment < 0
+
+                                    return (
+                                        <tr key={line.id} className="hover:bg-blue-50/20 transition-colors border-b border-stone-200">
+                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center">{line.material_part_number}</td>
+                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center">{line.material_name}</td>
+                                            <td className="px-2 py-1 border-r border-stone-200 text-center text-xs text-stone-700">
+                                                {line.location_name || '-'}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 border-r border-stone-200 text-center">{mat.process || '-'}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 border-r border-stone-200 text-center">{mat.area || '-'}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 border-r border-stone-200 text-center">{mat.machine_asset || '-'}</td>
+                                            <td className="px-2 py-1 text-center border-r border-stone-200 font-mono text-xs w-28">
+                                                <span className={clsx(
+                                                    "font-bold",
+                                                    (line.qty_system <= 5) ? "text-red-600" : "text-slate-700"
+                                                )}>
+                                                    {line.qty_system}
+                                                </span>
+                                                {line.qty_system <= 5 && <span className="ml-1 text-[9px] text-red-500">⚠</span>}
+                                            </td>
+                                            <td className="px-2 py-1 text-xs font-bold text-blue-900 text-center border-r border-stone-200 bg-white w-28">{line.qty_physical}</td>
+                                            <td className={clsx(
+                                                "px-2 py-1 text-xs font-bold text-center border-r border-stone-200",
+                                                isPositive && "text-green-700 bg-green-50/50",
+                                                isNegative && "text-red-700 bg-red-50/50",
+                                                !isPositive && !isNegative && "text-stone-400"
+                                            )}>
+                                                {isPositive ? '+' : ''}{adjustment}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">
+                                                {line.planned_date ? new Date(line.planned_date).toLocaleDateString() : '-'}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">
+                                                {line.created_at ? new Date(line.created_at).toLocaleString() : '-'}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center font-medium border-r border-stone-200">
+                                                {line.counted_by_name || 'User'}
+                                            </td>
+                                            {isDraft && (
+                                                <td className="px-2 py-1 text-center">
+                                                    <button
+                                                        onClick={() => handleDeleteLine(line.id)}
+                                                        className="text-red-400 hover:text-red-600 p-1"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    )
+                                })}
+
+                                {/* Removed Manual Add Row in favor of Catalog below */}
+                            </tbody>
+                        </table>
+                        {filteredLines.length === 0 && lines.length > 0 && (
+                            <div className="p-8 text-center text-gray-500">No matching items found.</div>
+                        )}
+                        {lines.length === 0 && !isDraft && (
+                            <div className="p-8 text-center text-gray-500">No lines recorded.</div>
+                        )}
+                    </div>
+                )}
 
                 {/* Material Catalog / Visual Verification Section */}
-                {isDraft && (
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 bg-slate-50 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                                <Search size={20} className="text-primary-600" />
-                                Material Catalog Search
-                            </h3>
-                            <button onClick={handleClearFilters} className="text-xs text-red-500 hover:text-red-700 font-bold uppercase">
-                                Clear Filters
-                            </button>
-                        </div>
-
-                        {/* Filters */}
-                        <div className="p-6 bg-white grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 shadow-sm z-10 relative">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
-                                <input
-                                    type="text"
-                                    className="w-full rounded-md border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Search description..."
-                                    value={filters.description}
-                                    onChange={e => setFilters(prev => ({ ...prev, description: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Part Number</label>
-                                <input
-                                    type="text"
-                                    className="w-full rounded-md border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    placeholder="Search part #..."
-                                    value={filters.partNumber}
-                                    onChange={e => setFilters(prev => ({ ...prev, partNumber: e.target.value }))}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Process</label>
-                                <select
-                                    className="w-full rounded-md border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    value={filters.process}
-                                    onChange={e => setFilters(prev => ({ ...prev, process: e.target.value }))}
-                                >
-                                    <option value="">- All -</option>
-                                    {filterOptions.processes.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Area</label>
-                                <select
-                                    className="w-full rounded-md border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    value={filters.area}
-                                    onChange={e => setFilters(prev => ({ ...prev, area: e.target.value }))}
-                                >
-                                    <option value="">- All -</option>
-                                    {filterOptions.areas.map(a => <option key={a} value={a}>{a}</option>)}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Machine</label>
-                                <select
-                                    className="w-full rounded-md border-gray-300 text-sm focus:ring-primary-500 focus:border-primary-500"
-                                    value={filters.machine}
-                                    onChange={e => setFilters(prev => ({ ...prev, machine: e.target.value }))}
-                                >
-                                    <option value="">- All -</option>
-                                    {filterOptions.machines.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
+                {isDraft && showCatalog && (
+                    <div className="bg-white shadow-none min-h-full">
                         {/* Catalog Table */}
-                        <div className="overflow-x-auto max-h-[500px]">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-blue-50/50 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-blue-800 uppercase tracking-wider">Part #</th>
-                                        <th className="px-6 py-3 text-left text-xs font-bold text-blue-800 uppercase tracking-wider">Description</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Process</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Area</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Machine</th>
-                                        <th className="px-6 py-3 text-right text-xs font-bold text-green-700 uppercase">Stock</th>
-                                        <th className="px-6 py-3 text-right text-xs font-bold text-blue-800 uppercase tracking-wider w-32">Phys Qty</th>
-                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase w-20">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {allMaterials.filter(m => {
-                                        const matchDesc = !filters.description || m.name.toLowerCase().includes(filters.description.toLowerCase())
-                                        const matchPart = !filters.partNumber || (m.part_number && m.part_number.toLowerCase().includes(filters.partNumber.toLowerCase()))
-                                        const matchProcess = !filters.process || m.process === filters.process
-                                        const matchArea = !filters.area || m.area === filters.area
-                                        const matchMachine = !filters.machine || m.machine_asset === filters.machine
-                                        return matchDesc && matchPart && matchProcess && matchArea && matchMachine
-                                    }).slice(0, 100).map(mat => ( // Limit to 100 to prevent lag
-                                        <tr key={mat.id} className="hover:bg-blue-50/30 transition-colors">
-                                            <td className="px-6 py-3 text-sm font-bold text-slate-700">{mat.part_number}</td>
-                                            <td className="px-6 py-3 text-sm text-gray-600">{mat.name}</td>
-                                            <td className="px-6 py-3 text-xs text-gray-500">{mat.process}</td>
-                                            <td className="px-6 py-3 text-xs text-gray-500">{mat.area}</td>
-                                            <td className="px-6 py-3 text-xs text-gray-500">{mat.machine_asset}</td>
-                                            <td className="px-6 py-3 text-sm font-bold text-green-600 text-right">{mat.current_stock}</td>
-                                            <td className="px-6 py-2">
+                        <table className="w-full divide-y divide-stone-200 border-collapse text-center text-[10px]">
+                            <thead className="bg-[#f0fdfa] border-b-2 border-stone-300 sticky top-0 z-20">
+                                <tr>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Part #</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.partNumber}
+                                            onChange={e => setFilters(prev => ({ ...prev, partNumber: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1 text-center">Description</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.description}
+                                            onChange={e => setFilters(prev => ({ ...prev, description: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-1">Location</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Filter..."
+                                            value={filters.location}
+                                            onChange={e => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">Process</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.process}
+                                            onChange={e => setFilters(prev => ({ ...prev, process: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.processes.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">Area</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.area}
+                                            onChange={e => setFilters(prev => ({ ...prev, area: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.areas.map(a => <option key={a} value={a}>{a}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">Machine</div>
+                                        <select
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                                            value={filters.machine}
+                                            onChange={e => setFilters(prev => ({ ...prev, machine: e.target.value }))}
+                                        >
+                                            <option value=""></option>
+                                            {filterOptions.machines.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200 w-28">
+                                        <div className="text-[11px] font-bold text-slate-800 uppercase mb-1">Stock</div>
+                                        <div className="flex justify-center pb-0.5">
+                                            <button
+                                                onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+                                                className={clsx(
+                                                    "p-1 rounded-md transition-colors border",
+                                                    showLowStockOnly
+                                                        ? "bg-red-100 border-red-200 text-red-600 shadow-sm"
+                                                        : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                                )}
+                                                title="Toggle Low Stock (<= 5)"
+                                            >
+                                                <AlertTriangle size={16} strokeWidth={2.5} />
+                                            </button>
+                                        </div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-bold text-blue-800 uppercase tracking-wider border-r border-stone-200 w-28">
+                                        <div className="mb-2">Real Qty</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-bold text-slate-800 uppercase tracking-wider border-r border-stone-200">
+                                        <div className="mb-2">Adjustment</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">Planned</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="Date..."
+                                            value={filters.planned}
+                                            onChange={e => setFilters(prev => ({ ...prev, planned: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-medium text-stone-500 uppercase border-r border-stone-200">
+                                        <div className="mb-2">Real Date</div>
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom border-r border-stone-200">
+                                        <div className="text-[11px] font-medium text-stone-500 uppercase mb-1">User</div>
+                                        <input
+                                            type="text"
+                                            className="w-full rounded-sm px-1 py-0.5 text-[11px] border border-stone-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-normal bg-white text-center"
+                                            placeholder="User..."
+                                            value={filters.user}
+                                            onChange={e => setFilters(prev => ({ ...prev, user: e.target.value }))}
+                                        />
+                                    </th>
+                                    <th className="px-2 py-2 text-center align-bottom text-[11px] font-medium text-stone-500 uppercase">
+                                        <div className="mb-2">Action</div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {allMaterials.filter(m => {
+                                    const matchDesc = !filters.description || m.name.toLowerCase().includes(filters.description.toLowerCase())
+                                    const matchPart = !filters.partNumber || (m.part_number && m.part_number.toLowerCase().includes(filters.partNumber.toLowerCase()))
+                                    const matchProcess = !filters.process || m.process === filters.process
+                                    const matchArea = !filters.area || m.area === filters.area
+                                    const matchMachine = !filters.machine || m.machine_asset === filters.machine
+
+                                    // New Filters
+                                    let locName = '-'
+                                    if (m.location_id) {
+                                        const l = allLocations.find(x => x.id === m.location_id)
+                                        if (l) locName = l.code
+                                    } else if (m.location) {
+                                        locName = m.location
+                                    }
+                                    const matchLoc = !filters.location || locName.toLowerCase().includes(filters.location.toLowerCase())
+                                    const matchStock = !showLowStockOnly || (m.current_stock <= 5)
+
+                                    return matchDesc && matchPart && matchProcess && matchArea && matchMachine && matchLoc && matchStock
+                                }).slice(0, 100).map(mat => {
+                                    // Calculate Adjustment Live
+                                    const inputVal = catalogQuantities[mat.id]
+                                    const hasInput = inputVal !== undefined && inputVal !== ''
+                                    const qtyPhys = hasInput ? parseFloat(inputVal) : 0
+                                    const adjustment = hasInput ? (qtyPhys - (mat.current_stock || 0)) : 0
+                                    const isPositive = adjustment > 0
+                                    const isNegative = adjustment < 0
+
+                                    // Find Location logic same as logic above ?
+                                    // Try to find location name by ID or name
+                                    let locName = '-'
+                                    if (mat.location_id) {
+                                        const l = allLocations.find(x => x.id === mat.location_id)
+                                        if (l) locName = l.code
+                                    } else if (mat.location) {
+                                        locName = mat.location
+                                    }
+
+                                    return (
+                                        <tr key={mat.id} className="hover:bg-blue-50/20 transition-colors border-b border-stone-200">
+                                            <td className="px-2 py-1 text-xs font-bold text-slate-700 border-r border-stone-200 text-center">{mat.part_number}</td>
+                                            <td className="px-2 py-1 text-xs text-stone-700 border-r border-stone-200 text-center">{mat.name}</td>
+                                            <td className="px-2 py-1 text-center border-r border-stone-200 text-xs text-stone-700">
+                                                {locName}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 uppercase border-r border-stone-200 text-center">{mat.process}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 uppercase border-r border-stone-200 text-center">{mat.area}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-600 uppercase border-r border-stone-200 text-center">{mat.machine_asset}</td>
+                                            <td className="px-2 py-1 text-center border-r border-stone-200 font-mono text-xs w-28">
+                                                <span className={clsx(
+                                                    "font-bold",
+                                                    (mat.current_stock <= 5) ? "text-red-600" : "text-slate-700"
+                                                )}>
+                                                    {mat.current_stock}
+                                                </span>
+                                                {mat.current_stock <= 5 && <span className="ml-1 text-[9px] text-red-500">⚠</span>}
+                                            </td>
+                                            <td className="px-2 py-1 border-r border-stone-200 text-center w-28">
                                                 <input
                                                     type="number"
-                                                    className="w-full rounded border-gray-300 text-sm text-right focus:ring-blue-500 focus:border-blue-500 bg-gray-50 focus:bg-white"
+                                                    className="w-full rounded-sm border-stone-300 text-xs text-center focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm py-0.5"
                                                     placeholder="0"
                                                     value={catalogQuantities[mat.id] || ''}
                                                     onChange={e => setCatalogQuantities({ ...catalogQuantities, [mat.id]: e.target.value })}
@@ -433,7 +710,19 @@ export default function CycleCountDetail() {
                                                     }}
                                                 />
                                             </td>
-                                            <td className="px-6 py-2 text-center">
+                                            <td className={clsx(
+                                                "px-2 py-1 text-xs font-bold text-center border-r border-stone-200",
+                                                isPositive && "text-green-700 bg-green-50/50",
+                                                isNegative && "text-red-700 bg-red-50/50",
+                                                !isPositive && !isNegative && hasInput && "text-stone-400",
+                                                !hasInput && "text-stone-300"
+                                            )}>
+                                                {hasInput ? (isPositive ? '+' : '') + adjustment : '-'}
+                                            </td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-400 text-center border-r border-stone-200">-</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">{new Date().toLocaleDateString()}</td>
+                                            <td className="px-2 py-1 text-[11px] text-stone-500 text-center border-r border-stone-200">{userProfile?.full_name || 'User'}</td>
+                                            <td className="px-2 py-1 text-center">
                                                 <button
                                                     onClick={() => handleAddFromCatalog(mat, catalogQuantities[mat.id])}
                                                     className="bg-blue-100 text-blue-700 p-1.5 rounded-md hover:bg-blue-200 transition-colors shadow-sm active:translate-y-0.5"
@@ -443,16 +732,16 @@ export default function CycleCountDetail() {
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
-                                    {allMaterials.length === 0 && (
-                                        <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400 italic">No materials found via API.</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    )
+                                })}
+                                {allMaterials.length === 0 && (
+                                    <tr><td colSpan={8} className="px-6 py-8 text-center text-gray-400 italic">No materials found via API.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     )
 }
