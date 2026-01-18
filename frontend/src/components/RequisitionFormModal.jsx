@@ -221,17 +221,18 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
     }, [isOpen, existingRequisition])
 
     // Auto-popuplate Request ID with current user if not editing
-    useEffect(() => {
-        if (isOpen && !existingRequisition && currentUser && !header.requester_id) {
-            setHeader(prev => ({
-                ...prev,
-                requester_id: currentUser.id,
-                requester_name: currentUser.full_name || currentUser.username || '',
-                department: currentUser.department || '',
-                job_title: currentUser.position || currentUser.job_title || ''
-            }))
-        }
-    }, [isOpen, currentUser]) // Run once when these change
+    // Auto-popuplate Request ID with current user if not editing
+    // useEffect(() => {
+    //     if (isOpen && !existingRequisition && currentUser && !header.requester_id) {
+    //         setHeader(prev => ({
+    //             ...prev,
+    //             requester_id: currentUser.id,
+    //             requester_name: currentUser.full_name || currentUser.username || '',
+    //             department: currentUser.department || '',
+    //             job_title: currentUser.position || currentUser.job_title || ''
+    //         }))
+    //     }
+    // }, [isOpen, currentUser]) // Run once when these change
 
     // Sync users prop to state
     useEffect(() => {

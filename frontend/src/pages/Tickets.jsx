@@ -1949,7 +1949,8 @@ function TicketsContent() {
 
                                         <div className="space-y-2">
                                             {ticket.items?.map((item, idx) => {
-                                                const isLowStock = isItemLowStock(item.material);
+                                                const isTicketClosed = ['CLOSED', 'ENTREGADO', 'CANCELLED', 'CANCELED', 'REJECTED'].includes(ticket.status?.toUpperCase());
+                                                const isLowStock = isItemLowStock(item.material) && !isTicketClosed;
                                                 const isSelected = selectedTicketItem?.id === item.id;
 
                                                 // Conditional styling for the item row
@@ -2022,7 +2023,7 @@ function TicketsContent() {
 
                                                                                                 if (!reqError && reqs) {
                                                                                                     // Check for any active status
-                                                                                                    const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL', 'CANCELLED', 'CLOSED', 'REJECTED'].includes(r.status))
+                                                                                                    const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL', 'CANCELLED', 'CLOSED', 'REJECTED', 'PARTIALLY_RECEIVED'].includes(r.status))
 
                                                                                                     if (activeReq) {
                                                                                                         // Fetch requester profile
