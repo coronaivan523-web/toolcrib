@@ -7,16 +7,24 @@ import PageHeader from '../../components/PageHeader'
 import { useToast } from '../../context/ToastContext'
 
 export default function CycleCountsIndex() {
-    const { userProfile } = useOutletContext()
+    // Obtener adminViewMode del contexto para permitir simulación de vistas
+    const { userProfile, adminViewMode } = useOutletContext() || {}
     const toast = useToast()
     const [sessions, setSessions] = useState([])
     const [loading, setLoading] = useState(true)
     const [creating, setCreating] = useState(false)
     const navigate = useNavigate()
 
+    // Determinar rol efectivo (respetando simulación de admin)
+    // Esto afecta tanto a la visibilidad de datos como a los permisos de UI
+    let effectiveRole = userProfile?.role?.trim().toLowerCase()
+    if (effectiveRole === 'admin' && adminViewMode === 'toolroom') {
+        effectiveRole = 'toolroom_staff'
+    }
+
     useEffect(() => {
         loadSessions()
-    }, [])
+    }, [effectiveRole]) // Recargar si cambia el rol efectivo (por adminViewMode o cambio de user)
 
     const loadSessions = async () => {
         setLoading(true)
@@ -34,7 +42,21 @@ export default function CycleCountsIndex() {
             // Sort by date desc
             uniqueSessions.sort((a, b) => new Date(b.created_at || b.planned_date) - new Date(a.created_at || a.planned_date))
 
-            setSessions(uniqueSessions)
+            // ROLE FILTER:
+            // - Admins/Supervisors: See ALL sessions
+            // - Toolroom Staff (and others): See ONLY assigned sessions
+            const allowedViewAllRoles = ['admin', 'administrator', 'supervisor', 'supervisor_tool']
+            const canViewAll = allowedViewAllRoles.includes(effectiveRole)
+
+            const userId = userProfile?.id
+
+            let filteredSessions = uniqueSessions
+            if (!canViewAll) {
+                // Si NO tiene permiso de ver todo, filtrar por asignación (Whitelisting seguro)
+                filteredSessions = uniqueSessions.filter(s => String(s.assigned_to) === String(userId))
+            }
+
+            setSessions(filteredSessions)
         } catch (error) {
             console.warn('Backend unavailable, switching to local simulation mode:', error)
 
@@ -51,7 +73,7 @@ export default function CycleCountsIndex() {
         navigate('/cycle-counts/new')
     }
 
-    const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(userProfile?.role?.trim().toLowerCase())
+    const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(effectiveRole)
 
     return (
         <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">

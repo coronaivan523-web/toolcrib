@@ -26,15 +26,16 @@ class MaterialBase(BaseModel):
     part_number: str
     name: str
     description: Optional[str] = None
-    category: str
-    unit_of_measure: str
+    category: Optional[str] = None
+    unit_of_measure: Optional[str] = None
     min_stock: int = 0
     max_stock: int = 0
     location: Optional[str] = None
     location_id: Optional[int] = None # Deprecated? Keeping for compatibility if needed or remove. User wants text.
     image_url: Optional[str] = None
     process: Optional[str] = None
-    Area: Optional[str] = None
+    area: Optional[str] = None
+    machine_asset: Optional[str] = None
     material_type: Optional[str] = 'spare_part'
     abc_class: Optional[str] = 'B'
     origin_country: Optional[str] = 'MX'
@@ -64,7 +65,7 @@ class MaterialUpdate(MaterialBase):
 class MaterialResponse(MaterialBase):
     id: int
     current_stock: int
-    location: Optional[LocationResponse] = None
+    # location: Optional[LocationResponse] = None # Removed to use base class str definition to match DB
     
     class Config:
         from_attributes = True

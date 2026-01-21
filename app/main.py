@@ -1,9 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.core.supabase import supabase
+import traceback
+import time
 
-# Import routers directly to avoid __init__ issues
+# Import routers
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.users import router as users_router
 from app.api.v1.endpoints.inventory import router as inventory_router
@@ -17,26 +20,48 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Configure CORS
+# Startup Event to confirm reload
+@app.on_event("startup")
+async def startup_event():
+    msg = f"\n[SYSTEM] SERVER RESTARTED AT {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+    print(msg)
+    with open("backend_debug_manual.log", "a") as f:
+        f.write(msg)
+
+# 1. CORS Middleware (Inner)
 app.add_middleware(
     CORSMiddleware,
-    # Fix CORS: Explicit origins required when allow_credentials=True
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:3000",
-        "http://localhost:8001",
-        "http://127.0.0.1:8001",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175"
-    ],
+    allow_origins=["*"], # Allow ALL for debugging
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 2. Debug Middleware (Outer - Added LAST so it runs FIRST)
+class DebugMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            # Log incoming
+            method = request.method
+            url = str(request.url)
+            print(f"[MIDDLEWARE CONSOLE] {method} {url}")
+            with open("backend_debug_manual.log", "a") as f:
+                f.write(f"[MIDDLEWARE OUTER] {method} {url}\n")
+            
+            response = await call_next(request)
+            return response
+            
+        except Exception as e:
+            tb = traceback.format_exc()
+            err_msg = f"[MIDDLEWARE CRASH] {str(e)}\n{tb}\n"
+            print(err_msg)
+            with open("backend_debug_manual.log", "a") as f:
+                f.write(err_msg)
+            raise e
+
+app.add_middleware(DebugMiddleware)
+
+# Include Routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(inventory_router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
@@ -47,22 +72,22 @@ app.include_router(cycle_counts_router, prefix=f"{settings.API_V1_STR}/cycle-cou
 
 @app.get("/")
 def root():
-    print("DEBUG: Root endpoint accessed.")
     return {"message": "Welcome to Tool Crib API (Supabase Edition)"}
+
+@app.get("/debug/ping")
+def ping():
+    with open("backend_debug_manual.log", "a") as f:
+        f.write("[DEBUG] PING HIT!\n")
+    return {"status": "pong", "time": "2026-01-19"}
 
 @app.get("/health/supabase")
 def health_supabase():
     try:
-        # Simple query to check if we can reach Supabase
         res = supabase.table('locations').select('id').limit(1).execute()
         return {"status": "ok", "supabase": "connected"}
     except Exception as e:
         return {"status": "error", "supabase": "disconnected", "detail": str(e)}
 
-@app.get("/health/db")
-def health_db():
-    return health_supabase()
-    
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8002)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
+import { useToast } from '../context/ToastContext'
 import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList, User, Recycle } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -9,12 +10,14 @@ const ALL_NAVIGATION = [
     { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Cycle Counts', href: '/cycle-counts', icon: Recycle, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+
     { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2'] },
     { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2'] },
     { name: 'Users', href: '/users', icon: User, roles: ['admin'] },
 ]
 
 export default function Layout() {
+    const { showToast } = useToast()
     const [session, setSession] = useState(null)
     const [loading, setLoading] = useState(true)
     const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -274,7 +277,7 @@ export default function Layout() {
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 <main className="flex-1 h-full flex flex-col overflow-auto">
-                    <Outlet context={{ userProfile, adminViewMode }} />
+                    <Outlet context={{ userProfile, adminViewMode, showToast }} />
                 </main>
             </div>
         </div>

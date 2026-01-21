@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, Save, X, Search, Filter,
-    Check, AlertTriangle, Calendar, User,
-    MoreHorizontal, Plus, Trash2, EyeOff
+    Check, AlertTriangle, Calendar, User, Image as ImageIcon,
+    MoreHorizontal, Plus, Trash2, EyeOff, CheckCircle, Lock, Minus, Clock
 } from 'lucide-react'
 import { cycleCountService } from '../../services/cycleCounts'
 import { materialService } from '../../services/materials'
@@ -50,6 +50,7 @@ export default function CycleCountDetail() {
     // Counting Mode State (for toolroom staff)
     const [selectedMaterialForCount, setSelectedMaterialForCount] = useState(null) // Material being counted
     const [countingQty, setCountingQty] = useState('') // Quantity being entered
+    const [previewImage, setPreviewImage] = useState(null) // Image URL to preview
 
     // Use a ref for current ID to handle the switch from 'new' to 'uuid' without race conditions in closures
     const idRef = React.useRef(id)
@@ -72,129 +73,82 @@ export default function CycleCountDetail() {
         }
     }, [id])
 
-    const fetchSessionAndUsers = async () => {
+    // --- DATA LOADING ---
+    const fetchUsers = async () => {
+        console.time('LoadUsers')
         try {
-            setLoadingSession(true)
-            const promises = [requisitionService.getUsers()]
-            if (id !== 'new') {
-                let sessionDataRequest;
-                // Check if it's a simulated session FIRST (either sim- prefix or C-prefix sequential IDs)
-                if (String(id).startsWith('sim-') || String(id).startsWith('C')) {
-                    const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-                    const found = localSessions.find(s => s.id === id)
-                    if (found) {
-                        sessionDataRequest = Promise.resolve(found)
-                    } else {
-                        // Fallback try API if not found locally
-                        sessionDataRequest = cycleCountService.getSessionById(id)
-                    }
-                } else {
-                    sessionDataRequest = cycleCountService.getSessionById(id)
-                }
-                promises.push(sessionDataRequest)
-            }
-
-            const results = await Promise.all(promises)
-            const usersData = results[0]
-            const sessionData = id !== 'new' ? results[1] : null
-
-            // Process Users: Filter strictly for Toolroom Staff as requested
+            // Filter users to show ONLY Toolroom Staff
+            const usersData = await requisitionService.getUsers()
             const staffRoles = ['toolroom_staff']
             const staffUsers = (usersData || []).filter(u =>
                 staffRoles.includes(u.role?.trim().toLowerCase())
             )
             setUsers(staffUsers)
+        } catch (error) {
+            console.error("Users Load Error:", error)
+        } finally {
+            console.timeEnd('LoadUsers')
+        }
+    }
 
-            // Process Session
-            if (id !== 'new' && sessionData) {
+    const fetchSession = async () => {
+        if (id === 'new') {
+            setAssignedUser('')
+            setPlannedDate('')
+            setLoadingSession(false)
+            return
+        }
+
+        console.time('LoadSession')
+        try {
+            setLoadingSession(true)
+            let sessionData;
+
+            // Check if it's a simulated session FIRST (either sim- prefix or C-prefix sequential IDs)
+            if (String(id).startsWith('sim-') || String(id).startsWith('C')) {
+                const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
+                sessionData = localSessions.find(s => s.id === id)
+                if (!sessionData) {
+                    sessionData = await cycleCountService.getSessionById(id)
+                }
+            } else {
+                sessionData = await cycleCountService.getSessionById(id)
+            }
+
+            if (sessionData) {
                 setSession(sessionData)
                 if (sessionData.assigned_to) setAssignedUser(sessionData.assigned_to)
                 if (sessionData.planned_date) setPlannedDate(sessionData.planned_date)
-            } else if (id === 'new') {
-                // Ensure form is clean for "Save & New" flow
-                setAssignedUser('')
-                setPlannedDate('')
             }
         } catch (error) {
-            console.error("Session/User Load Error:", error)
+            console.error("Session Load Error:", error)
             toast.error("Failed to load session info")
         } finally {
             setLoadingSession(false)
+            console.timeEnd('LoadSession')
         }
     }
 
     const fetchCatalog = async () => {
+        console.time('LoadCatalog')
         setLoadingCatalog(true)
-        // FORCE INSTANT LOAD (Bypassing slow API for verification)
-        // Based on DB dump of 21 materials
-        setMaterials([
-            { id: 3, part_number: "DOC-TEST-001", name: "High speed steel", current_stock: 53, plant: "Planta 1", location: "LOC-A1" },
-            { id: 12, part_number: "Gu-004", name: "Guantes de latex numero 12", current_stock: 1505, plant: "Planta 1", location: null },
-            { id: 11, part_number: "Tal-003", name: "Taladro Makita con rotomartillo de 1/2", current_stock: 9, plant: "Planta 1", location: null },
-            { id: 4, part_number: "DOC-f0271d", name: "High speed steel", current_stock: 45, plant: "Planta 1", location: "LOC-f0271d" },
-            { id: 24, part_number: "Eje-001", name: "este es un ejemplo para mostrarle a anita", current_stock: 0, plant: "Planta 1", location: "A1-1" },
-            { id: 15, part_number: "Pru-001", name: "prueba con imagen", current_stock: 2, plant: "Planta 1", location: null },
-            { id: 8, part_number: "TEST-b146a4", name: null, current_stock: 0, plant: "Planta 1", location: null },
-            { id: 1, part_number: "SKU-TEST-01", name: "Descripción prueba", current_stock: 26, plant: "Planta 1", location: "TEST-01" },
-            { id: 6, part_number: "Gu-0012", name: "Guantes talla 12", current_stock: 1510, plant: "Planta 1", location: null },
-            { id: 13, part_number: "Gu-012", name: "Guantes de latex 12", current_stock: 1474, plant: "Planta 1", location: "TEST-01" },
-            { id: 9, part_number: "Tal-001", name: "Taladro makita con rotomartillo de 1/2", current_stock: 1, plant: "Planta 1", location: null },
-            { id: 14, part_number: "Pru-002", name: "Prueba con image", current_stock: 0, plant: "Planta 1", location: "LOC-A1" },
-            { id: 16, part_number: "Pru-004", name: "prueba con posición del requisitor", current_stock: 10, plant: "Planta 1", location: "AF-004" },
-            { id: 2, part_number: "TEST-SKU-001", name: null, current_stock: 26, plant: "Planta 1", location: null },
-            { id: 5, part_number: "taladro-001", name: "Taladro con roto martillo de media pulgada chuck", current_stock: 4, plant: "Planta 1", location: null },
-            { id: 23, part_number: "Prue-0012", name: "Prueva con status y modificaciones", current_stock: 17, plant: "Planta 1", location: "A1-003" },
-            { id: 7, part_number: "Taladro", name: "Taladro con rotomartillo de 1/2", current_stock: 4, plant: "Planta 1", location: null },
-            { id: 25, part_number: "Ejem 004", name: "Herramienta de corte de ejemplo 004 acabado amarillo", current_stock: 4, plant: "Planta 1", location: "A1-50" },
-            { id: 17, part_number: "Pru-011", name: "Prueva con un solo registro de tecnico de tool", current_stock: 2, plant: "Planta 1", location: "A-001" },
-            { id: 27, part_number: "jk4564-3", name: "espatula de metal de tres pultadas de ancho por cuatro de largo", current_stock: 0, plant: "Planta 1", location: "A3-05" },
-            { id: 26, part_number: "Ejemplo-005", name: "Ejemplo 005 color verde para las lineas de post proceso en el sistema electrico", current_stock: 0, plant: "Planta 2", location: "A1-45" }
-        ])
-        setLoadingCatalog(false)
-    }
-
-    const fetchData = async () => {
         try {
-            setLoading(true)
-
-            const promises = [
-                materialService.getCatalog(),
-                requisitionService.getUsers()
-            ]
-
-            // Only fetch session if ID is real (not 'new')
-            if (id !== 'new') {
-                promises.push(cycleCountService.getSessionById(id))
-            }
-
-            const results = await Promise.all(promises)
-            const materialsData = results[0]
-            const usersData = results[1]
-            const sessionData = id !== 'new' ? results[2] : null
-
-            setSession(sessionData)
-            setMaterials(materialsData || [])
-
-            // Filter users to show ONLY Toolroom Staff
-            const staffRoles = ['toolroom_staff']
-            const staffUsers = (usersData || []).filter(u =>
-                staffRoles.includes(u.role?.trim().toLowerCase())
-            )
-            setUsers(staffUsers)
-
-            if (sessionData?.assigned_to) setAssignedUser(sessionData.assigned_to)
-            // if (sessionData?.planned_date) setPlannedDate(sessionData.planned_date) 
-
+            const data = await materialService.getCatalog()
+            setMaterials(data || [])
         } catch (error) {
-            console.error("Error fetching data:", error)
-            toast.error("Failed to load data")
+            console.error("Error fetching catalog:", error)
+            toast.error("Failed to load material catalog")
+            setMaterials([])
         } finally {
-            setLoading(false)
+            setLoadingCatalog(false)
+            console.timeEnd('LoadCatalog')
         }
     }
 
     useEffect(() => {
-        fetchSessionAndUsers()
+        // Trigger all fetches in parallel independently
+        fetchUsers()
+        fetchSession()
         fetchCatalog()
     }, [id])
 
@@ -206,6 +160,14 @@ export default function CycleCountDetail() {
             toast.error("Please select a User and Planned Date first")
             return
         }
+
+        // Validate Future Date (Tomorrow onwards)
+        const minDate = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+        if (plannedDate < minDate) {
+            toast.error("Invalid date. Only future dates (tomorrow onwards) are allowed.")
+            return
+        }
+
         setIsSelectionEnabled(true)
         toast.success("Ready to add items to ticket")
     }
@@ -266,11 +228,49 @@ export default function CycleCountDetail() {
         navigate('/cycle-counts')
     }
 
+    const handleClearFilters = () => {
+        setFilters({
+            part_number: '',
+            description: '',
+            factory: '',
+            location: '',
+            process: '',
+            area: '',
+            machine: '',
+            adjustment: 'all'
+        })
+        setShowCriticalStock(false)
+    }
+
     // Counting Mode Handlers
-    const handleOpenCountPanel = (material) => {
-        setSelectedMaterialForCount(material)
+    const handleOpenCountPanel = async (material) => {
+        // SECURITY: Check if item is already counted
         const line = linesMap[material.id]
+        if (line?.qty_physical !== undefined && line?.qty_physical !== null) {
+            toast.error("This item has already been counted. Modification is restricted.", {
+                icon: <Lock size={16} className="text-red-500" />
+            })
+            return
+        }
+
+        // 1. Optimistic Open (Show panel immediately with list data)
+        setSelectedMaterialForCount(material)
         setCountingQty(line?.qty_physical ?? '')
+
+        // 2. Background Fetch for Full Details (Image)
+        try {
+            const fullDetails = await materialService.getById(material.id)
+            if (fullDetails && fullDetails.image_url) {
+                // Merge details into current view
+                setSelectedMaterialForCount(prev => {
+                    // Safety check: ensure user didn't close or switch panel
+                    if (!prev || prev.id !== material.id) return prev
+                    return { ...prev, ...fullDetails }
+                })
+            }
+        } catch (error) {
+            console.error("Failed to load material details:", error)
+        }
     }
 
     const handleCloseCountPanel = () => {
@@ -326,7 +326,8 @@ export default function CycleCountDetail() {
             location: '',
             process: '',
             area: '',
-            machine: ''
+            machine: '',
+            adjustment: 'all' // 'all', 'zero', 'positive', 'negative'
         })
     }
 
@@ -499,8 +500,30 @@ export default function CycleCountDetail() {
             const matchFactory = (m.plant || '').toLowerCase().includes(filters.factory.toLowerCase())
             const matchLoc = (m.location || '').toLowerCase().includes(filters.location.toLowerCase())
 
+
+
             // Critical Stock Filter (<= 2 units)
             if (showCriticalStock && (m.current_stock > 2)) return false
+
+            // Adjustment Filter
+            if (filters.adjustment && filters.adjustment !== 'all') {
+                const line = linesMap[m.id]
+                // Only items with a count can be filtered by adjustment (others are implicitly pending/unknown)
+                if (!line || line.qty_physical === undefined || line.qty_physical === null) return false
+
+                const diff = line.qty_physical - m.current_stock
+                if (filters.adjustment === 'zero' && diff !== 0) return false
+                if (filters.adjustment === 'positive' && diff <= 0) return false
+                if (filters.adjustment === 'negative' && diff >= 0) return false
+            }
+
+            // Action Filter
+            if (filters.action && filters.action !== 'all') {
+                const line = linesMap[m.id]
+                if (filters.action === 'closed' && (!line || line.qty_physical === undefined || line.qty_physical === null)) return false
+                if (filters.action === 'pending' && (line && line.qty_physical !== undefined && line.qty_physical !== null)) return false
+                if (filters.action === 'unassigned' && line) return false // If line exists, it's assigned
+            }
 
             return matchPart && matchDesc && matchFactory && matchLoc
         })
@@ -508,7 +531,7 @@ export default function CycleCountDetail() {
 
     // Detect if any filters are active
     const hasActiveFilters = useMemo(() => {
-        return filters.part_number || filters.description || filters.factory || filters.location || showCriticalStock
+        return filters.part_number || filters.description || filters.factory || filters.location || showCriticalStock || (filters.adjustment && filters.adjustment !== 'all') || (filters.action && filters.action !== 'all')
     }, [filters, showCriticalStock])
 
     // Detect if user is in counting mode (viewing existing session)
@@ -524,7 +547,6 @@ export default function CycleCountDetail() {
     // Calculate Stats
     const itemsCount = Object.keys(ticketItems).length
     const unitsCount = Object.values(ticketItems).reduce((sum, m) => sum + (m.current_stock || 0), 0)
-
 
 
 
@@ -599,17 +621,6 @@ export default function CycleCountDetail() {
                         {/* Center: Assignment Controls */}
                         <div className="flex items-center gap-6 bg-primary-900/50 px-6 py-2 rounded-lg border border-primary-700/50">
 
-                            {/* Enable Selection Button */}
-                            <div
-                                onClick={handleEnableSelection}
-                                className={clsx(
-                                    "rounded p-1 shadow-sm cursor-pointer transition-colors",
-                                    isSelectionEnabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"
-                                )}
-                            >
-                                <Check size={20} className="text-white" />
-                            </div>
-
                             {/* Assign To */}
                             <div className="flex flex-col">
                                 <label className="text-[9px] text-primary-300 uppercase font-bold mb-0.5">ASSIGN TO</label>
@@ -626,6 +637,8 @@ export default function CycleCountDetail() {
                                 </select>
                             </div>
 
+
+
                             {/* Planned Date */}
                             <div className="flex flex-col">
                                 <label className="text-[9px] text-primary-300 uppercase font-bold mb-0.5">PLANNED DATE</label>
@@ -634,6 +647,7 @@ export default function CycleCountDetail() {
                                         type={plannedDate ? 'date' : 'text'}
                                         disabled={isSelectionEnabled}
                                         value={plannedDate}
+                                        min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Restringir selección a futuro
                                         placeholder="dd/mm/yyyy"
                                         onFocus={(e) => e.target.type = 'date'}
                                         onBlur={(e) => { if (!e.target.value) e.target.type = 'text' }}
@@ -641,6 +655,17 @@ export default function CycleCountDetail() {
                                         className="bg-transparent border-none text-white text-xs py-1 px-2 outline-none focus:ring-0 [&::-webkit-calendar-picker-indicator]:filter [&::-webkit-calendar-picker-indicator]:invert cursor-pointer disabled:opacity-50 w-full"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Enable Selection Button (Moved here) */}
+                            <div
+                                onClick={handleEnableSelection}
+                                className={clsx(
+                                    "rounded p-1 shadow-sm cursor-pointer transition-colors mt-3", // Added margin-top to align visually with inputs if needed, or self-end? Flex items center handles vertical.
+                                    isSelectionEnabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-500 hover:bg-green-600"
+                                )}
+                            >
+                                <Check size={20} className="text-white" />
                             </div>
 
                             {/* Stats */}
@@ -654,6 +679,19 @@ export default function CycleCountDetail() {
                                     <span className="text-lg font-bold leading-none text-yellow-500">{unitsCount}</span>
                                 </div>
                             </div>
+
+                            {/* Add All Filtered Button */}
+                            {hasActiveFilters && isSelectionEnabled && (
+                                <div className="ml-2">
+                                    <button
+                                        onClick={handleBulkAddFiltered}
+                                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded shadow-sm transition-colors text-xs font-bold border border-primary-500"
+                                        title="Add all filtered items"
+                                    >
+                                        ADD ALL
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Confirm/Cancel Actions Group 2 (Right side of bar in image) */}
                             <div className="flex gap-2 ml-2">
@@ -676,8 +714,19 @@ export default function CycleCountDetail() {
                         </div>
 
                         {/* Right: Pagination Info */}
-                        <div className="text-xs text-primary-200 font-medium">
-                            Showing {filteredMaterials.length} of {materials.length}
+                        <div className="flex items-center gap-4 text-xs text-primary-200 font-medium">
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={handleClearFilters}
+                                    className="flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 text-red-200 p-1 rounded-full transition-colors"
+                                    title="Clear all filters"
+                                >
+                                    <X size={14} />
+                                </button>
+
+                            )}
+
+                            <span>Showing {filteredMaterials.length} of {materials.length}</span>
                         </div>
                     </div>
                 )
@@ -702,7 +751,7 @@ export default function CycleCountDetail() {
                             <th className="p-2 border-b border-gray-100 text-center w-28 text-gray-300">PLANNED Date..</th>
                             <th className="p-2 border-b border-gray-100 text-center w-28 text-gray-300">REAL DATE</th>
                             <th className="p-2 border-b border-gray-100 text-center w-24 text-gray-300">USER</th>
-                            <th className="p-2 border-b border-gray-100 text-center w-12">ACTION</th>
+                            <th className="p-2 border-b border-gray-100 text-center w-28">ACTION</th>
                         </tr>
                         {/* Filter input Row */}
                         <tr className="bg-white">
@@ -755,20 +804,91 @@ export default function CycleCountDetail() {
                                 </button>
                             </th>
                             <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100"></th>
+
+                            <th className="p-1 border-b border-gray-100 text-center w-24">
+                                <div className="flex items-center justify-center gap-1">
+                                    <button
+                                        onClick={() => setFilters({ ...filters, adjustment: filters.adjustment === 'positive' ? 'all' : 'positive' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.adjustment === 'positive'
+                                                ? "bg-blue-600 border-blue-700 text-white"
+                                                : "bg-blue-50 border-blue-200 text-blue-500 hover:bg-blue-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Positive Adjustments"
+                                    >
+                                        <Plus size={12} strokeWidth={3} />
+                                    </button>
+                                    <button
+                                        onClick={() => setFilters({ ...filters, adjustment: filters.adjustment === 'negative' ? 'all' : 'negative' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.adjustment === 'negative'
+                                                ? "bg-red-500 border-red-600 text-white"
+                                                : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Negative Adjustments"
+                                    >
+                                        <Minus size={12} strokeWidth={3} />
+                                    </button>
+                                    <button
+                                        onClick={() => setFilters({ ...filters, adjustment: filters.adjustment === 'zero' ? 'all' : 'zero' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.adjustment === 'zero'
+                                                ? "bg-green-500 border-green-600 text-white"
+                                                : "bg-green-50 border-green-200 text-green-600 hover:bg-green-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Exact Matches"
+                                    >
+                                        <Check size={12} strokeWidth={3} />
+                                    </button>
+                                </div>
+                            </th>
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100 text-center">
-                                {hasActiveFilters && isSelectionEnabled && (
+
+                            </th>
+                            <th className="p-1 border-b border-gray-100 text-center w-28">
+                                <div className="flex items-center justify-center gap-1">
                                     <button
-                                        onClick={handleBulkAddFiltered}
-                                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded text-xs font-bold transition-colors shadow-sm w-full"
-                                        title="Add all filtered items"
+                                        onClick={() => setFilters({ ...filters, action: filters.action === 'closed' ? 'all' : 'closed' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.action === 'closed'
+                                                ? "bg-gray-600 border-gray-700 text-white"
+                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Closed Items"
                                     >
-                                        ADD ALL
+                                        <Lock size={12} strokeWidth={2.5} />
                                     </button>
-                                )}
+                                    <button
+                                        onClick={() => setFilters({ ...filters, action: filters.action === 'pending' ? 'all' : 'pending' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.action === 'pending'
+                                                ? "bg-orange-500 border-orange-600 text-white"
+                                                : "bg-orange-50 border-orange-200 text-orange-500 hover:bg-orange-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Pending Items"
+                                    >
+                                        <Clock size={12} strokeWidth={2.5} />
+                                    </button>
+                                    <button
+                                        onClick={() => setFilters({ ...filters, action: filters.action === 'unassigned' ? 'all' : 'unassigned' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.action === 'unassigned'
+                                                ? "bg-blue-500 border-blue-600 text-white"
+                                                : "bg-blue-50 border-blue-200 text-blue-500 hover:bg-blue-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Unassigned Items"
+                                    >
+                                        <Plus size={12} strokeWidth={2.5} />
+                                    </button>
+                                </div>
                             </th>
                         </tr>
                     </thead>
@@ -830,20 +950,26 @@ export default function CycleCountDetail() {
                                         </div>
                                     </td>
 
-                                    {/* Real Qty (Input) */}
+                                    {/* Real Qty (Input/Display) */}
                                     <td className="p-1 text-center bg-blue-50/20">
-                                        <input
-                                            type="number"
-                                            className="w-16 text-center border border-gray-200 rounded py-1 text-blue-800 font-bold focus:ring-2 focus:ring-blue-400 outline-none"
-                                            placeholder="0"
-                                            value={line ? (line.qty_physical ?? '') : ''} // Show saved qty, handle null
-                                            readOnly
-                                        // disabled // Keep it readable
-                                        />
+                                        <span className="font-bold text-blue-900 block py-1">
+                                            {line?.qty_physical !== undefined && line?.qty_physical !== null ? line.qty_physical : '-'}
+                                        </span>
                                     </td>
 
-                                    {/* Adjustment (Placeholder) */}
-                                    <td className="p-2 text-center text-gray-300">-</td>
+                                    {/* Adjustment (Difference) */}
+                                    <td className="p-2 text-center font-bold">
+                                        {(() => {
+                                            if (line?.qty_physical !== undefined && line?.qty_physical !== null) {
+                                                const diff = line.qty_physical - item.current_stock
+                                                if (diff === 0) return <span className="text-green-500">0</span>
+                                                return <span className={diff > 0 ? "text-blue-600" : "text-red-500"}>
+                                                    {diff > 0 ? `+${diff}` : diff}
+                                                </span>
+                                            }
+                                            return <span className="text-gray-300">-</span>
+                                        })()}
+                                    </td>
 
                                     {/* Planned Date */}
                                     <td className="p-2 text-center text-xs text-gray-600 font-medium">
@@ -851,7 +977,9 @@ export default function CycleCountDetail() {
                                     </td>
 
                                     {/* Real Date */}
-                                    <td className="p-2 text-center text-gray-300">-</td>
+                                    <td className="p-2 text-center text-xs text-gray-700 font-medium">
+                                        {line?.counted_date ? line.counted_date.split('-').reverse().join('/') : '-'}
+                                    </td>
 
                                     {/* User */}
                                     <td className="p-2 text-center text-xs text-gray-600 font-medium">
@@ -861,7 +989,11 @@ export default function CycleCountDetail() {
                                     {/* Action Button */}
                                     <td className="p-1 text-center">
                                         {line ? (
-                                            <span className="text-green-500 text-xs font-bold">SAVED</span>
+                                            (line.qty_physical !== undefined && line.qty_physical !== null) ? (
+                                                <span className="text-gray-700 text-xs font-extrabold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">CLOSED</span>
+                                            ) : (
+                                                <span className="text-orange-400 text-[10px] font-bold opacity-80 uppercase tracking-wider">PENDING</span>
+                                            )
                                         ) : (
                                             <button
                                                 onClick={() => handleToggleItem(item)}
@@ -894,59 +1026,9 @@ export default function CycleCountDetail() {
             {/* Counting Detail Panel */}
             {selectedMaterialForCount && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleCloseCountPanel}>
-                    <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-lg font-bold text-primary-900 mb-4 border-b pb-2">Material Count</h2>
+                    <div className="bg-white rounded-lg shadow-2xl overflow-hidden w-full max-w-md" onClick={(e) => e.stopPropagation()}>
 
-                        {/* Material Info */}
-                        <div className="space-y-2 mb-4 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Part #:</span>
-                                <span className="font-bold text-primary-900">{selectedMaterialForCount.part_number}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Description:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.name}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Plant:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.plant || 'Planta 1'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Location:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.location || '-'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Process:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.process || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Area:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.area || '-'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Machine:</span>
-                                <span className="text-gray-700">{selectedMaterialForCount.machine_asset || '-'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 font-medium">Current Stock:</span>
-                                <span className="font-bold text-blue-600">{selectedMaterialForCount.current_stock}</span>
-                            </div>
-                        </div>
-
-                        {/* Real Qty Input */}
-                        <div className="mb-4">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Real Qty (Counted)</label>
-                            <input
-                                type="number"
-                                value={countingQty}
-                                onChange={(e) => setCountingQty(e.target.value)}
-                                className="w-full border border-gray-300 rounded px-3 py-2 text-lg font-bold text-center focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                placeholder="Enter quantity"
-                                autoFocus
-                            />
-                        </div>
-
-                        {/* Date Status */}
+                        {/* Header + Date Status Combined */}
                         {(() => {
                             const plannedDate = new Date(session?.planned_date || '')
                             const today = new Date()
@@ -958,42 +1040,174 @@ export default function CycleCountDetail() {
 
                             return (
                                 <div className={clsx(
-                                    "p-3 rounded-lg mb-4 border-2",
-                                    isOnTime ? "bg-green-50 border-green-200" : "bg-orange-50 border-orange-200"
+                                    "px-6 py-4 flex flex-col items-center justify-center border-b",
+                                    isOnTime ? "bg-green-50" : "bg-orange-50"
                                 )}>
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span className="font-medium text-gray-600">Planned Date:</span>
-                                        <span className="font-bold">{session?.planned_date}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm mb-2">
-                                        <span className="font-medium text-gray-600">Today:</span>
-                                        <span className="font-bold">{new Date().toISOString().split('T')[0]}</span>
-                                    </div>
+                                    <h2 className="text-xl font-bold text-primary-900">Material Count</h2>
                                     <div className={clsx(
-                                        "text-center font-bold text-sm",
+                                        "text-sm font-bold mt-1 flex items-center gap-2",
                                         isOnTime ? "text-green-700" : "text-orange-700"
                                     )}>
-                                        {isOnTime ? '✓ ON TIME' : `⚠ DELAYED (${daysLate} day${daysLate > 1 ? 's' : ''} late)`}
+                                        {isOnTime ? (
+                                            <>
+                                                <CheckCircle size={16} />
+                                                <span>ON TIME ({new Date().toISOString().split('T')[0]})</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <AlertTriangle size={16} />
+                                                <span>DELAYED ({daysLate} day{daysLate > 1 ? 's' : ''} late)</span>
+                                            </>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        Planned: {session?.planned_date}
                                     </div>
                                 </div>
                             )
                         })()}
 
-                        {/* Actions */}
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleSaveCount}
-                                className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-bold py-2 px-4 rounded transition-colors"
-                            >
-                                SAVE
-                            </button>
-                            <button
-                                onClick={handleCloseCountPanel}
-                                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition-colors"
-                            >
-                                CANCEL
-                            </button>
+                        <div className="p-8">
+                            {/* Material Info - Grid Layout */}
+                            <div className="mb-8">
+                                {/* Header Row: Part # & View Image */}
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Part Number</span>
+                                        <span className="text-2xl font-bold text-primary-900 leading-none">{selectedMaterialForCount.part_number}</span>
+                                    </div>
+
+                                    {/* Image Button - Always visible if image exists, styled prominently */}
+                                    {selectedMaterialForCount.image_url ? (
+                                        <button
+                                            onClick={() => {
+                                                let url = selectedMaterialForCount.image_url
+                                                if (url && !url.startsWith('http')) {
+                                                    url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${url}`
+                                                }
+                                                setPreviewImage(url)
+                                            }}
+                                            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
+                                            title="View Image"
+                                        >
+                                            <ImageIcon size={18} />
+                                            <span className="text-xs font-bold uppercase">View Photo</span>
+                                        </button>
+                                    ) : (
+                                        <div className="text-gray-300 flex items-center gap-1 opacity-50 select-none">
+                                            <ImageIcon size={18} />
+                                            <span className="text-xs font-bold uppercase">No Photo</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Description Row */}
+                                <div className="mb-6">
+                                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1 block">Description</span>
+                                    <p className="text-gray-800 font-medium text-sm leading-relaxed border-l-4 border-primary-200 pl-3">
+                                        {selectedMaterialForCount.name}
+                                    </p>
+                                </div>
+
+                                {/* Details Box (Grey) - 3 Column Grid */}
+                                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                    <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
+                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Plant</span>
+                                        <span className="font-semibold text-gray-900 text-sm text-center">{selectedMaterialForCount.plant || '-'}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
+                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Location</span>
+                                        <span className="font-semibold text-gray-900 text-sm text-center font-mono">{selectedMaterialForCount.location || '-'}</span>
+                                    </div>
+                                    <div className="flex flex-col items-center px-2">
+                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">System Stock</span>
+                                        <span className="font-bold text-blue-600 text-xl leading-none">{selectedMaterialForCount.current_stock}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Real Qty Input Section */}
+                            <div className="mb-8 p-4 bg-primary-50/50 rounded-xl border border-primary-100">
+                                <label className="block text-xs font-bold text-primary-800 uppercase tracking-wide mb-3 text-center">Enter Physical Count</label>
+                                <div className="flex items-center justify-center">
+                                    <input
+                                        type="number"
+                                        value={countingQty}
+                                        onChange={(e) => setCountingQty(e.target.value)}
+                                        className="w-48 text-center bg-white border-2 border-primary-200 rounded-lg py-3 text-3xl font-bold text-primary-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all placeholder-gray-300 shadow-sm"
+                                        placeholder="0"
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveCount()
+                                            if (e.key === 'Escape') handleCloseCountPanel()
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Difference Indicator */}
+                                {countingQty !== '' && (
+                                    <div className="flex justify-center mt-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                                        {(() => {
+                                            const val = parseInt(countingQty) || 0
+                                            const diff = val - selectedMaterialForCount.current_stock
+                                            if (diff === 0) {
+                                                return <span className="flex items-center gap-2 text-sm font-bold text-green-700 bg-green-100 px-4 py-1.5 rounded-full border border-green-200">
+                                                    <CheckCircle size={14} className="fill-green-700 text-green-100" />
+                                                    Exact Match
+                                                </span>
+                                            }
+                                            return (
+                                                <span className={clsx(
+                                                    "flex items-center gap-2 text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm",
+                                                    diff > 0
+                                                        ? "text-blue-700 bg-blue-50 border-blue-200"
+                                                        : "text-red-700 bg-red-50 border-red-200"
+                                                )}>
+                                                    <AlertTriangle size={14} />
+                                                    {diff > 0 ? `+${diff} Surplus` : `${diff} Missing`}
+                                                </span>
+                                            )
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleSaveCount}
+                                    className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm"
+                                >
+                                    SAVE COUNT
+                                </button>
+                                <button
+                                    onClick={handleCloseCountPanel}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors"
+                                >
+                                    CANCEL
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Image Preview Modal */}
+            {previewImage && (
+                <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+                    <div className="relative max-w-4xl max-h-[90vh]">
+                        <button
+                            onClick={() => setPreviewImage(null)}
+                            className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
+                        >
+                            <X size={32} />
+                        </button>
+                        <img
+                            src={previewImage}
+                            alt="Material Preview"
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-700"
+                            onClick={(e) => e.stopPropagation()}
+                        />
                     </div>
                 </div>
             )}

@@ -17,7 +17,21 @@ def read_materials(
     """
     Retrieve materials.
     """
-    res = supabase.table('materials').select('*').range(skip, skip + limit - 1).execute()
+    res = supabase_admin.table('materials').select('*').range(skip, skip + limit - 1).execute()
+    return res.data
+
+@router.get("/catalog", response_model=List[Any])
+def get_material_catalog(
+    current_user = Depends(get_current_active_user),
+) -> Any:
+    """
+    Optimized fetch for Cycle Count Catalog.
+    Returns lightweight list of all materials (limit 5000).
+    """
+    # Select only necessary columns for the UI to reduce payload size
+    res = supabase_admin.table('materials').select(
+        'id, part_number, name, plant, location, process, area, machine_asset, current_stock, min_stock'
+    ).limit(5000).order('part_number').execute()
     return res.data
 
 @router.post("/", response_model=MaterialResponse)
@@ -54,7 +68,7 @@ def read_material(
     """
     Get material by ID.
     """
-    res = supabase.table('materials').select('*').eq('id', material_id).single().execute()
+    res = supabase_admin.table('materials').select('*').eq('id', material_id).single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Material not found")
     return res.data

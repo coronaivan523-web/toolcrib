@@ -16,12 +16,12 @@ import Requisitions from './pages/Requisitions'
 import RequisitionPrintView from './pages/RequisitionPrintView'
 import Users from './pages/Users'
 import Profile from './pages/Profile'
-import CycleCountList from './pages/CycleCounts/CycleCountList'
+import CycleCountsIndex from './pages/CycleCounts/CycleCountsIndex'
 import CycleCountDetail from './pages/CycleCounts/CycleCountDetail'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/print/requisition/:id" element={<RequisitionPrintView />} />
@@ -50,9 +50,10 @@ function App() {
               <Requisitions />
             </ProtectedRoute>
           } />
+
           <Route path="/cycle-counts" element={
             <ProtectedRoute allowedRoles={['admin', 'supervisor', 'toolroom_staff']}>
-              <CycleCountList />
+              <CycleCountsIndex />
             </ProtectedRoute>
           } />
           <Route path="/cycle-counts/:id" element={

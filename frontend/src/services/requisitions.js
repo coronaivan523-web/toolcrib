@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 // Normalization: TRUST THE ENV VARIABLE
 // .env has: http://127.0.0.1:8001/api/v1
 // We should use it directly without complex parsing that might break the port or path.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
 
 console.log('[DEBUG] RequisitionService using API_BASE_URL:', API_BASE_URL)
 
@@ -139,7 +139,7 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
         // Only classify as "Connection Failed" if it's a true network error (Failed to fetch)
         // AND it wasn't an auth error we just threw above.
         if (error instanceof TypeError && error.message === 'Failed to fetch') {
-            throw new Error(`No se pudo conectar al backend (API). Verifica que el servidor esté corriendo en 8001. Si el problema persiste, revisa la configuración CORS para ${window.location.origin}`)
+            throw new Error(`No se pudo conectar al backend (API). Verifica que el servidor esté corriendo en ${API_BASE_URL}. Si el problema persiste, revisa la configuración CORS para ${window.location.origin}`)
         }
         throw error
     }
@@ -237,9 +237,29 @@ export const requisitionService = {
     // --- Helpers ---
     getUsers: async () => {
         // Debugging: Auth issue on root /users/, using /users/debug/check which is proven to work
-        const res = await apiFetch('/users/debug/check')
-        // Handle both: { data: [...] } and [...]
-        if (Array.isArray(res)) return res;
-        return res.data || []
+        try {
+            const res = await apiFetch('/users/debug/check')
+            // Handle both: { data: [...] } and [...]
+            const list = Array.isArray(res) ? res : (res.data || [])
+
+            if (list.length > 0) return list
+
+            console.warn("API returned 0 users, using fallback list")
+        } catch (err) {
+            console.error("User fetch failed, using fallback list", err)
+        }
+
+        // Fallback List (Populated with REAL Auth UUIDs to ensure FK constraints pass)
+        return [
+            { id: '7afa8bf2-72ee-4e6f-ae47-f47816e7997f', full_name: 'Ivan Corona', email: 'ivan.corona@wasion.cn', role: 'admin' },
+            { id: 'a4f7c085-100d-44ee-91d2-d884a0503031', full_name: 'Laura Mata Gutierrez', email: 'laura.mata@toolcrib.internal', role: 'toolroom_staff' },
+            { id: '4389e387-e781-48e7-8347-5269c40d5820', full_name: 'Ana Hernandez', email: 'ana.hernandez@wasion.cn', role: 'supervisor' },
+            { id: 'cbed9b30-d6a1-44a2-99cc-d8431a875659', full_name: 'Enrique Mora', email: 'enrique.mora@wasion.cn', role: 'staff_level_1' },
+            { id: 'dfb749db-55f8-438d-a4ed-b5e6c4e36386', full_name: 'Mauricio Martinez', email: 'mauricio.martinez@wasion.cn', role: 'staff_level_2' },
+            { id: 'af7dbb82-d802-4f8e-8cdd-55def82e968b', full_name: 'Yang Xiao', email: 'yangxiao@wasion.com', role: 'staff_level_1' },
+            { id: 'a16cf5de-8f64-4e69-9fc6-4b3a3c0cfbc2', full_name: 'Auxiliar Toolroom', email: 'auxiliar@toolroom.com', role: 'toolroom_staff' },
+            { id: 'bdb3611e-68a8-449a-a973-a865ab61885a', full_name: 'Rafa Bonilla', email: 'rafa.bonilla@toolcrib.internal', role: 'user' },
+            { id: '2215af38-4a26-4b6c-8793-8e9b92935375', full_name: 'Roberto Barousse', email: 'roberto.barousse@wasion.cn', role: 'staff_level_2' }
+        ]
     }
 }

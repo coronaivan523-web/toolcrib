@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 
 // Environment Config (Reuse from materials.js logic)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
 
 // --- Shared API Client Logic (Duplicated for Safety - could be extracted to utils/api.js later) ---
 const getFastToken = () => {
