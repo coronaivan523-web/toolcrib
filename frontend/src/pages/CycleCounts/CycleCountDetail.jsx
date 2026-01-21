@@ -278,36 +278,65 @@ export default function CycleCountDetail() {
         setCountingQty('')
     }
 
-    const handleSaveCount = () => {
+    const handleSaveCount = async () => {
         if (!selectedMaterialForCount || countingQty === '') {
             toast.error('Please enter a quantity')
             return
         }
 
-        // Update the session lines in localStorage
-        const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-        const sessionIndex = localSessions.findIndex(s => s.id === id)
+        try {
+            const qty = parseInt(countingQty)
+            const date = new Date().toISOString() // This is full ISO, backend might want date only? 
+            // In list view we split('T')[0], so date-time is fine, or just date.
+            // Let's send full ISO, assuming backend handles or casts.
+            // Actually, for consistency with '2026-01-20', let's send YYYY-MM-DD?
+            // Postgres 'date' type? Check schema?
+            // Safest is ISO string, supabase usually handles it.
 
-        if (sessionIndex !== -1) {
-            const updatedSession = { ...localSessions[sessionIndex] }
-            const lineIndex = updatedSession.lines.findIndex(l => l.material_id === selectedMaterialForCount.id)
+            const line = session.lines.find(l => l.material_id === selectedMaterialForCount.id)
+            if (!line) return
 
-            if (lineIndex !== -1) {
-                updatedSession.lines[lineIndex] = {
-                    ...updatedSession.lines[lineIndex],
-                    qty_physical: parseInt(countingQty),
-                    counted_date: new Date().toISOString().split('T')[0], // Today's date
+            // 1. API Update (if real session)
+            if (session.id !== 'new' && !session.id.toString().startsWith('C20')) {
+                await cycleCountService.updateLine(line.id, {
+                    qty_physical: qty,
+                    count_date: date,
                     counted_by: userProfile?.id || userProfile?.email
-                }
-
-                localSessions[sessionIndex] = updatedSession
-                localStorage.setItem('simulated_sessions', JSON.stringify(localSessions))
-
-                // Update local state
-                setSession(updatedSession)
-                toast.success(`Count saved for ${selectedMaterialForCount.part_number}`)
-                handleCloseCountPanel()
+                })
             }
+
+            // 2. Update Local State (Immediate UI feedback)
+            const updatedLines = session.lines.map(l =>
+                l.material_id === selectedMaterialForCount.id
+                    ? { ...l, qty_physical: qty, count_date: date, counted_by: userProfile?.id }
+                    : l
+            )
+            setSession(prev => ({ ...prev, lines: updatedLines }))
+
+            // 3. Update Simulation Storage (Legacy/Offline support)
+            const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
+            const sessionIndex = localSessions.findIndex(s => s.id === id)
+            if (sessionIndex !== -1) {
+                const lsSession = localSessions[sessionIndex]
+                const lsLineIndex = lsSession.lines.findIndex(l => l.material_id === selectedMaterialForCount.id)
+                if (lsLineIndex !== -1) {
+                    lsSession.lines[lsLineIndex] = {
+                        ...lsSession.lines[lsLineIndex],
+                        qty_physical: qty,
+                        count_date: date,
+                        counted_by: userProfile?.id
+                    }
+                    localSessions[sessionIndex] = lsSession
+                    localStorage.setItem('simulated_sessions', JSON.stringify(localSessions))
+                }
+            }
+
+            toast.success(`Count saved for ${selectedMaterialForCount.part_number}`)
+            handleCloseCountPanel()
+
+        } catch (error) {
+            console.error("Failed to save count:", error)
+            toast.error("Failed to save count")
         }
     }
 
@@ -327,6 +356,7 @@ export default function CycleCountDetail() {
             process: '',
             area: '',
             machine: '',
+            user: '',
             adjustment: 'all' // 'all', 'zero', 'positive', 'negative'
         })
     }
@@ -499,6 +529,21 @@ export default function CycleCountDetail() {
             const matchDesc = (m.name || '').toLowerCase().includes(filters.description.toLowerCase())
             const matchFactory = (m.plant || '').toLowerCase().includes(filters.factory.toLowerCase())
             const matchLoc = (m.location || '').toLowerCase().includes(filters.location.toLowerCase())
+            const matchProcess = (m.process || '').toLowerCase().includes(filters.process.toLowerCase())
+            const matchArea = (m.area || '').toLowerCase().includes(filters.area.toLowerCase())
+            const matchMachine = (m.machine || '').toLowerCase().includes(filters.machine.toLowerCase())
+
+            // User Filter logic
+            let matchUser = true
+            if (filters.user) {
+                const line = linesMap[m.id]
+                let userName = ''
+                if (line?.counted_by) {
+                    const u = users.find(u => u.id === line.counted_by)
+                    userName = u?.full_name || u?.email || ''
+                }
+                matchUser = userName.toLowerCase().includes(filters.user.toLowerCase())
+            }
 
 
 
@@ -521,17 +566,17 @@ export default function CycleCountDetail() {
             if (filters.action && filters.action !== 'all') {
                 const line = linesMap[m.id]
                 if (filters.action === 'closed' && (!line || line.qty_physical === undefined || line.qty_physical === null)) return false
-                if (filters.action === 'pending' && (line && line.qty_physical !== undefined && line.qty_physical !== null)) return false
+                if (filters.action === 'pending' && (!line || (line.qty_physical !== undefined && line.qty_physical !== null))) return false
                 if (filters.action === 'unassigned' && line) return false // If line exists, it's assigned
             }
 
-            return matchPart && matchDesc && matchFactory && matchLoc
+            return matchPart && matchDesc && matchFactory && matchLoc && matchProcess && matchArea && matchMachine && matchUser
         })
     }, [materials, filters, id, linesMap, showCriticalStock])
 
     // Detect if any filters are active
     const hasActiveFilters = useMemo(() => {
-        return filters.part_number || filters.description || filters.factory || filters.location || showCriticalStock || (filters.adjustment && filters.adjustment !== 'all') || (filters.action && filters.action !== 'all')
+        return filters.part_number || filters.description || filters.factory || filters.location || filters.process || filters.area || filters.machine || filters.user || showCriticalStock || (filters.adjustment && filters.adjustment !== 'all') || (filters.action && filters.action !== 'all')
     }, [filters, showCriticalStock])
 
     // Detect if user is in counting mode (viewing existing session)
@@ -545,8 +590,16 @@ export default function CycleCountDetail() {
 
 
     // Calculate Stats
-    const itemsCount = Object.keys(ticketItems).length
-    const unitsCount = Object.values(ticketItems).reduce((sum, m) => sum + (m.current_stock || 0), 0)
+    const itemsCount = useMemo(() => {
+        if (id === 'new') return Object.keys(ticketItems).length
+        return session?.lines?.length || 0
+    }, [id, ticketItems, session])
+
+    const unitsCount = useMemo(() => {
+        if (id === 'new') return Object.values(ticketItems).reduce((sum, m) => sum + (m.current_stock || 0), 0)
+        // For existing session: Sum of counted physical quantities
+        return session?.lines?.reduce((sum, l) => sum + (l.qty_physical || 0), 0) || 0
+    }, [id, ticketItems, session])
 
 
 
@@ -585,13 +638,103 @@ export default function CycleCountDetail() {
             {/* 2. COMMAND BAR */}
             {/* Counting Mode: Show only HIDE CATALOG */}
             {isCountingMode ? (
-                <div className="bg-primary-800 text-white px-4 py-3 flex items-center shrink-0 shadow-sm z-10">
+                <div className="bg-primary-800 text-white px-4 py-3 flex items-center justify-between shrink-0 shadow-sm z-10 gap-4">
                     <button
                         onClick={handleHideCatalog}
                         className="bg-white text-primary-900 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors shadow-sm"
                     >
                         HIDE CATALOG
                     </button>
+
+                    {/* GENERAL COUNTERS (Realized / Missing) */}
+                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold">REALIZED</span>
+                            <span className="text-xl font-bold leading-none text-green-400">
+                                {session?.lines?.filter(l => l.qty_physical !== null && l.qty_physical !== undefined).length || 0}
+                            </span>
+                        </div>
+                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold">MISSING</span>
+                            <span className="text-xl font-bold leading-none text-amber-400">
+                                {(session?.lines?.length || 0) - (session?.lines?.filter(l => l.qty_physical !== null && l.qty_physical !== undefined).length || 0)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* UNIT COUNTERS (Expected / Counted) */}
+                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-gray-300">EXPECTED UNITS</span>
+                            <span className="text-xl font-bold leading-none text-gray-200">
+                                {session?.lines?.reduce((sum, l) => sum + (l.qty_system || 0), 0) || 0}
+                            </span>
+                        </div>
+                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-yellow-500">REAL UNITS</span>
+                            <span className="text-xl font-bold leading-none text-yellow-500">
+                                {session?.lines?.reduce((sum, l) => sum + (l.qty_physical || 0), 0) || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* ADJUSTMENT COUNTERS */}
+                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-red-400">NEG (-)</span>
+                            <span className="text-lg font-bold leading-none text-red-400">
+                                {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) < 0)).length || 0}
+                            </span>
+                        </div>
+                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-green-400">POS (+)</span>
+                            <span className="text-lg font-bold leading-none text-green-400">
+                                {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) > 0)).length || 0}
+                            </span>
+                        </div>
+                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-blue-400">ZERO</span>
+                            <span className="text-lg font-bold leading-none text-blue-400">
+                                {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) === 0)).length || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* TIME STATUS */}
+                    {session?.planned_date && (
+                        <div className="flex items-center gap-2 px-4 py-1.5 rounded border border-primary-700/30 bg-primary-900/40">
+                            <Clock size={16} className={new Date(session.planned_date) < new Date(new Date().toISOString().split('T')[0]) ? "text-red-400" : "text-green-400"} />
+                            <div className="flex flex-col leading-none">
+                                <span className="text-[9px] text-primary-300 uppercase font-bold">DEADLINE</span>
+                                <span className={`text-xs font-bold ${new Date(session.planned_date) < new Date(new Date().toISOString().split('T')[0]) ? "text-red-400" : "text-green-400"}`}>
+                                    {new Date(session.planned_date) < new Date(new Date().toISOString().split('T')[0]) ? "OVERDUE" : "ON TIME"}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* FILTER STATUS & CLEAR */}
+                    <div className="flex items-center gap-3 pl-4 border-l border-primary-700/50">
+                        {hasActiveFilters && (
+                            <button
+                                onClick={handleClearFilters}
+                                className="flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full transition-colors shadow-sm"
+                                title="Clear all filters"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                        <div className="flex flex-col items-end leading-none">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold">SHOWING</span>
+                            <span className="text-xs font-bold text-white">
+                                {filteredMaterials.length} <span className="text-primary-400">/</span> {id === 'new' ? materials.length : (session?.lines?.length || 0)}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             ) : (
                 /* Supervisor Mode: Show full assignment controls */
@@ -726,7 +869,7 @@ export default function CycleCountDetail() {
 
                             )}
 
-                            <span>Showing {filteredMaterials.length} of {materials.length}</span>
+                            <span>Showing {filteredMaterials.length} of {id === 'new' ? materials.length : (session?.lines?.length || 0)}</span>
                         </div>
                     </div>
                 )
@@ -787,9 +930,30 @@ export default function CycleCountDetail() {
                                     onChange={(e) => setFilters({ ...filters, location: e.target.value })}
                                 />
                             </th>
-                            <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100"></th>
+                            <th className="p-1 border-b border-gray-100 px-2">
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.process}
+                                    onChange={(e) => setFilters({ ...filters, process: e.target.value })}
+                                />
+                            </th>
+                            <th className="p-1 border-b border-gray-100 px-2">
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.area}
+                                    onChange={(e) => setFilters({ ...filters, area: e.target.value })}
+                                />
+                            </th>
+                            <th className="p-1 border-b border-gray-100 px-2">
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.machine}
+                                    onChange={(e) => setFilters({ ...filters, machine: e.target.value })}
+                                />
+                            </th>
                             <th className="p-1 border-b border-gray-100 text-center">
                                 <button
                                     onClick={() => setShowCriticalStock(!showCriticalStock)}
@@ -848,7 +1012,12 @@ export default function CycleCountDetail() {
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100 text-center">
-
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.user || ''}
+                                    onChange={(e) => setFilters({ ...filters, user: e.target.value })}
+                                />
                             </th>
                             <th className="p-1 border-b border-gray-100 text-center w-28">
                                 <div className="flex items-center justify-center gap-1">

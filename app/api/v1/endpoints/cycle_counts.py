@@ -49,3 +49,11 @@ def update_session(
     current_user: Any = Depends(get_current_user)
 ):
     return CycleCountService.update_session(id, data)
+
+@router.patch("/lines/{line_id}", response_model=Any)
+def update_line(
+    line_id: UUID,
+    data: dict,
+    current_user: Any = Depends(get_current_user)
+):
+    return CycleCountService.update_line(line_id, data)

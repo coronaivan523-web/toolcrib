@@ -8,8 +8,8 @@ from app.schemas.cycle_count import CycleCountSessionCreate, CycleCountLineCreat
 class CycleCountService:
     @staticmethod
     def get_sessions():
-        # Removed profile join temporarily to fix PGRST200
-        res = supabase_admin.table('cycle_count_sessions').select('*').order('created_at', desc=True).execute()
+        # Fetch sessions with lines for status/date computation
+        res = supabase_admin.table('cycle_count_sessions').select('*, lines:cycle_count_lines(count_date, qty_physical)').order('created_at', desc=True).execute()
         return res.data
 
     @staticmethod
@@ -74,4 +74,19 @@ class CycleCountService:
         res = supabase_admin.table('cycle_count_sessions').update(data).eq('id', str(id)).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail="Session not found or update failed")
+        return res.data[0]
+
+    @staticmethod
+    def update_line(line_id: UUID, data: dict):
+        # Prevent updating critical fields if needed, but for now allow all passed in data
+        res = supabase_admin.table('cycle_count_lines').update(data).eq('id', str(line_id)).execute()
+        if not res.data:
+            raise HTTPException(status_code=404, detail="Line not found or update failed")
+        
+        # Real-time Stock Update (Simplified) - If qty_physical is updated
+        if 'qty_physical' in data:
+             # Need material_id. Fetch line first or return it.
+             line = res.data[0]
+             supabase_admin.table('materials').update({'current_stock': data['qty_physical']}).eq('id', line['material_id']).execute()
+             
         return res.data[0]
