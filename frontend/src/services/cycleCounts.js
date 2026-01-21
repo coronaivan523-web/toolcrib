@@ -22,6 +22,11 @@ export const cycleCountService = {
         return response
     },
 
+    getActiveLines: async () => {
+        const response = await api.get('/cycle-counts/active_lines')
+        return response
+    },
+
     updateSession: async (id, data) => {
         const response = await api.patch(`/cycle-counts/${id}`, data)
         return response

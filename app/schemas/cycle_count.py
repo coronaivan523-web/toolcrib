@@ -27,7 +27,7 @@ class CycleCountSessionUpdate(BaseModel):
 # --- Line Schemas ---
 class CycleCountLineCreate(BaseModel):
     material_id: int
-    qty_physical: int
+    qty_physical: Optional[int] = None
     location_id: Optional[UUID] = None
     notes: Optional[str] = None
     count_date: Optional[str] = None # ISO Format

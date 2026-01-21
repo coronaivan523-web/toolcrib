@@ -13,6 +13,11 @@ def get_sessions(current_user: Any = Depends(get_current_user)):
     print(f"DEBUG: Fetching sessions for user {current_user.id}")
     return CycleCountService.get_sessions()
 
+@router.get("/active_lines", response_model=List[Any])
+def get_active_lines(current_user: Any = Depends(get_current_user)):
+    """ Get all pending lines (assigned but not counted) globally. """
+    return CycleCountService.get_active_lines()
+
 @router.post("/", response_model=Any)
 def create_session(
     data: CycleCountSessionCreate,

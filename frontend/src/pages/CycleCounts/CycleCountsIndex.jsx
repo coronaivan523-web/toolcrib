@@ -33,10 +33,10 @@ export default function CycleCountsIndex() {
             const data = await cycleCountService.getAllSessions()
 
             // Allow merging local simulated sessions for Demo/Offline support
-            const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
+            // REMOVED: Simulation merge.
 
             // Deduplicate by ID just in case
-            const allSessions = [...(data || []), ...localSessions]
+            const allSessions = [...(data || [])]
             const uniqueSessions = Array.from(new Map(allSessions.map(item => [item.id, item])).values())
 
             // Sort by date desc
@@ -60,10 +60,9 @@ export default function CycleCountsIndex() {
         } catch (error) {
             console.warn('Backend unavailable, switching to local simulation mode:', error)
 
-            // Fallback to local storage only - SILENTLY (No error toast)
-            const fallbackSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-            setSessions(fallbackSessions)
-            // Optional: minimal indicator or just works transparently
+            console.error('Backend unavailable:', error)
+            toast.error("Could not load sessions. Please check backend connection.")
+            setSessions([])
         } finally {
             setLoading(false)
         }
@@ -98,20 +97,7 @@ export default function CycleCountsIndex() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            if (window.confirm('¿Estás seguro de eliminar todos los registros locales?')) {
-                                localStorage.removeItem('simulated_sessions');
-                                const event = new Event('session-cleared');
-                                window.dispatchEvent(event); // Optional: if we want to listen elsewhere
-                                window.location.reload();
-                            }
-                        }}
-                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
-                        title="Clear Local Data (Test)"
-                    >
-                        <Trash2 size={20} />
-                    </button>
+
 
                     <button
                         onClick={loadSessions}
@@ -201,9 +187,9 @@ export default function CycleCountsIndex() {
 
                                     return (
                                         <tr key={session.id} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-4">
-                                                <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded border border-slate-200">
-                                                    {session.id}
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <span className="bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono text-xs">
+                                                    {session.ticket_id || session.id.slice(0, 8)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-slate-700">

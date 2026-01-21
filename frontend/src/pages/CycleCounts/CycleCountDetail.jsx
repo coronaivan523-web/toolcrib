@@ -44,7 +44,7 @@ export default function CycleCountDetail() {
     const [isSelectionEnabled, setIsSelectionEnabled] = useState(false)
     const [ticketItems, setTicketItems] = useState({}) // { materialId: materialObj } for fast lookup
     const [saving, setSaving] = useState(false)
-    const [cumulativeLines, setCumulativeLines] = useState([]) // Store lines from previous saves in this batch
+    // REMOVED: cumulativeLines (User requested DB-only flow)
     const [showCriticalStock, setShowCriticalStock] = useState(false) // Toggle for low stock filter
 
     // Counting Mode State (for toolroom staff)
@@ -59,19 +59,9 @@ export default function CycleCountDetail() {
     // GLOBAL STATUS: Load all previously saved lines from localStorage to show "Saved" status
     // even when starting a "New" session or returning from index.
     // GLOBAL STATUS: Load all previously saved lines from localStorage to show "Saved" status
-    // Only relevant for "New" sessions to show what was just done. 
-    // For existing sessions, we strictly want that session's data.
-    useEffect(() => {
-        if (id === 'new') {
-            const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-            const allActiveLines = localSessions.flatMap(s => s.lines || [])
-            if (allActiveLines.length > 0) {
-                setCumulativeLines(allActiveLines)
-            }
-        } else {
-            setCumulativeLines([])
-        }
-    }, [id])
+    // REMOVED: Simulation mode logic
+    // GLOBAL STATUS: Load all previously saved lines from localStorage to show "Saved" status
+    // REMOVED: Simulation mode logic
 
     // --- DATA LOADING ---
     const fetchUsers = async () => {
@@ -79,11 +69,9 @@ export default function CycleCountDetail() {
         try {
             // Filter users to show ONLY Toolroom Staff
             const usersData = await requisitionService.getUsers()
-            const staffRoles = ['toolroom_staff']
-            const staffUsers = (usersData || []).filter(u =>
-                staffRoles.includes(u.role?.trim().toLowerCase())
-            )
-            setUsers(staffUsers)
+            // Load ALL users to state so we can resolve names for Admins/Supervisors in the table
+            // We will filter the "Assign To" dropdown locally.
+            setUsers(usersData || [])
         } catch (error) {
             console.error("Users Load Error:", error)
         } finally {
@@ -95,6 +83,20 @@ export default function CycleCountDetail() {
         if (id === 'new') {
             setAssignedUser('')
             setPlannedDate('')
+
+            // NEW: Fetch ALL Active/Pending lines to show what is already assigned
+            try {
+                const activeLines = await cycleCountService.getActiveLines()
+                // setSession with these lines so they appear in the table
+                // We mock a session object
+                setSession({
+                    id: 'new',
+                    lines: activeLines || []
+                })
+            } catch (err) {
+                console.error("Failed to load active lines", err)
+            }
+
             setLoadingSession(false)
             return
         }
@@ -105,15 +107,8 @@ export default function CycleCountDetail() {
             let sessionData;
 
             // Check if it's a simulated session FIRST (either sim- prefix or C-prefix sequential IDs)
-            if (String(id).startsWith('sim-') || String(id).startsWith('C')) {
-                const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-                sessionData = localSessions.find(s => s.id === id)
-                if (!sessionData) {
-                    sessionData = await cycleCountService.getSessionById(id)
-                }
-            } else {
-                sessionData = await cycleCountService.getSessionById(id)
-            }
+            // REMOVED: Simulation check. Strictly usage of API.
+            sessionData = await cycleCountService.getSessionById(id)
 
             if (sessionData) {
                 setSession(sessionData)
@@ -189,11 +184,18 @@ export default function CycleCountDetail() {
     const handleBulkAddFiltered = () => {
         if (!isSelectionEnabled) return
 
-        // Add all filtered materials that aren't already added
+        // Add all filtered materials that aren't already added AND are not already assigned (Pending)
         const newItems = { ...ticketItems }
         let addedCount = 0
+        let skippedCount = 0
 
         filteredMaterials.forEach(material => {
+            // CRITICAL FIX: Skip if already assigned globally (exists in linesMap)
+            if (linesMap[material.id]) {
+                skippedCount++
+                return
+            }
+
             if (!newItems[material.id]) {
                 newItems[material.id] = material
                 addedCount++
@@ -203,7 +205,9 @@ export default function CycleCountDetail() {
         setTicketItems(newItems)
 
         if (addedCount > 0) {
-            toast.success(`Added ${addedCount} filtered item${addedCount > 1 ? 's' : ''} to ticket`)
+            toast.success(`Added ${addedCount} available items to ticket`)
+        } else if (skippedCount > 0) {
+            toast.info(`No new items added. ${skippedCount} items are already assigned.`)
         } else {
             toast.info('All filtered items are already in the ticket')
         }
@@ -314,22 +318,7 @@ export default function CycleCountDetail() {
             setSession(prev => ({ ...prev, lines: updatedLines }))
 
             // 3. Update Simulation Storage (Legacy/Offline support)
-            const localSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-            const sessionIndex = localSessions.findIndex(s => s.id === id)
-            if (sessionIndex !== -1) {
-                const lsSession = localSessions[sessionIndex]
-                const lsLineIndex = lsSession.lines.findIndex(l => l.material_id === selectedMaterialForCount.id)
-                if (lsLineIndex !== -1) {
-                    lsSession.lines[lsLineIndex] = {
-                        ...lsSession.lines[lsLineIndex],
-                        qty_physical: qty,
-                        count_date: date,
-                        counted_by: userProfile?.id
-                    }
-                    localSessions[sessionIndex] = lsSession
-                    localStorage.setItem('simulated_sessions', JSON.stringify(localSessions))
-                }
-            }
+            // REMOVED: Simulation storage logic.
 
             toast.success(`Count saved for ${selectedMaterialForCount.part_number}`)
             handleCloseCountPanel()
@@ -395,104 +384,47 @@ export default function CycleCountDetail() {
             }
 
             // 2. Add Lines
-            let successCount = 0
-            for (const item of items) {
-                await cycleCountService.addLine(activeId, {
-                    material_id: item.id,
-                    qty_physical: null, // Initial: Empty until counted
-                    notes: "Added via Supervisor Ticket",
-                    location_id: null,
-                    count_date: new Date().toISOString(),
-                    planned_date: plannedDate // Pass planned date to line
-                })
-                successCount++
+            const itemsToSave = Object.values(ticketItems)
+            // Use sequential loop to prevent backend socket saturation (WinError 10035)
+            // The backend uses synchronous sockets in threads, and too many parallel requests causes it to crash.
+            for (const item of itemsToSave) {
+                try {
+                    await cycleCountService.addLine(activeId, {
+                        material_id: item.id,
+                        qty_physical: null // Explicitly null for pending count
+                    })
+                } catch (err) {
+                    console.error(`Failed to add line for material ${item.id}`, err)
+                    // Continue adding others or break? 
+                    // Better to continue and maybe show partial success, but for now just log.
+                }
             }
 
+            // DB SYNCHRONIZATION (Strict Source of Truth)
+            // No optimistic updates. We fetch fresh data from the server.
+            await fetchSession()
 
             toast.success(`Ticket saved! Assignment confirmed.`)
 
-            // 3. Reset UI immediately for selection
-            resetForm()
 
-            // 4. STAY on page and RESET for next entry ("Save & New" Workflow)
-            // Do NOT navigate to the created session.
-            setTimeout(() => {
-                resetForm() // Ensure thorough cleanup 
-                // Reset ID ref to ensure next save is also 'new' if needed
-                idRef.current = 'new'
-                navigate('/cycle-counts/new', { replace: true }) // Force URL reset just in case
-            }, 800)
+
+            // 3. Reset Form for Clean State (Next Entry)
+            setTicketItems({})
+            setIsSelectionEnabled(false)
+            setAssignedUser('') // Clear User
+            setPlannedDate('')  // Clear Date
+
+            // 4. STAY on page ('new' mode). 
+            // Do NOT update idRef to the new session ID. 
+            // We want to remain in "Create Mode" so the next save creates a distinct session.
+            // The table will show all active lines via getActiveLines() called by fetchSession().
+
+            // If updating existing session, just refresh background data to be safe
+            fetchSession().catch(err => console.warn("Background sync failed", err))
 
         } catch (error) {
             console.error("Save error:", error)
-
-            // SIMULATION MODE: If API fails (Network/Auth), verify UI logic locally
-            console.warn("Simulating Save Success for Logic Verification")
-
-            // GENERATE SEQUENTIAL ID (C2026-00001)
-            const savedSessions = JSON.parse(localStorage.getItem('simulated_sessions') || '[]')
-            const currentYear = new Date().getFullYear()
-            const prefix = `C${currentYear}-`
-
-            const maxSeq = savedSessions.reduce((max, s) => {
-                if (s.id && s.id.startsWith(prefix)) {
-                    const parts = s.id.split('-')
-                    if (parts.length === 2 && !isNaN(parts[1])) {
-                        const seq = parseInt(parts[1], 10)
-                        return seq > max ? seq : max
-                    }
-                }
-                return max
-            }, 0)
-
-            const nextSeq = String(maxSeq + 1).padStart(5, '0')
-            const newSimId = `${prefix}${nextSeq}`
-
-            // Construct a Fake Session to update UI
-            const fakeLines = items.map(item => ({
-                id: `line-${item.id}`,
-                material_id: item.id,
-                qty_physical: null, // Empty for assignment
-                planned_date: plannedDate,
-                counted_by: assignedUser
-            }))
-
-            const fakeSession = {
-                id: newSimId, // Sequential ID
-                created_at: new Date().toISOString(),
-                created_by_user: { email: userProfile?.email || 'Admin' },
-                created_by_profile: userProfile || { full_name: 'Admin' }, // Pass full profile for Index view
-                assigned_to: assignedUser,
-                planned_date: plannedDate,
-                lines: fakeLines,
-                status: 'assigned'
-            }
-
-            // PERSIST to LocalStorage for Offline/Demo Support
-            savedSessions.push(fakeSession)
-            localStorage.setItem('simulated_sessions', JSON.stringify(savedSessions))
-
-            // ACCUMULATE lines for "Batch" view
-            // Move these lines to persistent state so they stay visible when we clear session
-            setCumulativeLines(prev => {
-                // Avoid duplicates if same material edited twice (overwrite)
-                const newMap = { ...prev.reduce((acc, l) => ({ ...acc, [l.material_id]: l }), {}) }
-                fakeLines.forEach(l => newMap[l.material_id] = l)
-                return Object.values(newMap)
-            })
-
-            setSession(fakeSession)
-
-            toast.success("Ticket saved! (SIMULATION: Network Error Bypass)")
-
-            // 4. STAY on page and RESET for next entry ("Save & New" Workflow)
-            // Explicitly clear UI for simulation similar to successful API call
-            setTimeout(() => {
-                resetForm()
-                // Reset ID ref to ensure next save is also 'new' if needed
-                idRef.current = 'new'
-                navigate('/cycle-counts/new', { replace: true }) // Force URL reset just in case
-            }, 800)
+            toast.error("Failed to save ticket. Please check your connection.")
         } finally {
             setSaving(false)
         }
@@ -500,20 +432,16 @@ export default function CycleCountDetail() {
 
     // Compute Lines Map for Table Lookup
     const linesMap = useMemo(() => {
-        // Start with session lines
+        // Start with session lines (Strictly from DB now)
         const sessionLines = session?.lines || []
 
-        // Merge with cumulative lines from "Save & New" workflow
-        const allLines = [...sessionLines, ...cumulativeLines]
-
-        // Deduplicate by material_id in case intermixed (unlikely in this flow but safe)
-        return allLines.reduce((acc, line) => {
+        return sessionLines.reduce((acc, line) => {
             // line.material_id might be int or string, ensure match
             const matId = line.material_id || line.material?.id
             if (matId) acc[matId] = line
             return acc
         }, {})
-    }, [session, cumulativeLines])
+    }, [session])
 
     // Computed / Filtered Materials
     const filteredMaterials = useMemo(() => {
@@ -540,6 +468,12 @@ export default function CycleCountDetail() {
                 let userName = ''
                 if (line?.counted_by) {
                     const u = users.find(u => u.id === line.counted_by)
+                    userName = u?.full_name || u?.email || ''
+                } else if (line?.session?.assigned_to) {
+                    const u = users.find(u => u.id == line.session.assigned_to)
+                    userName = u?.full_name || u?.email || ''
+                } else if (session?.assigned_to) {
+                    const u = users.find(u => u.id == session.assigned_to)
                     userName = u?.full_name || u?.email || ''
                 }
                 matchUser = userName.toLowerCase().includes(filters.user.toLowerCase())
@@ -774,9 +708,11 @@ export default function CycleCountDetail() {
                                     onChange={(e) => setAssignedUser(e.target.value)}
                                 >
                                     <option value="" className="text-gray-500" hidden>Select User...</option>
-                                    {users.map(u => (
-                                        <option key={u.id} value={u.id} className="text-black">{u.full_name || u.email}</option>
-                                    ))}
+                                    {users
+                                        .filter(u => ['toolroom_staff'].includes(u.role?.trim().toLowerCase()))
+                                        .map(u => (
+                                            <option key={u.id} value={u.id} className="text-black">{u.full_name || u.email}</option>
+                                        ))}
                                 </select>
                             </div>
 
@@ -1066,11 +1002,32 @@ export default function CycleCountDetail() {
                             const isSelected = !!ticketItems[item.id]
                             const line = linesMap[item.id]
 
-                            // Resolve User Name if line exists
+                            // Resolve User Name
                             let statusUser = '-'
-                            if (line?.counted_by) {
+
+                            // 1. [PRIORITY FIX] If we are in "New" mode creating a ticket, ALWAYS show the selection from dropdown if available for this new item
+                            if (idRef.current === 'new' && ticketItems[item.id] && assignedUser) {
+                                const u = users.find(user => user.id == assignedUser)
+                                statusUser = u?.full_name || u?.email || 'Current Selection'
+                            }
+                            // 2. If line has explicit counted_by (Completed)
+                            else if (line?.counted_by) {
                                 const u = users.find(user => user.id === line.counted_by)
                                 statusUser = u?.full_name || u?.email || 'Unknown'
+                            }
+                            // 3. Check session assigned_to ID (Database)
+                            else if (line?.session?.assigned_to) {
+                                const u = users.find(user => user.id == line.session.assigned_to)
+                                statusUser = u?.full_name || u?.email || line?.session?.assignee?.full_name || 'Unknown'
+                            }
+                            // 4. Fallback to Parent Session Context
+                            else if (session?.assigned_to) {
+                                const u = users.find(user => user.id == session.assigned_to)
+                                statusUser = u?.full_name || u?.email || 'Unknown'
+                            }
+                            // 5. Global Active Line Fallback
+                            else if (linesMap[item.id]) {
+                                statusUser = 'Pending (Assigned)'
                             }
 
                             return (
@@ -1140,9 +1097,12 @@ export default function CycleCountDetail() {
                                         })()}
                                     </td>
 
-                                    {/* Planned Date */}
                                     <td className="p-2 text-center text-xs text-gray-600 font-medium">
-                                        {line?.planned_date ? line.planned_date.split('-').reverse().join('/') : '-'}
+                                        {(() => {
+                                            // Priority: 1. Line specific date, 2. Line's session date, 3. Global Session date, 4. Local selection (New mode)
+                                            const dateStr = line?.planned_date || line?.session?.planned_date || session?.planned_date || (isSelected && plannedDate ? plannedDate : null)
+                                            return dateStr ? dateStr.split('T')[0].split('-').reverse().join('/') : '-'
+                                        })()}
                                     </td>
 
                                     {/* Real Date */}

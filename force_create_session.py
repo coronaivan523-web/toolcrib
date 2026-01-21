@@ -12,7 +12,7 @@ def force_insert():
 
     # 1. Create Data
     # Use a known user ID (Ivan Corona from debug_profiles)
-    user_id = 'be2e7284-93e6-4293-875f-356f2648753a' 
+    user_id = '7afa8bf2-72ee-4e6f-ae47-f47816e7997f' # ivan.corona@wasion.cn 
     payload = {
         "status": "DRAFT",
         "created_by": user_id,
