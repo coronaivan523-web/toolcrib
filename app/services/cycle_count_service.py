@@ -7,10 +7,44 @@ from app.schemas.cycle_count import CycleCountSessionCreate, CycleCountLineCreat
 
 class CycleCountService:
     @staticmethod
+    def _enrich_with_profiles(sessions: List[dict]):
+        user_ids = set()
+        for s in sessions:
+            if s.get('created_by'): user_ids.add(str(s['created_by']))
+            if s.get('assigned_to'): user_ids.add(str(s['assigned_to']))
+            if 'lines' in s:
+                for l in s['lines']:
+                     if l.get('counted_by'): user_ids.add(str(l['counted_by']))
+
+        if not user_ids:
+            return sessions
+
+        ids = list(user_ids)
+        try:
+             res = supabase_admin.table('profiles').select('id, full_name, email, role').in_('id', ids).execute()
+             profile_map = { p['id']: p for p in res.data }
+             
+             for s in sessions:
+                 if s.get('created_by') and str(s['created_by']) in profile_map:
+                     s['created_by_profile'] = profile_map[str(s['created_by'])]
+                 if s.get('assigned_to') and str(s['assigned_to']) in profile_map:
+                     s['assigned_to_profile'] = profile_map[str(s['assigned_to'])]
+                 
+                 if 'lines' in s:
+                     for l in s['lines']:
+                         if l.get('counted_by') and str(l['counted_by']) in profile_map:
+                             l['counted_by_profile'] = profile_map[str(l['counted_by'])]
+
+        except Exception as e:
+            print(f"Error enriching profiles: {e}")
+            
+        return sessions
+
+    @staticmethod
     def get_sessions():
         # Fetch sessions with lines for status/date computation
         res = supabase_admin.table('cycle_count_sessions').select('*, lines:cycle_count_lines(count_date, qty_physical)').order('created_at', desc=True).execute()
-        return res.data
+        return CycleCountService._enrich_with_profiles(res.data)
 
     @staticmethod
     def get_active_lines():
@@ -21,6 +55,7 @@ class CycleCountService:
         
         # Order by created_at (counted_at) desc to show latest added first - Changed from count_date which can be null
         res = supabase_admin.table('cycle_count_lines').select(query).is_('qty_physical', 'null').order('counted_at', desc=True).execute()
+        # We could enrich here too but active lines list usually doesn't show user name in same way
         return res.data
 
     @staticmethod
@@ -39,10 +74,22 @@ class CycleCountService:
         ).eq('session_id', str(id)).execute()
         
         session['lines'] = lines_res.data
-        return session
+        
+        # Enrich single session
+        enriched = CycleCountService._enrich_with_profiles([session])
+        return enriched[0]
+
+    @staticmethod
+    def log_debug(msg):
+        try:
+            with open("debug_cycle_crash.log", "a", encoding="utf-8") as f:
+                f.write(f"{msg}\n")
+        except:
+            pass
 
     @staticmethod
     def create_session(data: CycleCountSessionCreate, user_id: str):
+        CycleCountService.log_debug(f"START create_session. User: {user_id}")
         payload = data.dict()
         payload['created_by'] = user_id
         payload['status'] = 'PENDING'
@@ -58,37 +105,53 @@ class CycleCountService:
         prefix = f"C{current_year}-"
         
         # Find max existing ID for this year
-        # This is a bit manual since we don't have a direct sequence
+        max_seq = 0
         try:
             # Fetch all ticket_ids starting with prefix
-            # Note: This might be slow with thousands of records, but fine for now. 
-            # Ideally use a separate sequence table or SQL function.
-            existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').ilike('ticket_id', f'{prefix}%').execute()
+            CycleCountService.log_debug(f"Fetching tickets with prefix: {prefix}")
+            existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').execute()
             
-            max_seq = 0
+            CycleCountService.log_debug(f"Found {len(existing_res.data)} sessions")
+            
             for row in existing_res.data:
                 tid = row.get('ticket_id')
-                if tid:
+                if tid and tid.startswith(prefix):
                     parts = tid.split('-')
                     if len(parts) == 2 and parts[1].isdigit():
                         seq = int(parts[1])
                         if seq > max_seq:
                             max_seq = seq
             
+            CycleCountService.log_debug(f"Max seq: {max_seq}")
             next_seq = max_seq + 1
-            new_ticket_id = f"{prefix}{next_seq:05d}"
+            new_ticket_id = f"{prefix}{next_seq:06d}"  # 6 dígitos: 000001
             payload['ticket_id'] = new_ticket_id
+            CycleCountService.log_debug(f"Generated ID: {new_ticket_id}")
             
         except Exception as e:
-            print(f"Error generating ticket_id: {e}")
-            # Fallback (nullable) or just continue without it
-            pass
+            import traceback
+            tb = traceback.format_exc()
+            CycleCountService.log_debug(f"ERROR in logic: {e}\n{tb}")
+            
+            # Fallback: Generate with timestamp to ensure uniqueness
+            import time
+            fallback_id = f"{prefix}{int(time.time()) % 1000000:06d}"
+            payload['ticket_id'] = fallback_id
+            CycleCountService.log_debug(f"Using fallback ID: {fallback_id}")
 
         # Insert
-        res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
-        if not res.data:
-            raise HTTPException(status_code=500, detail="Failed to create session")
-        return res.data[0]
+        try:
+            CycleCountService.log_debug(f"Inserting payload: {payload}")
+            res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+            if not res.data:
+                raise HTTPException(status_code=500, detail="Failed to create session")
+            CycleCountService.log_debug("Insert SUCCESS")
+            return res.data[0]
+        except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
+            CycleCountService.log_debug(f"ERROR in Insert: {e}\n{tb}")
+            raise e
 
     @staticmethod
     def add_line(session_id: UUID, data: CycleCountLineCreate, user_id: str):

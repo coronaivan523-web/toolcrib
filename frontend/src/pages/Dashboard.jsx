@@ -17,31 +17,18 @@ export default function Dashboard() {
             console.log("Dashboard: Fetching profile for", user.id)
 
             // Try standard RLS fetch first
+
             let { data: profile, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
                 .single()
 
-            // If that fails (RLS block), try the secure RPC
-            if (error || !profile) {
-                console.warn("Standard fetch failed, trying secure RPC...", error)
-                const { data: rpcProfile, error: rpcError } = await supabase
-                    .rpc('get_my_profile')
-                    .single()
-
-                if (rpcError) {
-                    console.error("RPC fetch also failed:", rpcError)
-                } else if (rpcProfile) {
-                    console.log("Profile fetched via RPC:", rpcProfile)
-                    profile = rpcProfile
-                }
-            }
-
-            if (profile) {
+            if (error) {
+                console.error("Dashboard: Error fetching profile:", error)
+            } else if (profile) {
+                console.log("Dashboard: Profile loaded:", profile)
                 setUserProfile(profile)
-            } else {
-                console.error("Could not fetch profile via any method.")
             }
         }
     }

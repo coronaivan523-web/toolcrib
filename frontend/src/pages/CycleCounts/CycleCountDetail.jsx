@@ -597,41 +597,58 @@ export default function CycleCountDetail() {
                         </div>
                     </div>
 
-                    {/* UNIT COUNTERS (Expected / Counted) */}
-                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
-                        <div className="flex flex-col items-center">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold text-gray-300">EXPECTED UNITS</span>
-                            <span className="text-xl font-bold leading-none text-gray-200">
-                                {session?.lines?.reduce((sum, l) => sum + (l.qty_system || 0), 0) || 0}
-                            </span>
-                        </div>
-                        <div className="w-px h-6 bg-primary-700/50"></div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold text-yellow-500">REAL UNITS</span>
-                            <span className="text-xl font-bold leading-none text-yellow-500">
-                                {session?.lines?.reduce((sum, l) => sum + (l.qty_physical || 0), 0) || 0}
-                            </span>
-                        </div>
-                    </div>
 
-                    {/* ADJUSTMENT COUNTERS */}
+
+                    {/* NEW ADJUSTMENT COUNTERS (Grouped Items | Units) - SEPARATED BLOCKS */}
+
+                    {/* 1. NEGATIVE GROUP (Red) */}
                     <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold text-red-400">NEG (-)</span>
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-red-400">NEG ITEMS</span>
                             <span className="text-lg font-bold leading-none text-red-400">
                                 {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) < 0)).length || 0}
                             </span>
                         </div>
-                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="w-px h-6 bg-red-400/30"></div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold text-green-400">POS (+)</span>
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-red-400">NEG UNITS</span>
+                            <span className="text-lg font-bold leading-none text-red-400">
+                                {session?.lines?.reduce((sum, l) => {
+                                    if (l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) < 0)) {
+                                        return sum + (l.qty_physical - (l.qty_system || 0));
+                                    }
+                                    return sum;
+                                }, 0) || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 2. POSITIVE GROUP (Green) */}
+                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-green-400">POS ITEMS</span>
                             <span className="text-lg font-bold leading-none text-green-400">
                                 {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) > 0)).length || 0}
                             </span>
                         </div>
-                        <div className="w-px h-6 bg-primary-700/50"></div>
+                        <div className="w-px h-6 bg-green-400/30"></div>
                         <div className="flex flex-col items-center">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold text-blue-400">ZERO</span>
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-green-400">POS UNITS</span>
+                            <span className="text-lg font-bold leading-none text-green-400">
+                                +{session?.lines?.reduce((sum, l) => {
+                                    if (l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) > 0)) {
+                                        return sum + (l.qty_physical - (l.qty_system || 0));
+                                    }
+                                    return sum;
+                                }, 0) || 0}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 3. ZERO GROUP (Blue) */}
+                    <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-primary-300 uppercase font-bold text-blue-400">ZERO ITEMS</span>
                             <span className="text-lg font-bold leading-none text-blue-400">
                                 {session?.lines?.filter(l => l.qty_physical !== null && (l.qty_physical - (l.qty_system || 0) === 0)).length || 0}
                             </span>
@@ -1011,16 +1028,25 @@ export default function CycleCountDetail() {
                                 statusUser = u?.full_name || u?.email || 'Current Selection'
                             }
                             // 2. If line has explicit counted_by (Completed)
+                            else if (line?.counted_by_profile) {
+                                statusUser = line.counted_by_profile.full_name || line.counted_by_profile.email
+                            }
                             else if (line?.counted_by) {
                                 const u = users.find(user => user.id === line.counted_by)
                                 statusUser = u?.full_name || u?.email || 'Unknown'
                             }
                             // 3. Check session assigned_to ID (Database)
+                            else if (line?.session?.assigned_to_profile) {
+                                statusUser = line.session.assigned_to_profile.full_name || line.session.assigned_to_profile.email
+                            }
                             else if (line?.session?.assigned_to) {
                                 const u = users.find(user => user.id == line.session.assigned_to)
                                 statusUser = u?.full_name || u?.email || line?.session?.assignee?.full_name || 'Unknown'
                             }
                             // 4. Fallback to Parent Session Context
+                            else if (session?.assigned_to_profile) {
+                                statusUser = session.assigned_to_profile.full_name || session.assigned_to_profile.email
+                            }
                             else if (session?.assigned_to) {
                                 const u = users.find(user => user.id == session.assigned_to)
                                 statusUser = u?.full_name || u?.email || 'Unknown'
@@ -1062,18 +1088,24 @@ export default function CycleCountDetail() {
                                     <td className="p-2 text-center text-[10px] font-mono">{item.machine_asset || ''}</td>
 
                                     {/* Stock (Highlighted Red if low?) */}
-                                    {/* Stock (Highlighted Red if low?) */}
-                                    <td className="p-2 text-center">
-                                        <div className="flex justify-center">
-                                            {item.current_stock <= 2 ? (
-                                                <div className="flex items-center justify-center gap-1 bg-red-50 border border-red-100 text-red-600 px-2 py-0.5 rounded-full min-w-[3rem]">
-                                                    <span className="font-bold text-xs">{item.current_stock}</span>
-                                                    <AlertTriangle size={10} strokeWidth={3} />
+                                    {/* Stock (System) */}
+                                    <td className="p-2 text-center bg-gray-50/50">
+                                        {(() => {
+                                            const systemStockValue = line?.qty_system ?? item.current_stock;
+                                            const isLowStock = systemStockValue <= 2;
+                                            return (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {isLowStock ? (
+                                                        <div className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                                            <AlertTriangle size={12} />
+                                                            <span className="font-bold">{systemStockValue}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="font-bold text-gray-700">{systemStockValue}</span>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <span className="font-bold text-gray-700">{item.current_stock}</span>
-                                            )}
-                                        </div>
+                                            );
+                                        })()}
                                     </td>
 
                                     {/* Real Qty (Input/Display) */}
@@ -1087,7 +1119,8 @@ export default function CycleCountDetail() {
                                     <td className="p-2 text-center font-bold">
                                         {(() => {
                                             if (line?.qty_physical !== undefined && line?.qty_physical !== null) {
-                                                const diff = line.qty_physical - item.current_stock
+                                                const systemStock = line.qty_system ?? item.current_stock ?? 0
+                                                const diff = line.qty_physical - systemStock
                                                 if (diff === 0) return <span className="text-green-500">0</span>
                                                 return <span className={diff > 0 ? "text-blue-600" : "text-red-500"}>
                                                     {diff > 0 ? `+${diff}` : diff}

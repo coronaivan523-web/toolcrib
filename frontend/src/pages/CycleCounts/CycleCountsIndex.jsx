@@ -153,17 +153,21 @@ export default function CycleCountsIndex() {
                                     let displayStatus = session.status
                                     let statusColor = "bg-slate-50 text-slate-700 border-slate-200"
 
-                                    if (session.status === 'assigned') {
-                                        const totalLines = session.lines?.length || 0
-                                        const countedLines = session.lines?.filter(l => l.qty_physical !== null && l.qty_physical !== undefined).length || 0
+                                    // Calcular estado dinámico basado en los conteos realizados
+                                    const totalLines = session.lines?.length || 0
+                                    const countedLines = session.lines?.filter(l => l.qty_physical !== null && l.qty_physical !== undefined).length || 0
 
+                                    if (session.status === 'PENDING' || session.status === 'assigned') {
                                         if (totalLines > 0 && countedLines === totalLines) {
+                                            // Todos los items han sido contados
                                             displayStatus = 'CLOSED'
                                             statusColor = "bg-green-50 text-green-700 border-green-200"
                                         } else if (countedLines > 0) {
-                                            displayStatus = 'IN PROGRESS'
+                                            // Al menos un item ha sido contado (puede ser en varios días)
+                                            displayStatus = 'IN PROCESS'
                                             statusColor = "bg-blue-50 text-blue-700 border-blue-200"
                                         } else {
+                                            // Ningún item ha sido contado aún
                                             displayStatus = 'PENDING'
                                             statusColor = "bg-amber-50 text-amber-700 border-amber-200"
                                         }
