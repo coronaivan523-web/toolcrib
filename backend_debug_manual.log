@@ -13132,3 +13132,472 @@ postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' colum
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:36:40
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:37:49
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:40:41
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:40:47
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:44:26
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-22 09:44:40
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/4389e387-e781-48e7-8347-5269c40d5820/impersonate
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/users/4389e387-e781-48e7-8347-5269c40d5820/impersonate
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/90b2c5ac-d82b-48c6-a816-321c6b94760a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/90b2c5ac-d82b-48c6-a816-321c6b94760a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/27/history
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/27/history
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/1/history
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/1/history
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\requisitions.py", line 84, in read_requisitions
+    return RequisitionService.get_requisitions(skip=skip, limit=limit, status=status, requester_id=requester_id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\requisition_service.py", line 585, in get_requisitions
+    res = query.range(skip, skip + limit - 1).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\requisitions.py", line 91, in get_inbox
+    return RequisitionService.get_inbox(current_user.id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\requisition_service.py", line 525, in get_inbox
+    .execute()
+     ~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/27/history
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
