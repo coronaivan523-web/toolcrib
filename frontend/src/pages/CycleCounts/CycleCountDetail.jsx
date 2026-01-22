@@ -430,6 +430,23 @@ export default function CycleCountDetail() {
         }
     }
 
+    const handleCommitSession = async () => {
+        if (!session?.id) return;
+        if (!window.confirm("Are you sure you want to finalize this inventory session? This will update the system stock for all counted items.")) return;
+
+        try {
+            setSaving(true);
+            await cycleCountService.commitSession(session.id);
+            toast.success("Inventory session finalized successfully!");
+            await fetchSession(); // Refresh data to show closed status
+        } catch (error) {
+            console.error("Commit error:", error);
+            toast.error("Failed to commit session: " + (error.message || "Unknown error"));
+        } finally {
+            setSaving(false);
+        }
+    }
+
     // Compute Lines Map for Table Lookup
     const linesMap = useMemo(() => {
         // Start with session lines (Strictly from DB now)
@@ -541,29 +558,38 @@ export default function CycleCountDetail() {
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
 
             {/* 1. TOP HEADER (Brand + User) */}
-            <div className="bg-primary-900 text-white px-6 py-2 flex items-center justify-between shrink-0 shadow-md z-20">
-                <div className="flex flex-col w-48">
-                    <img src="/wasion_logo_large.png" alt="Wasion" className="h-8 object-contain object-left invert brightness-0" />
-                    <div className="text-[10px] uppercase tracking-[0.4em] font-bold text-center leading-none mt-1 opacity-80">Made in Mexico</div>
-                </div>
-
-                {/* User Badge */}
-                {/* User Badge */}
-                <div className="flex items-center gap-3 bg-primary-800/50 rounded-full pr-4 pl-1 py-1 border border-primary-700/50">
-                    <div className="h-9 w-9 rounded-full bg-primary-600 flex items-center justify-center border border-white/20 overflow-hidden relative">
-                        {userProfile?.avatar_url ? (
-                            <img src={userProfile.avatar_url} alt="User" className="h-full w-full object-cover" />
-                        ) : (
-                            <User size={18} />
-                        )}
+            <div className="bg-primary-900 text-white px-6 py-2 grid grid-cols-3 items-center shrink-0 shadow-md z-20">
+                <div className="flex items-center gap-8 justify-start">
+                    <div className="flex flex-col w-48">
+                        <img src="/wasion_logo_large.png" alt="Wasion" className="h-8 object-contain object-left invert brightness-0" />
+                        <div className="text-[10px] uppercase tracking-[0.4em] font-bold text-center leading-none mt-1 opacity-80">Made in Mexico</div>
                     </div>
-                    <div className="flex flex-col leading-none">
-                        <span className="text-xs font-bold">{userProfile?.full_name || userProfile?.email || 'Admin'}</span>
-                        <span className="text-[9px] text-primary-200 uppercase tracking-wider">{userProfile?.role || 'ADMIN'}</span>
+
+                    {/* Session ID - Moved to Left Group */}
+                    <div className="flex flex-col items-center -space-y-0.5">
+                        <span className="text-[8px] text-primary-300 uppercase font-bold tracking-widest opacity-60">SESSION ID</span>
+                        <span className="text-base font-bold tracking-wider text-white border-b border-primary-700/50 pb-0.5">{session?.ticket_id || id}</span>
                     </div>
                 </div>
 
-                <div className="text-right">
+                {/* User Badge - CENTERED */}
+                <div className="flex justify-center">
+                    <div className="flex items-center gap-3 bg-primary-800/50 rounded-full pr-4 pl-1 py-1 border border-primary-700/50">
+                        <div className="h-9 w-9 rounded-full bg-primary-600 flex items-center justify-center border border-white/20 overflow-hidden relative">
+                            {userProfile?.avatar_url ? (
+                                <img src={userProfile.avatar_url} alt="User" className="h-full w-full object-cover" />
+                            ) : (
+                                <User size={18} />
+                            )}
+                        </div>
+                        <div className="flex flex-col leading-none">
+                            <span className="text-xs font-bold">{userProfile?.full_name || userProfile?.email || 'Admin'}</span>
+                            <span className="text-[9px] text-primary-200 uppercase tracking-wider">{userProfile?.role || 'ADMIN'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-col items-end justify-center">
                     <h1 className="text-xl font-bold tracking-wider">CYCLE COUNT</h1>
                     <div className="text-xs text-primary-300 uppercase tracking-widest">MATERIAL CATALOG</div>
                 </div>
@@ -670,20 +696,37 @@ export default function CycleCountDetail() {
 
                     {/* FILTER STATUS & CLEAR */}
                     <div className="flex items-center gap-3 pl-4 border-l border-primary-700/50">
-                        {hasActiveFilters && (
+
+                        {/* FINISH SESSION BUTTON (Supervisor) */}
+                        {session?.status !== 'CLOSED' && (
                             <button
-                                onClick={handleClearFilters}
-                                className="flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full transition-colors shadow-sm"
-                                title="Clear all filters"
+                                onClick={handleCommitSession}
+                                disabled={saving}
+                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors shadow-sm ml-auto mr-4 flex items-center gap-2"
+                                title="Finalize Inventory and Update Stock"
                             >
-                                <X size={14} />
+                                <CheckCircle size={14} strokeWidth={2.5} />
+                                FINISH SESSION
                             </button>
                         )}
-                        <div className="flex flex-col items-end leading-none">
-                            <span className="text-[9px] text-primary-300 uppercase font-bold">SHOWING</span>
-                            <span className="text-xs font-bold text-white">
-                                {filteredMaterials.length} <span className="text-primary-400">/</span> {id === 'new' ? materials.length : (session?.lines?.length || 0)}
-                            </span>
+
+                        <div className="flex items-center gap-3">
+                            {/* Clear Filters */}
+                            {hasActiveFilters && (
+                                <button
+                                    onClick={handleClearFilters}
+                                    className="flex items-center justify-center bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full transition-colors shadow-sm"
+                                    title="Clear all filters"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="text-[9px] text-primary-300 uppercase font-bold">SHOWING</span>
+                                <span className="text-xs font-bold text-white">
+                                    {filteredMaterials.length} <span className="text-primary-400">/</span> {id === 'new' ? materials.length : (session?.lines?.length || 0)}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>

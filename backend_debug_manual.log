@@ -10833,3 +10833,2302 @@ httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una o
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/4b3560c5-c28a-4beb-b969-7f611c55b516
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
 [MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/07ccca02-8600-459c-bbd4-0fc78df328d5
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\materials.py", line 34, in get_material_catalog
+    ).limit(5000).order('part_number').execute()
+                                       ~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 40, in get_session_detail
+    return CycleCountService.get_session_by_id(id)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 39, in get_session_by_id
+    ).eq('session_id', str(id)).execute()
+                                ~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 15:47:04
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861/lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/467869b7-ef4f-4b04-b48e-7d31ea17d5a8
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/467869b7-ef4f-4b04-b48e-7d31ea17d5a8
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/bf13162b-f6d6-4f2c-bbf1-d188817d1861
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/26
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/26
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/9d8df87f-5fce-4d76-b7ca-69416669a614
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/9d8df87f-5fce-4d76-b7ca-69416669a614
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/33744711-2538-420e-b607-fe32b03948e3/lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/da51251e-9cd6-4410-99bb-b2669e38a48b/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/da51251e-9cd6-4410-99bb-b2669e38a48b/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/da51251e-9cd6-4410-99bb-b2669e38a48b/lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 15:57:30
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:01:16
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 96, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 96, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:37:08
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 19, in get_active_lines
+    return CycleCountService.get_active_lines()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 23, in get_active_lines
+    res = supabase_admin.table('cycle_count_lines').select(query).is_('qty_physical', 'null').order('counted_at', desc=True).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+[MIDDLEWARE CRASH] [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 438, in _read_incoming_data
+    raise self._read_exception  # pragma: nocover
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\connection.py", line 103, in handle_request
+    return self._connection.handle_request(request)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 187, in handle_request
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 150, in handle_request
+    status, headers = self._receive_response(
+                      ~~~~~~~~~~~~~~~~~~~~~~^
+        request=request, stream_id=stream_id
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 294, in _receive_response
+    event = self._receive_stream_event(request, stream_id)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 336, in _receive_stream_event
+    self._receive_events(request, stream_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 364, in _receive_events
+    events = self._read_incoming_data(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 455, in _read_incoming_data
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_sync\http2.py", line 441, in _read_incoming_data
+    data = self._network_stream.read(self.READ_NUM_BYTES, timeout)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_backends\sync.py", line 126, in read
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpcore\_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\materials.py", line 34, in get_material_catalog
+    ).limit(5000).order('part_number').execute()
+                                       ~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 47, in execute
+    r = self.request.send()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\base_request_builder.py", line 81, in send
+    return self.session.request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        self.http_method,
+        ^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        auth=self.auth,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\httpx\_transports\default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadError: [WinError 10035] No se puede completar de forma inmediata una operación de desbloqueo de socket
+
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 96, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:41:43
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:43:16
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 96, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/docs
+[MIDDLEWARE OUTER] GET http://127.0.0.1:8002/api/v1/openapi.json
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 96, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:47:00
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:48:08
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:48:08
+[MIDDLEWARE OUTER] GET http://localhost:8002/health/supabase
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 16:58:52
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 65, in create_session
+    existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'column cycle_count_sessions.ticket_id does not exist', 'code': '42703', 'hint': None, 'details': None}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 87, in create_session
+    traceback.print_exc()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 210, in print_exc
+    print_exception(sys.exception(), limit=limit, file=file, chain=chain)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 134, in print_exception
+    te.print(file=file, chain=chain, colorize=colorize)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 1575, in print
+    print(line, file=file, end="")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:09:24
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 65, in create_session
+    existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'column cycle_count_sessions.ticket_id does not exist', 'code': '42703', 'hint': None, 'details': None}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 87, in create_session
+    traceback.print_exc()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 210, in print_exc
+    print_exception(sys.exception(), limit=limit, file=file, chain=chain)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 134, in print_exception
+    te.print(file=file, chain=chain, colorize=colorize)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 1575, in print
+    print(line, file=file, end="")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:13:11
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:13:11
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 65, in create_session
+    existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'column cycle_count_sessions.ticket_id does not exist', 'code': '42703', 'hint': None, 'details': None}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 87, in create_session
+    f.write(f"ERROR generating ticket_id: {e}\n")
+    ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 210, in print_exc
+    print_exception(sys.exception(), limit=limit, file=file, chain=chain)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 134, in print_exception
+    te.print(file=file, chain=chain, colorize=colorize)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\traceback.py", line 1575, in print
+    print(line, file=file, end="")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:15:45
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:18:02
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:18:03
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/auth/login
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 65, in create_session
+    existing_res = supabase_admin.table('cycle_count_sessions').select('ticket_id').execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'column cycle_count_sessions.ticket_id does not exist', 'code': '42703', 'hint': None, 'details': None}
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 87, in create_session
+    print(f"ERROR generating ticket_id: {e}", file=sys.stderr)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 22] Invalid argument
+
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/auth/login
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:24:44
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/
+[MIDDLEWARE OUTER] GET http://localhost:8002/health/supabase
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE CRASH] {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\main.py", line 51, in dispatch
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 93, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\cors.py", line 144, in simple_response
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 120, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 106, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 430, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\fastapi\routing.py", line 318, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\to_thread.py", line 61, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 2525, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\anyio\_backends\_asyncio.py", line 986, in run
+    result = context.run(func, *args)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 33, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\api\v1\endpoints\cycle_counts.py", line 28, in create_session
+    result = CycleCountService.create_session(data, current_user.id)
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 116, in create_session
+    raise e
+  File "C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib\app\services\cycle_count_service.py", line 107, in create_session
+    res = supabase_admin.table('cycle_count_sessions').insert(payload).execute()
+  File "C:\Users\Ivan.Corona\AppData\Local\Programs\Python\Python314\Lib\site-packages\postgrest\_sync\request_builder.py", line 53, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': "Could not find the 'ticket_id' column of 'cycle_count_sessions' in the schema cache", 'code': 'PGRST204', 'hint': None, 'details': None}
+
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:28:08
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:28:09
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:28:28
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:29:31
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:29:45
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:29:46
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:30:15
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a/lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/90e50278-853c-4a41-94e7-53a6b6315a24
+[MIDDLEWARE OUTER] DELETE http://localhost:8002/api/v1/users/90e50278-853c-4a41-94e7-53a6b6315a24
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/26653bd9-0429-4691-bdd6-ab94445384de
+[MIDDLEWARE OUTER] DELETE http://localhost:8002/api/v1/users/26653bd9-0429-4691-bdd6-ab94445384de
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/0873be7d-b07f-4498-ac83-0fb8f3276809
+[MIDDLEWARE OUTER] DELETE http://localhost:8002/api/v1/users/0873be7d-b07f-4498-ac83-0fb8f3276809
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/84e8b916-4212-47fc-922c-428f20064079
+[MIDDLEWARE OUTER] DELETE http://localhost:8002/api/v1/users/84e8b916-4212-47fc-922c-428f20064079
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/59a2c895-c9e2-434a-8f3b-53da7171667e
+[MIDDLEWARE OUTER] DELETE http://localhost:8002/api/v1/users/59a2c895-c9e2-434a-8f3b-53da7171667e
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:38:35
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:38:36
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:40:25
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:41:16
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 17:42:20
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/26
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/26
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/8dcf95ed-d2e8-46d6-b563-8d298989ba14
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/8dcf95ed-d2e8-46d6-b563-8d298989ba14
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/24
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/8a95a9e4-4df1-47dd-a23b-3418d7919278
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/8a95a9e4-4df1-47dd-a23b-3418d7919278
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/2215af38-4a26-4b6c-8793-8e9b92935375/impersonate
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/users/2215af38-4a26-4b6c-8793-8e9b92935375/impersonate
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/requisitions/inbox
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/users/a4f7c085-100d-44ee-91d2-d884a0503031/impersonate
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/27
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/27
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/0a4f8e18-4f04-4550-9588-59f642023ebc
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/0a4f8e18-4f04-4550-9588-59f642023ebc
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/15
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/15
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/7fd9e685-9cfa-4272-a89b-b9a960b65e56
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/7fd9e685-9cfa-4272-a89b-b9a960b65e56
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/14
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/14
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/78c4551c-cca5-474d-b9db-3159d3bb9303
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/78c4551c-cca5-474d-b9db-3159d3bb9303
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/17
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/17
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/2253950b-e0d5-4805-ab06-46d4a60d1478
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/2253950b-e0d5-4805-ab06-46d4a60d1478
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/9
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/9
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/a3eeeeac-9f7d-4043-93a2-52164f8b6c54
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/a3eeeeac-9f7d-4043-93a2-52164f8b6c54
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/5
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/5
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/1a807fd0-00e2-449b-93f0-01fe46344cd0
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/1a807fd0-00e2-449b-93f0-01fe46344cd0
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/8
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/8
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/lines/4398a09c-00a8-411b-b00e-fe4557025886
+[MIDDLEWARE OUTER] PATCH http://localhost:8002/api/v1/cycle-counts/lines/4398a09c-00a8-411b-b00e-fe4557025886
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 18:35:12
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 18:40:38
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 18:59:27
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/96ea6851-5ca7-408d-b8be-1b8dfc272c8a
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee/lines
+[MIDDLEWARE OUTER] POST http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee/lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/active_lines
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/users/debug/check
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/catalog
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/9b895856-1c7f-4d77-af78-5581340ec7ee
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/materials/3
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/materials/3
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:10:55
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] OPTIONS http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:32:24
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:32:46
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:32:47
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:32:49
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:33:32
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:33:33
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:34:00
+
+[SYSTEM] SERVER RESTARTED AT 2026-01-21 19:34:10
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts
+[MIDDLEWARE OUTER] GET http://localhost:8002/api/v1/cycle-counts/

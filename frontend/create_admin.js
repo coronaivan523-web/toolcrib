@@ -23,8 +23,10 @@ function parseEnv(filePath) {
 }
 
 // Load env vars
-let env = parseEnv(path.resolve(__dirname, '.env'));
-if (!env.VITE_SUPABASE_URL) Object.assign(env, parseEnv(path.resolve(__dirname, '../.env')));
+// Load env vars
+const localEnv = parseEnv(path.resolve(__dirname, '.env'));
+const rootEnv = parseEnv(path.resolve(__dirname, '../.env'));
+let env = { ...rootEnv, ...localEnv }; // Merge, local wins for conflicts like URL if needed, but we need keys from root
 
 // Use SERVICE KEY for admin actions (creating users, setting roles)
 const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL

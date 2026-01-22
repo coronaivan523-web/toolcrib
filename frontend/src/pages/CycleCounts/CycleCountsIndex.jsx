@@ -131,7 +131,9 @@ export default function CycleCountsIndex() {
                                 <th className="px-6 py-4">Planned Date</th>
                                 <th className="px-6 py-4">Count Date</th>
                                 <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Assigned To</th>
                                 <th className="px-6 py-4">Created By</th>
+                                <th className="px-6 py-4 text-center">Progress</th>
                                 <th className="px-6 py-4 text-right">Action</th>
                             </tr>
                         </thead>
@@ -230,8 +232,39 @@ export default function CycleCountsIndex() {
                                             <td className="px-6 py-4 text-slate-600">
                                                 <div className="flex items-center gap-2">
                                                     <User size={14} className="text-slate-400" />
+                                                    {session.assigned_to_profile?.full_name || session.assigned_to_profile?.email || session.created_by_profile?.full_name || session.created_by_user?.email || 'System'}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                <div className="flex items-center gap-2">
+                                                    <User size={14} className="text-slate-400" />
                                                     {session.created_by_profile?.full_name || session.created_by_profile?.email || session.created_by_user?.email || 'System'}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {(() => {
+                                                    const totalUnits = session.lines?.reduce((sum, line) => sum + (line.qty_system || 0), 0) || 0;
+                                                    const processedUnits = session.lines?.reduce((sum, line) => {
+                                                        if (line.qty_physical !== null && line.qty_physical !== undefined) {
+                                                            return sum + (line.qty_system || 0);
+                                                        }
+                                                        return sum;
+                                                    }, 0) || 0;
+
+                                                    const progress = totalUnits > 0
+                                                        ? Math.round((processedUnits / totalUnits) * 100)
+                                                        : (session.status === 'CLOSED' || session.status === 'COMPLETED' ? 100 : 0);
+
+                                                    let progressColor = "text-slate-600 bg-slate-100";
+                                                    if (progress === 100) progressColor = "text-green-600 bg-green-100";
+                                                    else if (progress > 0) progressColor = "text-blue-600 bg-blue-100";
+
+                                                    return (
+                                                        <span className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-bold w-12 ${progressColor}`}>
+                                                            {progress}%
+                                                        </span>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <Link to={`/cycle-counts/${session.id}`} className="text-sky-600 hover:text-sky-800 font-medium inline-flex items-center gap-1 p-1 hover:bg-sky-50 rounded transition-colors">

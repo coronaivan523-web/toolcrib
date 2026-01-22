@@ -35,5 +35,10 @@ export const cycleCountService = {
     updateLine: async (lineId, data) => {
         const response = await api.patch(`/cycle-counts/lines/${lineId}`, data)
         return response
+    },
+
+    commitSession: async (id) => {
+        const response = await api.post(`/cycle-counts/${id}/commit`)
+        return response
     }
 }

@@ -1,0 +1,76 @@
+RESUMEN MAESTRO - REPORTE TÉCNICO DE ARQUITECTURA
+Fecha: 2026-01-21
+Proyecto: ToolCrib (Sistema de Gestión de Pañol)
+
+1. OBJETIVO DEL SOFTWARE
+   El sistema tiene como objetivo gestionar el inventario, préstamos y requisiciones de herramientas y materiales (consumibles) en un entorno industrial ("Crib" o Pañol).
+   Permite:
+   - Controlar existencias de materiales (Stock actual, pendiente, mínimos).
+   - Gestionar solicitudes de usuarios (Tickets) mediante un sistema de "Carrito" para múltiples ítems.
+   - Automatizar el flujo de Requisiciones (Compras) con niveles de aprobación secuenciales (Solicitante -> Gerentes -> Compra).
+   - Realizar Conteos Cíclicos (Auditorías de inventario).
+   - Reportar problemas de calidad.
+
+2. LISTA DE TABLAS DE BASE DE DATOS (Detectadas)
+   - users (Supabase Auth - Gestión de identidad)
+   - profiles (Extensiones de usuario: rol, número de empleado, avatar)
+   - materials (Catálogo de ítems: SKU, descripción, stock, ubicación, imágenes)
+   - tickets (Cabecera de solicitudes de material)
+   - ticket_items (Detalle de solicitudes de material)
+   - requisitions (Cabecera de solicitudes de compra/abastecimiento)
+   - requisition_items (Detalle de ítems a comprar)
+   - requisition_approvals (Pasos del flujo de aprobación de requisiciones)
+   - requisition_attachments (Evidencias/Cotizaciones adjuntas)
+   - inventory_movements (Historial de entradas y salidas - Kardex)
+   - locations (Ubicaciones físicas en almacén)
+   - notifications (Alertas de stock bajo, aprobaciones pendientes)
+   - quality_reports (Reportes de defectos/calidad - Detectado en SQL y Código, posible implementación parcial)
+   - messages (Sistema de mensajería interna, tabla reciente)
+   - cycle_counts (Auditorías de inventario - Refactorización reciente a V2)
+
+3. REGLAS DE NEGOCIO PRINCIPALES
+   A. Requisiciones (Compras):
+      - Flujo estricto de estados: DRAFT -> UNDER_APPROVAL -> APPROVED_PRE_PURCHASE -> ORDERED -> RECEIVED.
+      - Aprobación en cascada: Si un gerente rechaza, el estado cambia a REWORK_REQUIRED (Corrección).
+      - Al reenviar una corrección, se reinician las aprobaciones futuras pero se mantiene el historial.
+      - Uso de "Admin Client" en backend para bypass de RLS en flujos críticos.
+
+   B. Tickets (Préstamos/Consumo):
+      - Sistema de Carrito: Los usuarios agregan múltiples materiales antes de confirmar.
+      - Validación de Stock: No se permite solicitar más de (Stock Actual - Stock Pendiente).
+      - Datos de Trabajo: Se requiere especificar Planta, Área, Máquina y Proceso para cada ítem (Trazabilidad de costos).
+      - Actualización en Tiempo Real: Uso de Supabase Realtime para que el pañolero vea solicitudes al instante.
+
+   C. Seguridad y Roles:
+      - Roles definidos: Admin, Supervisor, Toolroom Staff, User.
+      - RLS (Row Level Security): Implementado en PostgreSQL para aislar datos, aunque frecuentemente bypasseado por el backend para gestión centralizada.
+
+4. STACK TECNOLÓGICO
+   - Frontend:
+     - Framework: React (Vite)
+     - Lenguaje: JavaScript (JSX)
+     - UI: TailwindCSS, Lucide React (Iconos), Framer Motion (Animaciones)
+     - Estado/Data: React Query (implícito/posible), Supabase Client
+   
+   - Backend:
+     - Framework: FastAPI (Python)
+     - Servidor: Uvicorn
+     - Auth: python-jose (JWT), Passlib
+     - Cliente DB: Supabase Python Client (REST over Postgres)
+   
+   - Base de Datos:
+     - PostgreSQL (Hospedado en Supabase)
+     - Almacenamiento de Archivos: Supabase Storage (Buckets para imágenes de materiales y adjuntos)
+
+5. PENDIENTES E INCONSISTENCIAS DETECTADAS
+   [CRÍTICO] Seguridad:
+   - Se detectó una clave secreta HARDCODED en `app/core/security.py`: `SECRET_KEY = "your-secret-key-here-change-in-production"`. DEBE cambiarse y moverse a variables de entorno (.env) inmediatamente.
+
+   [MANTENIMIENTO] Limpieza de Código:
+   - El directorio raíz contiene excesivos scripts de "debug", "fix", y "test" (ej: `debug_sim_27.py`, `fix_stock.py`). Esto sugiere deuda técnica y parches manuales en producción. Se recomienda moverlos a una carpeta `scripts/maintenance` o eliminarlos.
+   
+   [FUNCIONALIDAD] Reportes de Calidad:
+   - Existe el archivo `create_quality_reports_table.sql` "suelto" en la raíz. Aunque el frontend (Tickets.jsx) hace referencia a esta tabla, su estado de migración no es claro (no está en la carpeta `migrations` con timestamp). Verificar si está desplegado correctamente.
+
+   [REFACTORIZACIÓN]
+   - Existencia de scripts `v2` (ej: `create_cycle_counts_v2.sql`) sugiere migraciones en curso que podrían dejar tablas obsoletas o datos huérfanos si no se limpian.

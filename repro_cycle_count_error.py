@@ -18,7 +18,7 @@ from uuid import uuid4
 
 def test_repro():
     print("Preparing Repro Cycle Count Error...")
-    base_url = "http://localhost:8001/api/v1"
+    base_url = "http://localhost:8002/api/v1"
     
     # 1. Create Temp User (or use existing if we knew one)
     email = f"repro_cc_{uuid4()}@example.com"

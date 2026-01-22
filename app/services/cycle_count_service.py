@@ -43,7 +43,7 @@ class CycleCountService:
     @staticmethod
     def get_sessions():
         # Fetch sessions with lines for status/date computation
-        res = supabase_admin.table('cycle_count_sessions').select('*, lines:cycle_count_lines(count_date, qty_physical)').order('created_at', desc=True).execute()
+        res = supabase_admin.table('cycle_count_sessions').select('*, lines:cycle_count_lines(count_date, qty_physical, qty_system)').order('created_at', desc=True).execute()
         return CycleCountService._enrich_with_profiles(res.data)
 
     @staticmethod
@@ -188,9 +188,9 @@ class CycleCountService:
         if not res.data:
              raise HTTPException(status_code=500, detail="Insert line failed")
              
-        if payload.get('qty_physical') is not None:
-            # Update material stock immediately only if we have a count
-            supabase_admin.table('materials').update({'current_stock': payload['qty_physical']}).eq('id', data.material_id).execute()
+        # DEFERRED: Stock update moved to commit_session
+        # if payload.get('qty_physical') is not None:
+        #    supabase_admin.table('materials').update({'current_stock': payload['qty_physical']}).eq('id', data.material_id).execute()
         
         return res.data[0]
 
@@ -208,10 +208,64 @@ class CycleCountService:
         if not res.data:
             raise HTTPException(status_code=404, detail="Line not found or update failed")
         
-        # Real-time Stock Update (Simplified) - If qty_physical is updated
-        if 'qty_physical' in data and data['qty_physical'] is not None:
-             # Need material_id. Fetch line first or return it.
-             line = res.data[0]
-             supabase_admin.table('materials').update({'current_stock': data['qty_physical']}).eq('id', line['material_id']).execute()
+        # DEFERRED: Stock update moved to commit_session
+        # if 'qty_physical' in data and data['qty_physical'] is not None:
+        #      line = res.data[0]
+        #      supabase_admin.table('materials').update({'current_stock': data['qty_physical']}).eq('id', line['material_id']).execute()
              
         return res.data[0]
+
+    @staticmethod
+    def commit_session(session_id: UUID, user_id: str):
+        """
+        Finalizes the session:
+        1. Iterates all lines with a physical count.
+        2. Calculates delta vs system stock.
+        3. Records movement in inventory_movements.
+        4. Updates materials.current_stock.
+        5. Sets session status to CLOSED.
+        """
+        # 1. Fetch lines
+        session_res = supabase_admin.table('cycle_count_sessions').select('*, lines:cycle_count_lines(*)').eq('id', str(session_id)).single().execute()
+        if not session_res.data:
+             raise HTTPException(status_code=404, detail="Session not found")
+        
+        session = session_res.data
+        lines = session.get('lines', [])
+        
+        for line in lines:
+            # Skip if no physical count was ever entered
+            if line.get('qty_physical') is None:
+                continue
+
+            material_id = line['material_id']
+            qty_physical = line['qty_physical']
+            
+            # Fetch current live stock for accurate ledger
+            mat_res = supabase_admin.table('materials').select('current_stock').eq('id', material_id).single().execute()
+            current_live_stock = mat_res.data['current_stock'] if mat_res.data and mat_res.data.get('current_stock') is not None else 0
+            
+            # Calculate delta based on forcing the stock to be qty_physical
+            delta = qty_physical - current_live_stock
+            
+            if delta != 0:
+                # Record Movement
+                movement_payload = {
+                    "material_id": material_id,
+                    "quantity_change": delta,
+                    "new_stock_level": qty_physical,
+                    "previous_stock_level": current_live_stock,
+                    "movement_type": "CYCLE_COUNT",
+                    "reference_id": str(session_id),
+                    "reason": f"Cycle Count Adjustment (Session {session.get('ticket_id')})",
+                    "created_by": user_id
+                }
+                supabase_admin.table('inventory_movements').insert(movement_payload).execute()
+                
+                # Update Material
+                supabase_admin.table('materials').update({'current_stock': qty_physical}).eq('id', material_id).execute()
+        
+        # 2. Close Session
+        supabase_admin.table('cycle_count_sessions').update({'status': 'CLOSED'}).eq('id', str(session_id)).execute()
+        
+        return {"status": "success", "message": "Session committed and inventory updated"}

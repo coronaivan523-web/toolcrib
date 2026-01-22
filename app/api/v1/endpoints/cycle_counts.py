@@ -62,3 +62,13 @@ def update_line(
     current_user: Any = Depends(get_current_user)
 ):
     return CycleCountService.update_line(line_id, data)
+@router.post("/{id}/commit", response_model=dict)
+def commit_session(
+    id: UUID,
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        user_id = current_user.get('id')
+        return CycleCountService.commit_session(id, user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
