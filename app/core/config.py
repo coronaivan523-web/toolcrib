@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_KEY: str
     SUPABASE_SERVICE_KEY: Optional[str] = None
+    SECRET_KEY: str
     
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
