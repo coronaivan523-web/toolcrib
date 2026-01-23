@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy, useMemo } from 'react'
-import { X, Package, ArrowUpRight, ArrowDownLeft, Calendar, FileText, Info, AlertCircle, UploadCloud, Check, History, ExternalLink, Loader2 } from 'lucide-react'
+import { X, Package, ArrowUpRight, ArrowDownLeft, Calendar, FileText, Info, AlertCircle, UploadCloud, Check, ExternalLink, Loader2, Clock } from 'lucide-react'
 import clsx from 'clsx'
 import { materialService } from '../services/materials'
 import { requisitionService } from '../services/requisitions'
@@ -168,7 +168,7 @@ export default function MaterialHistoryView({ materialId, materialName, material
             <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-800 text-purple-400 border border-slate-700 rounded-lg">
-                        <History size={24} />
+                        <Clock size={24} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">

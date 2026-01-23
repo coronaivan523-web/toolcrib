@@ -4,7 +4,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, Save, X, Search, Filter,
     Check, AlertTriangle, Calendar, User, Image as ImageIcon,
-    MoreHorizontal, Plus, Trash2, EyeOff, CheckCircle, Lock, Minus, Clock
+    MoreHorizontal, Plus, Trash2, EyeOff, CheckCircle, Lock, Minus, Clock, AlertCircle
 } from 'lucide-react'
 import { cycleCountService } from '../../services/cycleCounts'
 import { materialService } from '../../services/materials'
@@ -13,6 +13,8 @@ import { useToast } from '../../context/ToastContext'
 import Button from '../../components/ui/Button'
 import clsx from 'clsx'
 import { format } from 'date-fns'
+import MaterialHistoryView from '../../components/MaterialHistoryView'
+import CycleCountItemDetailModal from '../../components/CycleCountItemDetailModal'
 
 export default function CycleCountDetail() {
     const { id } = useParams()
@@ -35,7 +37,8 @@ export default function CycleCountDetail() {
         location: '',
         process: '',
         area: '',
-        machine: ''
+        machine: '',
+        action: 'all' // Explicit default to show ALL items (Pending + Closed)
     })
 
     // Selection/Assignment State
@@ -51,6 +54,19 @@ export default function CycleCountDetail() {
     const [selectedMaterialForCount, setSelectedMaterialForCount] = useState(null) // Material being counted
     const [countingQty, setCountingQty] = useState('') // Quantity being entered
     const [previewImage, setPreviewImage] = useState(null) // Image URL to preview
+
+    // History Search State (Supervisor)
+    const [historySearchItem, setHistorySearchItem] = useState(null) // Selected item for search
+    const [showHistoryModal, setShowHistoryModal] = useState(false) // Show full history view
+    const historyTimerRef = React.useRef(null)
+
+    // Item Detail Popup State
+    const [itemDetail, setItemDetail] = useState(null)
+
+    // Adjustment / Validation Mode State (Supervisor)
+    const [adjustmentItem, setAdjustmentItem] = useState(null) // Material being adjusted
+    const [adjustmentQty, setAdjustmentQty] = useState('') // New Stock Quantity (editable)
+    const [showConfirmModal, setShowConfirmModal] = useState(false) // Double confirmation
 
     // Use a ref for current ID to handle the switch from 'new' to 'uuid' without race conditions in closures
     const idRef = React.useRef(id)
@@ -145,6 +161,21 @@ export default function CycleCountDetail() {
         fetchUsers()
         fetchSession()
         fetchCatalog()
+
+        // RESET FILTERS on Session Change to ensure no "hidden" items from previous navigation
+        setFilters(prev => ({
+            part_number: '',
+            description: '',
+            factory: '',
+            location: '',
+            process: '',
+            area: '',
+            machine: '',
+            user: '',
+            adjustment: 'all',
+            action: 'all'
+        }))
+        setShowCriticalStock(false)
     }, [id])
 
     // SIMULATED RESET: Removed to fix bug where viewing an existing 'sim-' session would auto-clear it.
@@ -168,7 +199,22 @@ export default function CycleCountDetail() {
     }
 
     const handleToggleItem = (material) => {
-        if (!isSelectionEnabled) return
+        // Auto-enable selection if user/date are set but isSelectionEnabled is false
+        if (!isSelectionEnabled) {
+            if (assignedUser && plannedDate) {
+                // Check date validity again just in case (optional, but good)
+                const minDate = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+                if (plannedDate < minDate) {
+                    toast.error("Invalid date selected (must be future).")
+                    return
+                }
+                setIsSelectionEnabled(true)
+                // Continue to toggle
+            } else {
+                toast.error("Please select a User and Planned Date first.")
+                return
+            }
+        }
 
         setTicketItems(prev => {
             const next = { ...prev }
@@ -430,20 +476,87 @@ export default function CycleCountDetail() {
         }
     }
 
-    const handleCommitSession = async () => {
-        if (!session?.id) return;
-        if (!window.confirm("Are you sure you want to finalize this inventory session? This will update the system stock for all counted items.")) return;
+    // --- HISTORY SEARCH HANDLERS ---
+    const handleHistoryClick = (item) => {
+        // Clear existing timer
+        if (historyTimerRef.current) clearTimeout(historyTimerRef.current)
 
+        setHistorySearchItem(item)
+
+        // Set 5s Timer
+        historyTimerRef.current = setTimeout(() => {
+            setHistorySearchItem(null)
+        }, 5000)
+    }
+
+    const handleExecuteHistorySearch = () => {
+        if (historyTimerRef.current) clearTimeout(historyTimerRef.current)
+        setShowHistoryModal(true)
+    }
+
+    // --- ADJUSTMENT HANDLERS (Supervisor) ---
+    const handleOpenAdjustment = (material) => {
+        const line = linesMap[material.id]
+        if (!line || line.qty_physical === null) {
+            toast.error("User has not counted this item yet.")
+            return
+        }
+        if (line.status === 'VALIDATED') {
+            toast.info("This item is already validated.")
+            return
+        }
+
+        setAdjustmentItem({ ...material, ...line }) // Merge material and line data
+        setAdjustmentQty(line.qty_physical) // Default to user count
+    }
+
+    const handleCloseAdjustment = () => {
+        setAdjustmentItem(null)
+        setAdjustmentQty('')
+        setShowConfirmModal(false)
+    }
+
+    const handleRequestConfirmation = () => {
+        // Validation logic if needed (e.g. negative stock warning?)
+        setShowConfirmModal(true)
+    }
+
+    const handleCommitAdjustment = async () => {
+        if (!adjustmentItem) return
+
+        setSaving(true)
         try {
-            setSaving(true);
-            await cycleCountService.commitSession(session.id);
-            toast.success("Inventory session finalized successfully!");
-            await fetchSession(); // Refresh data to show closed status
+            // 1. If Supervisor changed the qty, update the line first? 
+            // Better to send the final qty to the commit endpoint or update line then commit.
+            // Our commit_line endpoint takes the CURRENT line value.
+            // So if supervisor changed it, we must update line first.
+
+            if (parseInt(adjustmentQty) !== adjustmentItem.qty_physical) {
+                await cycleCountService.updateLine(adjustmentItem.id, {
+                    qty_physical: parseInt(adjustmentQty),
+                    counted_by: userProfile?.id // Supervisor "takes over" the count? Or preserve original counter? 
+                    // Let's preserve original counter but update value.
+                })
+            }
+
+            // 2. Commit
+            await cycleCountService.commitLine(adjustmentItem.id)
+
+            toast.success(`Inventory updated for ${adjustmentItem.part_number}`)
+
+            // 3. Update Local State (Visual Lock)
+            setSession(prev => ({
+                ...prev,
+                lines: prev.lines.map(l => l.id === adjustmentItem.id ? { ...l, qty_physical: parseInt(adjustmentQty), status: 'VALIDATED' } : l)
+            }))
+
+            handleCloseAdjustment()
+
         } catch (error) {
-            console.error("Commit error:", error);
-            toast.error("Failed to commit session: " + (error.message || "Unknown error"));
+            console.error("Adjustment Error:", error)
+            toast.error("Failed to update inventory")
         } finally {
-            setSaving(false);
+            setSaving(false)
         }
     }
 
@@ -558,7 +671,46 @@ export default function CycleCountDetail() {
         <div className="flex flex-col h-screen bg-slate-50 overflow-hidden font-sans">
 
             {/* 1. TOP HEADER (Brand + User) */}
-            <div className="bg-primary-900 text-white px-6 py-2 grid grid-cols-3 items-center shrink-0 shadow-md z-20">
+            <div className="bg-primary-900 text-white px-6 py-2 grid grid-cols-3 items-center shrink-0 shadow-md z-20 relative overflow-hidden">
+
+                {/* HISTORY SEARCH OVERLAY (Visible when item selected) */}
+                {historySearchItem && (
+                    <div className="absolute inset-0 bg-slate-900 z-50 flex items-center justify-between px-8 animate-in fade-in slide-in-from-top-2">
+                        <div className="flex items-center gap-4">
+                            <div className="h-8 w-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center animate-pulse">
+                                <Clock size={18} />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-blue-300 uppercase font-bold tracking-widest">SEARCH HISTORY FOR</span>
+                                <div className="flex items-baseline gap-3">
+                                    <span className="text-xl font-bold text-white">{historySearchItem.part_number}</span>
+                                    <span className="text-sm text-slate-400 truncate max-w-[300px]">{historySearchItem.name}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <span className="text-[9px] text-slate-500 font-mono">Auto-clear in 5s</span>
+                            <button
+                                onClick={handleExecuteHistorySearch}
+                                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold text-sm tracking-wide shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
+                            >
+                                <Search size={16} />
+                                VIEW HISTORY
+                            </button>
+                            <button
+                                onClick={() => setHistorySearchItem(null)}
+                                className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Timer Progress Bar (Visual Flair) */}
+                        <div className="absolute bottom-0 left-0 h-0.5 bg-blue-500 animate-[width_5s_linear_forwards] w-full" key={historySearchItem.id} />
+                    </div>
+                )}
+
                 <div className="flex items-center gap-8 justify-start">
                     <div className="flex flex-col w-48">
                         <img src="/wasion_logo_large.png" alt="Wasion" className="h-8 object-contain object-left invert brightness-0" />
@@ -590,6 +742,9 @@ export default function CycleCountDetail() {
                 </div>
 
                 <div className="flex flex-col items-end justify-center">
+                    {/* SUPERVISOR TOOLS: History Mode Switch */}
+                    {/* SUPERVISOR TOOLS: Item Detail Mode Active implicitly */}
+
                     <h1 className="text-xl font-bold tracking-wider">CYCLE COUNT</h1>
                     <div className="text-xs text-primary-300 uppercase tracking-widest">MATERIAL CATALOG</div>
                 </div>
@@ -599,12 +754,17 @@ export default function CycleCountDetail() {
             {/* Counting Mode: Show only HIDE CATALOG */}
             {isCountingMode ? (
                 <div className="bg-primary-800 text-white px-4 py-3 flex items-center justify-between shrink-0 shadow-sm z-10 gap-4">
-                    <button
-                        onClick={handleHideCatalog}
-                        className="bg-white text-primary-900 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors shadow-sm"
-                    >
-                        HIDE CATALOG
-                    </button>
+                    <div className="flex items-center gap-6">
+                        <button
+                            onClick={handleHideCatalog}
+                            className="bg-white text-primary-900 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors shadow-sm"
+                        >
+                            HIDE CATALOG
+                        </button>
+
+                        {/* SUPERVISOR TOOLS: History Mode Switch */}
+                        {/* History Mode Toggle Removed */}
+                    </div>
 
                     {/* GENERAL COUNTERS (Realized / Missing) */}
                     <div className="flex items-center gap-6 px-6 py-1 bg-primary-900/40 rounded border border-primary-700/30">
@@ -697,18 +857,7 @@ export default function CycleCountDetail() {
                     {/* FILTER STATUS & CLEAR */}
                     <div className="flex items-center gap-3 pl-4 border-l border-primary-700/50">
 
-                        {/* FINISH SESSION BUTTON (Supervisor) */}
-                        {session?.status !== 'CLOSED' && (
-                            <button
-                                onClick={handleCommitSession}
-                                disabled={saving}
-                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-colors shadow-sm ml-auto mr-4 flex items-center gap-2"
-                                title="Finalize Inventory and Update Stock"
-                            >
-                                <CheckCircle size={14} strokeWidth={2.5} />
-                                FINISH SESSION
-                            </button>
-                        )}
+                        {/* FINISH SESSION BUTTON REMOVED - Workflow Changed to Item-Level Commit */}
 
                         <div className="flex items-center gap-3">
                             {/* Clear Filters */}
@@ -748,12 +897,14 @@ export default function CycleCountDetail() {
                     <div className="bg-primary-800 text-white px-4 py-3 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm z-10">
 
                         {/* Left: Hide Catalog Button */}
-                        <button
-                            onClick={handleHideCatalog}
-                            className="bg-white text-primary-900 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors shadow-sm"
-                        >
-                            HIDE CATALOG
-                        </button>
+                        <div className="flex items-center gap-6">
+                            <button
+                                onClick={handleHideCatalog}
+                                className="bg-white text-primary-900 px-4 py-1.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors shadow-sm"
+                            >
+                                HIDE CATALOG
+                            </button>
+                        </div>
 
                         {/* Center: Assignment Controls */}
                         <div className="flex items-center gap-6 bg-primary-900/50 px-6 py-2 rounded-lg border border-primary-700/50">
@@ -877,6 +1028,12 @@ export default function CycleCountDetail() {
                     <thead className="bg-white sticky top-0 z-10 shadow-sm text-gray-500 font-bold uppercase tracking-wider text-[10px]">
                         {/* Header Row */}
                         <tr>
+                            {/* [NEW] ID='new' (Creation Mode): Checkbox Column Header */}
+                            {id === 'new' && (
+                                <th className="p-2 border-b border-gray-100 w-10 text-center">
+                                    <div className="w-4 h-4 rounded border border-gray-300 bg-gray-50 mx-auto"></div>
+                                </th>
+                            )}
                             <th className="p-2 border-b border-gray-100 w-32">PART #</th>
                             <th className="p-2 border-b border-gray-100 min-w-[200px]">DESCRIPTION</th>
                             <th className="p-2 border-b border-gray-100 text-center">FACTORY</th>
@@ -892,8 +1049,10 @@ export default function CycleCountDetail() {
                             <th className="p-2 border-b border-gray-100 text-center w-24 text-gray-300">USER</th>
                             <th className="p-2 border-b border-gray-100 text-center w-28">ACTION</th>
                         </tr>
-                        {/* Filter input Row */}
                         <tr className="bg-white">
+                            {/* Checkbox Filter Spacer */}
+                            {id === 'new' && <th className="p-1 border-b border-gray-100"></th>}
+
                             <th className="p-1 border-b border-gray-100">
                                 <input
                                     className="w-full border border-gray-200 rounded px-2 py-1 font-normal focus:ring-1 focus:ring-primary-300 outline-none"
@@ -902,6 +1061,7 @@ export default function CycleCountDetail() {
                                     onChange={(e) => setFilters({ ...filters, part_number: e.target.value })}
                                 />
                             </th>
+
                             <th className="p-1 border-b border-gray-100">
                                 <input
                                     className="w-full border border-gray-200 rounded px-2 py-1 font-normal focus:ring-1 focus:ring-primary-300 outline-none"
@@ -1099,16 +1259,67 @@ export default function CycleCountDetail() {
                                 statusUser = 'Pending (Assigned)'
                             }
 
+                            // --- ALERTS LOGIC (Step 4) ---
+                            // Check "Last Counted" warning
+                            const lastCountedDate = item.last_counted_at ? new Date(item.last_counted_at) : null
+                            let showLastCountedAlert = false
+                            if (lastCountedDate) {
+                                const daysSince = (new Date() - lastCountedDate) / (1000 * 60 * 60 * 24)
+                                // Show warning if MORE than 25 days (approx 1 month cycle approaching limit)
+                                // or if never counted (lastCountedDate is null usually handles by default rendering)
+                                if (daysSince > 25) showLastCountedAlert = true
+                            } else {
+                                // Never counted? Maybe alert too? For now only cycle warning.
+                                showLastCountedAlert = true
+                            }
+                            // Color code the alert: > 30 days RED, > 25 days ORANGE
+
+                            // Visual Lock for Validated Items
+                            const isValidated = line?.status === 'VALIDATED'
+
                             return (
                                 <tr
                                     key={item.id}
                                     className={clsx(
                                         "transition-colors group odd:bg-white even:bg-slate-100",
                                         isSelected ? "bg-blue-100/50" : "hover:bg-blue-50/50",
-                                        isCountingMode && "cursor-pointer hover:bg-primary-50"
+                                        isCountingMode && "cursor-pointer hover:bg-primary-50",
+                                        isValidated && "bg-green-50/50" // Light green tint for validated
                                     )}
-                                    onClick={() => isCountingMode && handleOpenCountPanel(item)}
+                                    onClick={(e) => {
+                                        // Ignore clicks on checkbox itself to prevent double toggle if logic overlaps
+                                        if (e.target.type === 'checkbox') return
+
+                                        if (!isCountingMode) {
+                                            // Handle "New Session" Mode -> Open Item Detail
+                                            setItemDetail(item)
+                                            return
+                                        }
+
+                                        // Role Detection (Existing Session Mode)
+                                        const role = (userProfile?.role || '').trim().toLowerCase()
+                                        const isSupervisor = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(role)
+
+                                        if (isSupervisor) {
+                                            handleOpenAdjustment(item)
+                                        } else {
+                                            handleOpenCountPanel(item)
+                                        }
+                                    }}
                                 >
+
+                                    {/* [NEW] Checkbox Cell (Only in New Mode) */}
+                                    {id === 'new' && (
+                                        <td className="p-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => handleToggleItem(item)}
+                                                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                        </td>
+                                    )}
+
                                     {/* Part # */}
                                     <td className="p-2 font-semibold text-primary-900">{item.part_number}</td>
 
@@ -1181,8 +1392,7 @@ export default function CycleCountDetail() {
                                         })()}
                                     </td>
 
-                                    {/* Real Date */}
-                                    <td className="p-2 text-center text-xs text-gray-700 font-medium">
+                                    <td className="p-2 text-center text-xs text-gray-700 font-medium relative">
                                         {line?.counted_date ? line.counted_date.split('-').reverse().join('/') : '-'}
                                     </td>
 
@@ -1195,7 +1405,14 @@ export default function CycleCountDetail() {
                                     <td className="p-1 text-center">
                                         {line ? (
                                             (line.qty_physical !== undefined && line.qty_physical !== null) ? (
-                                                <span className="text-gray-700 text-xs font-extrabold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">CLOSED</span>
+                                                isValidated ? (
+                                                    <div className="flex items-center justify-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded border border-green-200">
+                                                        <CheckCircle size={10} />
+                                                        <span className="text-[9px] font-extrabold uppercase tracking-wider">DONE</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-700 text-xs font-extrabold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">CLOSED</span>
+                                                )
                                             ) : (
                                                 <span className="text-orange-400 text-[10px] font-bold opacity-80 uppercase tracking-wider">PENDING</span>
                                             )
@@ -1415,6 +1632,155 @@ export default function CycleCountDetail() {
                         />
                     </div>
                 </div>
+            )}
+            {/* 6. ADJUSTMENT MODAL (Supervisor) */}
+            {adjustmentItem && !showConfirmModal && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-2xl w-96 transform transition-all scale-100 p-6">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Validar Conteo</h3>
+                                <p className="text-sm text-gray-500">{adjustmentItem.part_number}</p>
+                            </div>
+                            <button onClick={handleCloseAdjustment} className="text-gray-400 hover:text-gray-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Stock Sistema</span>
+                                    <span className="text-2xl font-bold text-gray-700">{adjustmentItem.current_stock || 0}</span>
+                                </div>
+                                <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
+                                    <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">Conteo Usuario</span>
+                                    <span className="text-2xl font-bold text-blue-600">{adjustmentItem.qty_physical}</span>
+                                </div>
+                            </div>
+
+                            <div className="pt-2">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Ajuste Final (Definitivo)</label>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setAdjustmentQty(prev => Math.max(0, parseInt(prev || 0) - 1))}
+                                        className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                    >
+                                        <Minus size={18} />
+                                    </button>
+                                    <input
+                                        type="number"
+                                        value={adjustmentQty}
+                                        onChange={(e) => setAdjustmentQty(e.target.value)}
+                                        className="flex-1 h-10 text-center font-bold text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                    />
+                                    <button
+                                        onClick={() => setAdjustmentQty(prev => parseInt(prev || 0) + 1)}
+                                        className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 flex gap-3">
+                                <button
+                                    onClick={handleCloseAdjustment}
+                                    className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg"
+                                >
+                                    CANCELAR
+                                </button>
+                                <button
+                                    onClick={handleRequestConfirmation}
+                                    className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/30"
+                                >
+                                    AJUSTAR
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 7. DOUBLE CONFIRMATION MODAL */}
+            {showConfirmModal && adjustmentItem && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-[500px] p-8 border-4 border-yellow-400/50 transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="h-20 w-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                <AlertTriangle size={40} className="text-yellow-600" />
+                            </div>
+
+                            <h2 className="text-3xl font-black text-gray-900 mb-2">¿ESTÁS SEGURO?</h2>
+                            <p className="text-gray-500 mb-8 max-w-sm">
+                                Se actualizará el inventario del sistema. Esta acción es definitiva y quedará registrada.
+                            </p>
+
+                            <div className="w-full bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 flex items-center justify-around relative overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent w-full h-full transform -skew-x-12 translate-x-full animate-shimmer" />
+
+                                <div className="flex flex-col items-center">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">STOCK ACTUAL</span>
+                                    <span className="text-4xl font-black text-gray-400 strike-through decoration-red-500/50 decoration-4">{adjustmentItem.current_stock || 0}</span>
+                                </div>
+
+                                <ArrowLeft size={32} className="text-gray-300 transform rotate-180" />
+
+                                <div className="flex flex-col items-center">
+                                    <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">NUEVO STOCK</span>
+                                    <span className="text-5xl font-black text-blue-600 drop-shadow-sm">{adjustmentQty}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 w-full">
+                                <button
+                                    onClick={() => setShowConfirmModal(false)}
+                                    className="flex-1 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-colors uppercase tracking-wider text-sm"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCommitAdjustment}
+                                    disabled={saving}
+                                    className="flex-1 py-4 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-transform active:scale-95 shadow-xl shadow-blue-500/30 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                                >
+                                    {saving ? 'Procesando...' : (
+                                        <>
+                                            CONFIRMAR CAMBIO
+                                            <CheckCircle size={18} strokeWidth={3} />
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* 8. HISTORY MODAL */}
+            {showHistoryModal && (historySearchItem || itemDetail) && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+                    <div className="w-full max-w-6xl h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        <MaterialHistoryView
+                            materialId={historySearchItem?.id || itemDetail?.id}
+                            materialName={historySearchItem?.name || itemDetail?.name}
+                            onClose={() => setShowHistoryModal(false)}
+                            usersMap={users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* 9. ITEM DETAIL POPUP (New) */}
+            {itemDetail && !showHistoryModal && (
+                <CycleCountItemDetailModal
+                    item={itemDetail}
+                    onClose={() => setItemDetail(null)}
+                    onViewHistory={(item) => {
+                        // Fix Race Condition: Set search item state BEFORE closing detail / opening history
+                        setHistorySearchItem(item)
+                        setShowHistoryModal(true)
+                    }}
+                />
             )}
         </div>
     )

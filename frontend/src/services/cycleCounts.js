@@ -40,5 +40,10 @@ export const cycleCountService = {
     commitSession: async (id) => {
         const response = await api.post(`/cycle-counts/${id}/commit`)
         return response
+    },
+
+    commitLine: async (lineId) => {
+        const response = await api.post(`/cycle-counts/lines/${lineId}/commit`)
+        return response
     }
 }

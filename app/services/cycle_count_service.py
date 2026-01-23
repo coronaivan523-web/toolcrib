@@ -54,7 +54,9 @@ class CycleCountService:
         query = '*, material:materials(name), session:cycle_count_sessions(assigned_to, planned_date)'
         
         # Order by created_at (counted_at) desc to show latest added first - Changed from count_date which can be null
-        res = client.table('cycle_count_lines').select(query).is_('qty_physical', 'null').order('counted_at', desc=True).execute()
+        # Show PENDING (null qty) AND CLOSED (qty but not validated)
+        # Filter out VALIDATED items which are "Done-Done"
+        res = client.table('cycle_count_lines').select(query).neq('status', 'VALIDATED').order('counted_at', desc=True).execute()
         # We could enrich here too but active lines list usually doesn't show user name in same way
         return res.data
 
@@ -207,56 +209,120 @@ class CycleCountService:
         return res.data[0]
 
     @staticmethod
-    def commit_session(session_id: UUID, user_id: str, client: Client):
+    def commit_line(line_id: UUID, user_id: str, client: Client):
         """
-        Finalizes the session:
-        1. Iterates all lines with a physical count.
-        2. Calculates delta vs system stock.
-        3. Records movement in inventory_movements.
-        4. Updates materials.current_stock.
-        5. Sets session status to CLOSED.
+        Commit a single line adjustment (Supervisor Action).
+        1. Fetch line details.
+        2. Calculate delta.
+        3. Insert Movement.
+        4. Update Material Stock + Last Counted Date.
+        5. Update Line Status to VALIDATED.
         """
-        # 1. Fetch lines
-        session_res = client.table('cycle_count_sessions').select('*, lines:cycle_count_lines(*)').eq('id', str(session_id)).single().execute()
-        if not session_res.data:
-             raise HTTPException(status_code=404, detail="Session not found")
+        # 1. Fetch Line
+        line_res = client.table('cycle_count_lines').select('*').eq('id', str(line_id)).single().execute()
+        if not line_res.data:
+            raise HTTPException(status_code=404, detail="Line not found")
         
-        session = session_res.data
-        lines = session.get('lines', [])
-        
-        for line in lines:
-            # Skip if no physical count was ever entered
-            if line.get('qty_physical') is None:
-                continue
+        line = line_res.data
+        if line.get('qty_physical') is None:
+             raise HTTPException(status_code=400, detail="Cannot commit line without physical quantity")
 
-            material_id = line['material_id']
-            qty_physical = line['qty_physical']
-            
-            # Fetch current live stock for accurate ledger
-            mat_res = client.table('materials').select('current_stock').eq('id', material_id).single().execute()
-            current_live_stock = mat_res.data['current_stock'] if mat_res.data and mat_res.data.get('current_stock') is not None else 0
-            
-            # Calculate delta based on forcing the stock to be qty_physical
-            delta = qty_physical - current_live_stock
-            
-            if delta != 0:
-                # Record Movement
-                movement_payload = {
-                    "material_id": material_id,
-                    "quantity_change": delta,
-                    "new_stock_level": qty_physical,
-                    "previous_stock_level": current_live_stock,
-                    "movement_type": "CYCLE_COUNT",
-                    "reference_id": str(session_id),
-                    "reason": f"Cycle Count Adjustment (Session {session.get('ticket_id')})",
-                    "created_by": user_id
-                }
-                client.table('inventory_movements').insert(movement_payload).execute()
-                
-                # Update Material
-                client.table('materials').update({'current_stock': qty_physical}).eq('id', material_id).execute()
+        material_id = line['material_id']
+        qty_physical = line['qty_physical']
         
-        # 2. Close Session
-        client.table('cycle_count_sessions').update({'status': 'CLOSED'}).eq('id', str(session_id)).execute()
+        # 2. Fetch Current Stock
+        mat_res = client.table('materials').select('current_stock').eq('id', material_id).single().execute()
+        current_live_stock = mat_res.data['current_stock'] if mat_res.data and mat_res.data.get('current_stock') is not None else 0
         
-        return {"status": "success", "message": "Session committed and inventory updated"}
+        # 3. Calculate Delta
+        delta = qty_physical - current_live_stock
+        
+        # 4. Insert Movement (if delta exists, or even if 0 to record the check?)
+        # User said "Record adjustment", usually implies change. 
+        # But for cycle count, confirming "0 diff" is also a valid "Count".
+        # Let's record it always as a "Verification" record.
+        
+        movement_payload = {
+            "material_id": material_id,
+            "quantity_change": delta,
+            "new_stock_level": qty_physical,
+            "previous_stock_level": current_live_stock,
+            "movement_type": "CYCLE_COUNT",
+            "reference_id": str(line_id), # Link to Line ID
+            "reason": f"Cycle Count Adjustment (Single Item)",
+            "created_by": user_id
+        }
+        client.table('inventory_movements').insert(movement_payload).execute()
+        
+        # 5. Update Material (Stock + timestamp)
+        import datetime
+        now = datetime.datetime.now().isoformat()
+        
+        client.table('materials').update({
+            'current_stock': qty_physical,
+            'last_counted_at': now
+        }).eq('id', material_id).execute()
+        
+        # 6. Update Line Status
+        client.table('cycle_count_lines').update({
+            'status': 'VALIDATED'
+        }).eq('id', str(line_id)).execute()
+        
+        return {"status": "success", "message": "Item adjusted and validated", "delta": delta}
+
+    @staticmethod
+    def commit_line(line_id: UUID, user_id: str, client: Client):
+        """
+        Commit a single line adjustment (Supervisor Action).
+        """
+        # 1. Fetch Line
+        line_res = client.table('cycle_count_lines').select('*').eq('id', str(line_id)).single().execute()
+        if not line_res.data:
+            raise HTTPException(status_code=404, detail="Line not found")
+        
+        line = line_res.data
+        if line.get('qty_physical') is None:
+             raise HTTPException(status_code=400, detail="Cannot commit line without physical quantity")
+
+        material_id = line['material_id']
+        qty_physical = line['qty_physical']
+        
+        # 2. Fetch Current Stock
+        mat_res = client.table('materials').select('current_stock').eq('id', material_id).single().execute()
+        current_live_stock = mat_res.data['current_stock'] if mat_res.data and mat_res.data.get('current_stock') is not None else 0
+        
+        # 3. Calculate Delta
+        delta = qty_physical - current_live_stock
+        
+        movement_payload = {
+            "material_id": material_id,
+            "quantity_change": delta,
+            "new_stock_level": qty_physical,
+            "previous_stock_level": current_live_stock,
+            "movement_type": "CYCLE_COUNT",
+            "reference_id": str(line_id),
+            "reason": f"Cycle Count Adjustment (Single Item)",
+            "created_by": user_id
+        }
+        client.table('inventory_movements').insert(movement_payload).execute()
+        
+        # 5. Update Material (Stock + timestamp)
+        import datetime
+        now = datetime.datetime.now().isoformat()
+        
+        client.table('materials').update({
+            'current_stock': qty_physical,
+            'last_counted_at': now
+        }).eq('id', material_id).execute()
+        
+        # 6. Update Line Status
+        client.table('cycle_count_lines').update({
+            'status': 'VALIDATED'
+        }).eq('id', str(line_id)).execute()
+        
+        return {"status": "success", "message": "Item adjusted and validated", "delta": delta}
+
+    @staticmethod
+    def commit_session(session_id: UUID, user_id: str, client: Client):
+        # DEPRECATED: Kept for legacy compatibility if needed, but Workflow moved to commit_line
+        pass

@@ -1,5 +1,5 @@
 import React from 'react'
-import { X, History } from 'lucide-react'
+import { X, Clock } from 'lucide-react'
 import MaterialHistoryView from './MaterialHistoryView'
 
 export default function MaterialHistoryModal({ materialId, materialName, materialsMap, usersMap, onClose }) {

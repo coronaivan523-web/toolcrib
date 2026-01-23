@@ -76,6 +76,19 @@ def update_line(
 ):
     return CycleCountService.update_line(line_id, data, current_client)
 
+@router.post("/lines/{line_id}/commit", response_model=dict)
+def commit_line_adjustment(
+    line_id: UUID,
+    current_user: Any = Depends(get_current_user),
+    current_client: Client = Depends(deps.get_supabase_client)
+):
+    try:
+        user_id = current_user.id
+        return CycleCountService.commit_line(line_id, user_id, current_client)
+    except Exception as e:
+        print(f"Commit Line Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{id}/commit", response_model=dict)
 def commit_session(
     id: UUID,
@@ -83,7 +96,7 @@ def commit_session(
     current_client: Client = Depends(deps.get_supabase_client)
 ):
     try:
-        user_id = current_user.get('id')
+        user_id = current_user.id
         return CycleCountService.commit_session(id, user_id, current_client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
