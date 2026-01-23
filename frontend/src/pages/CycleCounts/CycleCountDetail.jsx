@@ -1411,7 +1411,28 @@ export default function CycleCountDetail() {
                                                         <span className="text-[9px] font-extrabold uppercase tracking-wider">DONE</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-gray-700 text-xs font-extrabold bg-gray-100 px-2 py-0.5 rounded border border-gray-300">CLOSED</span>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation() // Prevent row click
+                                                            // Resolve role dynamically inside render to be safe or use variable from scope
+                                                            const role = (userProfile?.role || '').trim().toLowerCase()
+                                                            const isSupervisor = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(role)
+
+                                                            if (isSupervisor) {
+                                                                handleOpenAdjustment(item)
+                                                            }
+                                                        }}
+                                                        className={clsx(
+                                                            "text-xs font-extrabold px-2 py-0.5 rounded border transition-colors",
+                                                            // Check role again for styling
+                                                            ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes((userProfile?.role || '').trim().toLowerCase())
+                                                                ? "bg-white border-blue-300 text-blue-600 hover:bg-blue-50 cursor-pointer shadow-sm hover:shadow-md"
+                                                                : "bg-gray-100 border-gray-300 text-gray-700 cursor-default"
+                                                        )}
+                                                        title={['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes((userProfile?.role || '').trim().toLowerCase()) ? "Click to Validate/Adjust" : "Pending Validation"}
+                                                    >
+                                                        CLOSED
+                                                    </button>
                                                 )
                                             ) : (
                                                 <span className="text-orange-400 text-[10px] font-bold opacity-80 uppercase tracking-wider">PENDING</span>
@@ -1639,7 +1660,7 @@ export default function CycleCountDetail() {
                     <div className="bg-white rounded-xl shadow-2xl w-96 transform transition-all scale-100 p-6">
                         <div className="flex justify-between items-start mb-6">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900">Validar Conteo</h3>
+                                <h3 className="text-xl font-bold text-gray-900">Validate Count</h3>
                                 <p className="text-sm text-gray-500">{adjustmentItem.part_number}</p>
                             </div>
                             <button onClick={handleCloseAdjustment} className="text-gray-400 hover:text-gray-600">
@@ -1650,17 +1671,17 @@ export default function CycleCountDetail() {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
-                                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Stock Sistema</span>
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">System Stock</span>
                                     <span className="text-2xl font-bold text-gray-700">{adjustmentItem.current_stock || 0}</span>
                                 </div>
                                 <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
-                                    <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">Conteo Usuario</span>
+                                    <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">User Count</span>
                                     <span className="text-2xl font-bold text-blue-600">{adjustmentItem.qty_physical}</span>
                                 </div>
                             </div>
 
                             <div className="pt-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Ajuste Final (Definitivo)</label>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Final Adjustment (Definitive)</label>
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setAdjustmentQty(prev => Math.max(0, parseInt(prev || 0) - 1))}
@@ -1688,13 +1709,13 @@ export default function CycleCountDetail() {
                                     onClick={handleCloseAdjustment}
                                     className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg"
                                 >
-                                    CANCELAR
+                                    CANCEL
                                 </button>
                                 <button
                                     onClick={handleRequestConfirmation}
                                     className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/30"
                                 >
-                                    AJUSTAR
+                                    ADJUST
                                 </button>
                             </div>
                         </div>
@@ -1711,25 +1732,43 @@ export default function CycleCountDetail() {
                                 <AlertTriangle size={40} className="text-yellow-600" />
                             </div>
 
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">¿ESTÁS SEGURO?</h2>
+                            <h2 className="text-3xl font-black text-gray-900 mb-2">ARE YOU SURE?</h2>
                             <p className="text-gray-500 mb-8 max-w-sm">
-                                Se actualizará el inventario del sistema. Esta acción es definitiva y quedará registrada.
+                                System inventory will be updated. This action is definitive and will be recorded.
                             </p>
 
                             <div className="w-full bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 flex items-center justify-around relative overflow-hidden">
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent w-full h-full transform -skew-x-12 translate-x-full animate-shimmer" />
 
                                 <div className="flex flex-col items-center">
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">STOCK ACTUAL</span>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">CURRENT STOCK</span>
                                     <span className="text-4xl font-black text-gray-400 strike-through decoration-red-500/50 decoration-4">{adjustmentItem.current_stock || 0}</span>
                                 </div>
 
                                 <ArrowLeft size={32} className="text-gray-300 transform rotate-180" />
 
                                 <div className="flex flex-col items-center">
-                                    <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">NUEVO STOCK</span>
+                                    <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">NEW STOCK</span>
                                     <span className="text-5xl font-black text-blue-600 drop-shadow-sm">{adjustmentQty}</span>
                                 </div>
+                            </div>
+
+                            {/* DIFFERENCE INDICATOR */}
+                            <div className="flex justify-center mb-8 -mt-4">
+                                {(() => {
+                                    const diff = parseInt(adjustmentQty) - (adjustmentItem.current_stock || 0);
+                                    if (diff === 0) return null;
+                                    const isPositive = diff > 0;
+                                    return (
+                                        <div className={clsx(
+                                            "flex items-center gap-2 px-6 py-2 rounded-full font-black text-xl shadow-lg transform hover:scale-105 transition-transform",
+                                            isPositive ? "bg-blue-100 text-blue-700 border-2 border-blue-200" : "bg-red-100 text-red-700 border-2 border-red-200"
+                                        )}>
+                                            {isPositive ? <Plus size={24} strokeWidth={3} /> : <Minus size={24} strokeWidth={3} />}
+                                            <span>{Math.abs(diff)} UNITS</span>
+                                        </div>
+                                    )
+                                })()}
                             </div>
 
                             <div className="flex gap-4 w-full">
@@ -1737,16 +1776,16 @@ export default function CycleCountDetail() {
                                     onClick={() => setShowConfirmModal(false)}
                                     className="flex-1 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-colors uppercase tracking-wider text-sm"
                                 >
-                                    Cancelar
+                                    Cancel
                                 </button>
                                 <button
                                     onClick={handleCommitAdjustment}
                                     disabled={saving}
                                     className="flex-1 py-4 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-transform active:scale-95 shadow-xl shadow-blue-500/30 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
                                 >
-                                    {saving ? 'Procesando...' : (
+                                    {saving ? 'Processing...' : (
                                         <>
-                                            CONFIRMAR CAMBIO
+                                            CONFIRM CHANGE
                                             <CheckCircle size={18} strokeWidth={3} />
                                         </>
                                     )}

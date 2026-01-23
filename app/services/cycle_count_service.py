@@ -297,8 +297,8 @@ class CycleCountService:
         movement_payload = {
             "material_id": material_id,
             "quantity_change": delta,
-            "new_stock_level": qty_physical,
-            "previous_stock_level": current_live_stock,
+            # "new_stock_level": qty_physical,  <-- Comented to bypass Schema Cache Error (PGRST204)
+            # "previous_stock_level": current_live_stock, <-- Comented to bypass Schema Cache Error
             "movement_type": "CYCLE_COUNT",
             "reference_id": str(line_id),
             "reason": f"Cycle Count Adjustment (Single Item)",
