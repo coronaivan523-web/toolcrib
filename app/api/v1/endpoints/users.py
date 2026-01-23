@@ -326,48 +326,50 @@ def impersonate_user(
             raise HTTPException(status_code=404, detail="User or email not found")
         
         email = p['email']
+        print(f"DEBUG: Impersonating {email}...")
         
         # Generate Magic Link
-        # Note: generate_link params depend on Supabase Python SDK version.
-        # Usually: generate_link(params={"type": "magiclink", "email": email})
-        res = supabase_admin.auth.admin.generate_link({
-            "type": "magiclink",
-            "email": email
-        })
+        # Wrap in specific try/catch to debug library crashes
+        try:
+            res = supabase_admin.auth.admin.generate_link({
+                "type": "magiclink",
+                "email": email
+            })
+            print(f"DEBUG: Magic Link Response Type: {type(res)}")
+        except Exception as e:
+             print(f"CRITICAL: Supabase Admin generate_link failed: {e}")
+             # Return error instead of crashing
+             raise HTTPException(status_code=502, detail=f"Upstream Auth Provider Error: {str(e)}")
         
-        print(f"DEBUG: Magic Link Response: {res}")
-        
-        # res should contain properties like 'properties' or similar with 'action_link'
-        # Let's inspect structure if possible, but commonly: res.properties.action_link
-        
-        # Python SDK returns a UserResponse object usually? Or LinkResponse.
-        # It actually returns an object with `properties` which has `action_link`
-        
-        if hasattr(res, 'properties') and res.properties:
-             link = getattr(res.properties, 'action_link', None)
-        elif hasattr(res, 'action_link'):
-             link = res.action_link
-        else:
-             link = None
+        link = None
+        # Robust property extraction with safety checks
+        try:
+            if hasattr(res, 'properties') and res.properties and hasattr(res.properties, 'action_link'):
+                 link = res.properties.action_link
+            elif hasattr(res, 'action_link'):
+                 link = res.action_link
+            elif isinstance(res, dict) and 'action_link' in res:
+                 link = res['action_link']
+        except Exception as e:
+            print(f"Error parsing link response: {e}")
         
         if not link:
-            raise HTTPException(status_code=500, detail="Failed to generate magic link")
+            print(f"ERROR: Could not find action_link in response: {res}")
+            raise HTTPException(status_code=500, detail="Failed to generate magic link (No link returned)")
             
         # FIX: Dynamically replace base URL with the request origin (frontend URL)
-        # Supabase defaults to localhost:3000. We want to valid for whatever port the frontend is on.
         origin = request.headers.get("origin")
-        if origin and "localhost:3000" in link:
-             # Remove http:// or https:// if present in origin to match simpler replacement logic if needed,
-             # but "localhost:3000" usually includes port.
-             # Origin usually is "http://localhost:5174"
-             
-             # Extract scheme and integrity
+        if origin and link and "localhost:3000" in link:
              link = link.replace("http://localhost:3000", origin)
              link = link.replace("https://localhost:3000", origin)
              link = link.replace("localhost:3000", origin.replace("http://", "").replace("https://", ""))
             
         return {"magic_link": link}
 
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        print(f"Impersonate Error: {e}")
+        print(f"Impersonate Error (General): {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
