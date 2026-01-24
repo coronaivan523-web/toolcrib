@@ -22,7 +22,7 @@ export default function CycleCountItemDetailModal({ item, onClose, onViewHistory
 
                     {item.image_url ? (
                         <img
-                            src={item.image_url}
+                            src={item.signed_image_url || item.image_url || item.image}
                             alt={item.name}
                             className="max-h-64 object-contain drop-shadow-lg mix-blend-multiply"
                         />

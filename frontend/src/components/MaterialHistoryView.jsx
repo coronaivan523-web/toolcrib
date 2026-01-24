@@ -7,7 +7,7 @@ import { requisitionService } from '../services/requisitions'
 // Lazy load to avoid circular dependency (RequisitionDetailModal -> MaterialHistoryModal -> MaterialHistoryView -> RequisitionDetailModal)
 const RequisitionDetailModal = lazy(() => import('./RequisitionDetailModal'))
 
-export default function MaterialHistoryView({ materialId, materialName, materialsMap = {}, usersMap = {}, onClose }) {
+export default function MaterialHistoryView({ materialId, materialName, materialsMap = {}, usersMap = {}, onClose, filterMode = 'default' }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [data, setData] = useState(null)
@@ -20,6 +20,18 @@ export default function MaterialHistoryView({ materialId, materialName, material
     const [loadingReq, setLoadingReq] = useState(false)
 
     const filteredMovements = (data?.movements || []).filter(m => {
+        // Mode Filter (Implicit)
+        if (filterMode === 'cycle_count') {
+            // Show only Adjustments and Cycle Counts
+            const validTypes = ['CYCLE_COUNT', 'INVENTORY_ADJUSTMENT', 'ADJUSTMENT'];
+            if (!validTypes.includes(m.reference_type) && !validTypes.includes(m.movement_type)) {
+                // Check notes too? Sometimes type might be generic 'OUT' but reference is Cycle Count
+                if (!m.notes?.toLowerCase().includes('cycle') && !m.notes?.toLowerCase().includes('adjustment')) {
+                    return false;
+                }
+            }
+        }
+
         if (filterType === 'in') return m.movement_type === 'IN';
         if (filterType === 'out') return m.movement_type === 'OUT';
         return true;

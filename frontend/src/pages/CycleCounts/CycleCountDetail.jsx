@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, Save, X, Search, Filter,
@@ -13,8 +13,13 @@ import { useToast } from '../../context/ToastContext'
 import Button from '../../components/ui/Button'
 import clsx from 'clsx'
 import { format } from 'date-fns'
-import MaterialHistoryView from '../../components/MaterialHistoryView'
-import CycleCountItemDetailModal from '../../components/CycleCountItemDetailModal'
+// REMOVED: import MaterialHistoryView from '../../components/MaterialHistoryView'
+// REMOVED: import CycleCountItemDetailModal from '../../components/CycleCountItemDetailModal'
+
+// Lazy Loads
+const CycleCountItemDetailModal = lazy(() => import('../../components/CycleCountItemDetailModal'))
+const MaterialHistoryView = lazy(() => import('../../components/MaterialHistoryView'))
+const CycleCountHistoryModal = lazy(() => import('../../components/CycleCountHistoryModal'))
 
 export default function CycleCountDetail() {
     const { id } = useParams()
@@ -199,6 +204,13 @@ export default function CycleCountDetail() {
     }
 
     const handleToggleItem = (material) => {
+        // PERMITIR SOLO SI NO ESTÁ YA EN LA SESIÓN (Evitar duplicados)
+        if (linesMap[material.id]) {
+            // Visual feedback is enough, but a toast helps explain why clicking does nothing
+            // toast.info("Este material ya está en la lista activa.")
+            return
+        }
+
         // Auto-enable selection if user/date are set but isSelectionEnabled is false
         if (!isSelectionEnabled) {
             if (assignedUser && plannedDate) {
@@ -620,7 +632,7 @@ export default function CycleCountDetail() {
                 // Only items with a count can be filtered by adjustment (others are implicitly pending/unknown)
                 if (!line || line.qty_physical === undefined || line.qty_physical === null) return false
 
-                const diff = line.qty_physical - m.current_stock
+                const diff = line.qty_physical - (line.qty_system ?? m.current_stock ?? 0)
                 if (filters.adjustment === 'zero' && diff !== 0) return false
                 if (filters.adjustment === 'positive' && diff <= 0) return false
                 if (filters.adjustment === 'negative' && diff >= 0) return false
@@ -629,7 +641,8 @@ export default function CycleCountDetail() {
             // Action Filter
             if (filters.action && filters.action !== 'all') {
                 const line = linesMap[m.id]
-                if (filters.action === 'closed' && (!line || line.qty_physical === undefined || line.qty_physical === null)) return false
+                if (filters.action === 'validated' && (!line || line.status !== 'VALIDATED')) return false
+                if (filters.action === 'closed' && (!line || line.qty_physical === undefined || line.qty_physical === null || line.status === 'VALIDATED')) return false
                 if (filters.action === 'pending' && (!line || (line.qty_physical !== undefined && line.qty_physical !== null))) return false
                 if (filters.action === 'unassigned' && line) return false // If line exists, it's assigned
             }
@@ -1041,9 +1054,10 @@ export default function CycleCountDetail() {
                             <th className="p-2 border-b border-gray-100 text-center">PROCESS</th>
                             <th className="p-2 border-b border-gray-100 text-center">AREA</th>
                             <th className="p-2 border-b border-gray-100 text-center">MACHINE</th>
-                            <th className="p-2 border-b border-gray-100 text-center w-20">STOCK</th>
                             <th className="p-2 border-b border-gray-100 text-center w-24 bg-blue-50/50 text-blue-700">REAL QTY</th>
                             <th className="p-2 border-b border-gray-100 text-center w-24">ADJUSTMENT</th>
+                            <th className="p-2 border-b border-gray-100 text-center w-20 text-gray-400">PREV STOCK</th>
+                            <th className="p-2 border-b border-gray-100 text-center w-20">CURRENT STOCK</th>
                             <th className="p-2 border-b border-gray-100 text-center w-28 text-gray-300">PLANNED Date..</th>
                             <th className="p-2 border-b border-gray-100 text-center w-28 text-gray-300">REAL DATE</th>
                             <th className="p-2 border-b border-gray-100 text-center w-24 text-gray-300">USER</th>
@@ -1110,19 +1124,6 @@ export default function CycleCountDetail() {
                                     onChange={(e) => setFilters({ ...filters, machine: e.target.value })}
                                 />
                             </th>
-                            <th className="p-1 border-b border-gray-100 text-center">
-                                <button
-                                    onClick={() => setShowCriticalStock(!showCriticalStock)}
-                                    className={clsx(
-                                        "p-1.5 rounded transition-all shadow-sm border w-full",
-                                        showCriticalStock
-                                            ? "bg-red-500 border-red-600 text-white"
-                                            : "bg-red-50 border-red-100 text-red-400 hover:border-red-300 hover:bg-red-100"
-                                    )}
-                                >
-                                    <AlertTriangle size={14} strokeWidth={2.5} className="mx-auto" />
-                                </button>
-                            </th>
                             <th className="p-1 border-b border-gray-100"></th>
 
                             <th className="p-1 border-b border-gray-100 text-center w-24">
@@ -1165,6 +1166,23 @@ export default function CycleCountDetail() {
                                     </button>
                                 </div>
                             </th>
+                            {/* Prev Stock Filter Spacer */}
+                            <th className="p-1 border-b border-gray-100"></th>
+
+                            {/* Current Stock Filter (Critical) */}
+                            <th className="p-1 border-b border-gray-100 text-center">
+                                <button
+                                    onClick={() => setShowCriticalStock(!showCriticalStock)}
+                                    className={clsx(
+                                        "p-1.5 rounded transition-all shadow-sm border w-full",
+                                        showCriticalStock
+                                            ? "bg-red-500 border-red-600 text-white"
+                                            : "bg-red-50 border-red-100 text-red-400 hover:border-red-300 hover:bg-red-100"
+                                    )}
+                                >
+                                    <AlertTriangle size={14} strokeWidth={2.5} className="mx-auto" />
+                                </button>
+                            </th>
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100"></th>
                             <th className="p-1 border-b border-gray-100 text-center">
@@ -1178,6 +1196,18 @@ export default function CycleCountDetail() {
                             <th className="p-1 border-b border-gray-100 text-center w-28">
                                 <div className="flex items-center justify-center gap-1">
                                     <button
+                                        onClick={() => setFilters({ ...filters, action: filters.action === 'validated' ? 'all' : 'validated' })}
+                                        className={clsx(
+                                            "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
+                                            filters.action === 'validated'
+                                                ? "bg-green-500 border-green-600 text-white"
+                                                : "bg-green-50 border-green-200 text-green-500 hover:bg-green-100 opacity-50 hover:opacity-100"
+                                        )}
+                                        title="Show Done (Validated) Items"
+                                    >
+                                        <CheckCircle size={12} strokeWidth={2.5} />
+                                    </button>
+                                    <button
                                         onClick={() => setFilters({ ...filters, action: filters.action === 'closed' ? 'all' : 'closed' })}
                                         className={clsx(
                                             "w-6 h-6 flex items-center justify-center rounded transition-all shadow-sm border",
@@ -1185,7 +1215,7 @@ export default function CycleCountDetail() {
                                                 ? "bg-gray-600 border-gray-700 text-white"
                                                 : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 opacity-50 hover:opacity-100"
                                         )}
-                                        title="Show Closed Items"
+                                        title="Show Closed (Counted) Items"
                                     >
                                         <Lock size={12} strokeWidth={2.5} />
                                     </button>
@@ -1290,20 +1320,26 @@ export default function CycleCountDetail() {
                                         // Ignore clicks on checkbox itself to prevent double toggle if logic overlaps
                                         if (e.target.type === 'checkbox') return
 
-                                        if (!isCountingMode) {
-                                            // Handle "New Session" Mode -> Open Item Detail
-                                            setItemDetail(item)
+                                        // REMOVED: Global row click for Item Detail. Now specific to Part Number column.
+
+                                        if (id === 'new') {
+                                            // In creation mode, maybe we still want row click to toggle selection?
+                                            // User asked to RESTRICT detail view. 
+                                            // Let's keep row click for SELECTION toggle in 'new' mode if desired, or disable it.
+                                            // For now, disabling detail popup on row click.
                                             return
                                         }
 
-                                        // Role Detection (Existing Session Mode)
-                                        const role = (userProfile?.role || '').trim().toLowerCase()
-                                        const isSupervisor = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(role)
+                                        if (isCountingMode) {
+                                            // Role Detection (Existing Session Mode)
+                                            const role = (userProfile?.role || '').trim().toLowerCase()
+                                            const isSupervisor = ['admin', 'administrator', 'supervisor', 'supervisor_tool'].includes(role)
 
-                                        if (isSupervisor) {
-                                            handleOpenAdjustment(item)
-                                        } else {
-                                            handleOpenCountPanel(item)
+                                            if (isSupervisor) {
+                                                handleOpenAdjustment(item)
+                                            } else {
+                                                handleOpenCountPanel(item)
+                                            }
                                         }
                                     }}
                                 >
@@ -1321,7 +1357,17 @@ export default function CycleCountDetail() {
                                     )}
 
                                     {/* Part # */}
-                                    <td className="p-2 font-semibold text-primary-900">{item.part_number}</td>
+                                    {/* Part # */}
+                                    <td
+                                        className="p-2 font-semibold text-blue-600 hover:text-blue-800 cursor-pointer hover:underline"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setItemDetail(item)
+                                        }}
+                                        title="View Material History & Details"
+                                    >
+                                        {item.part_number}
+                                    </td>
 
                                     {/* Description */}
                                     <td className="p-2 truncate max-w-[200px]" title={item.name}>{item.name}</td>
@@ -1340,27 +1386,6 @@ export default function CycleCountDetail() {
 
                                     {/* Machine */}
                                     <td className="p-2 text-center text-[10px] font-mono">{item.machine_asset || ''}</td>
-
-                                    {/* Stock (Highlighted Red if low?) */}
-                                    {/* Stock (System) */}
-                                    <td className="p-2 text-center bg-gray-50/50">
-                                        {(() => {
-                                            const systemStockValue = line?.qty_system ?? item.current_stock;
-                                            const isLowStock = systemStockValue <= 2;
-                                            return (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    {isLowStock ? (
-                                                        <div className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                                                            <AlertTriangle size={12} />
-                                                            <span className="font-bold">{systemStockValue}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="font-bold text-gray-700">{systemStockValue}</span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })()}
-                                    </td>
 
                                     {/* Real Qty (Input/Display) */}
                                     <td className="p-1 text-center bg-blue-50/20">
@@ -1384,6 +1409,31 @@ export default function CycleCountDetail() {
                                         })()}
                                     </td>
 
+                                    {/* PREV STOCK (Snapshot) */}
+                                    <td className="p-2 text-center text-gray-400 font-mono text-xs">
+                                        {line?.qty_system ?? '-'}
+                                    </td>
+
+                                    {/* CURRENT STOCK (Live System) */}
+                                    <td className="p-2 text-center bg-gray-50/50">
+                                        {(() => {
+                                            const currentStock = item.current_stock;
+                                            const isLowStock = currentStock <= 2;
+                                            return (
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {isLowStock ? (
+                                                        <div className="flex items-center gap-1 text-red-500 bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                                                            <AlertTriangle size={12} />
+                                                            <span className="font-bold">{currentStock}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="font-bold text-gray-700">{currentStock}</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </td>
+
                                     <td className="p-2 text-center text-xs text-gray-600 font-medium">
                                         {(() => {
                                             // Priority: 1. Line specific date, 2. Line's session date, 3. Global Session date, 4. Local selection (New mode)
@@ -1393,7 +1443,7 @@ export default function CycleCountDetail() {
                                     </td>
 
                                     <td className="p-2 text-center text-xs text-gray-700 font-medium relative">
-                                        {line?.counted_date ? line.counted_date.split('-').reverse().join('/') : '-'}
+                                        {line?.count_date ? line.count_date.split('-').reverse().join('/') : '-'}
                                     </td>
 
                                     {/* User */}
@@ -1473,9 +1523,16 @@ export default function CycleCountDetail() {
 
                         {/* Header + Date Status Combined */}
                         {(() => {
-                            const plannedDate = new Date(session?.planned_date || '')
                             const today = new Date()
                             today.setHours(0, 0, 0, 0)
+
+                            // FIX: Parse date as LOCAL time to avoid UTC shift (e.g. 24th becoming 23rd in GMT-6)
+                            const pDateStr = (session?.planned_date || '').split('T')[0] // Ensure YYYY-MM-DD
+                            let plannedDate = new Date()
+                            if (pDateStr && pDateStr.includes('-')) {
+                                const [py, pm, pd] = pDateStr.split('-').map(Number)
+                                plannedDate = new Date(py, pm - 1, pd)
+                            }
                             plannedDate.setHours(0, 0, 0, 0)
 
                             const isOnTime = today <= plannedDate
@@ -1796,31 +1853,36 @@ export default function CycleCountDetail() {
                 </div>
             )}
             {/* 8. HISTORY MODAL */}
-            {showHistoryModal && (historySearchItem || itemDetail) && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
-                    <div className="w-full max-w-6xl h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-                        <MaterialHistoryView
-                            materialId={historySearchItem?.id || itemDetail?.id}
-                            materialName={historySearchItem?.name || itemDetail?.name}
-                            onClose={() => setShowHistoryModal(false)}
-                            usersMap={users.reduce((acc, u) => ({ ...acc, [u.id]: u }), {})}
-                        />
+            {/* 8. HISTORY MODAL */}
+            <Suspense fallback={<div className="fixed inset-0 z-[60] flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
+                {showHistoryModal && (historySearchItem || itemDetail) && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center p-6">
+                        <div className="w-full max-w-6xl h-[90vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                            <CycleCountHistoryModal
+                                materialId={historySearchItem?.id || itemDetail?.id}
+                                materialName={historySearchItem?.name || itemDetail?.name}
+                                onClose={() => {
+                                    setShowHistoryModal(false)
+                                    setHistorySearchItem(null)
+                                }}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* 9. ITEM DETAIL POPUP (New) */}
-            {itemDetail && !showHistoryModal && (
-                <CycleCountItemDetailModal
-                    item={itemDetail}
-                    onClose={() => setItemDetail(null)}
-                    onViewHistory={(item) => {
-                        // Fix Race Condition: Set search item state BEFORE closing detail / opening history
-                        setHistorySearchItem(item)
-                        setShowHistoryModal(true)
-                    }}
-                />
-            )}
+                {/* 9. ITEM DETAIL POPUP (New) */}
+                {itemDetail && !showHistoryModal && (
+                    <CycleCountItemDetailModal
+                        item={itemDetail}
+                        onClose={() => setItemDetail(null)}
+                        onViewHistory={(item) => {
+                            // Fix Race Condition: Set search item state BEFORE closing detail / opening history
+                            setHistorySearchItem(item)
+                            setShowHistoryModal(true)
+                        }}
+                    />
+                )}
+            </Suspense>
         </div>
     )
 }
