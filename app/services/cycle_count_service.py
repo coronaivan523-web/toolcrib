@@ -236,45 +236,44 @@ class CycleCountService:
         
         try:
             # OPTIONAL: Log Movement
-            # Wrapped in try/except because Schema Cache (PGRST204) is stale in user environment
-            # This ensures the ACTUAL stock update (next step) proceeds even if logging fails.
+            # We calculate proper types to avoid Enum errors (movement_type must be IN or OUT)
+            mov_type_enum = "IN" if delta >= 0 else "OUT"
+            
             movement_payload = {
                 "material_id": material_id,
-                "quantity_change": delta, 
-                "new_stock_level": qty_physical,
-                "previous_stock_level": current_live_stock,
-                "movement_type": "CYCLE_COUNT",
-                "reference_id": str(line_id),
-                "reason": f"Cycle Count Adjustment (Single Item)",
+                "quantity": abs(delta),             # Standard column (usually absolute)
+                "quantity_change": delta,           # New signed column
+                "new_stock_level": qty_physical,    # New column
+                "previous_stock_level": current_live_stock, # New column
+                "movement_type": mov_type_enum,     # Must be IN or OUT
+                "reference_type": "CYCLE_COUNT",
+                "reference_id": None, # Cannot store UUID in Int column. Storing in notes.
+                "notes": f"Cycle Count Adjustment ({delta}) [RefLine:{line_id}]", 
                 "created_by": user_id
             }
+            
             try:
+                CycleCountService.log_debug(f"Attempting Primary Insert: {movement_payload}")
                 client.table('inventory_movements').insert(movement_payload).execute()
+                CycleCountService.log_debug("Primary Insert SUCCESS")
             except Exception as e_new:
-                # Fallback for Legacy Schema (Remote DB might verify old columns)
-                # Schema Mismatch: 'quantity_change' might be missing, or Enum incompatible
-                print(f"WARNING: Insert with new schema failed ({e_new}). Attempting LEGACY format...")
-                
+                CycleCountService.log_debug(f"WARNING: Insert failed ({e_new}). Attempting fallback with NULL user...")
+                # Fallback: Try removing created_by (if FK issue)
                 try:
-                    legacy_type = "IN" if delta >= 0 else "OUT"
-                    legacy_payload = {
-                        "material_id": material_id,
-                        "quantity": abs(delta),
-                        "movement_type": legacy_type,
-                        "reference_type": "CYCLE_COUNT",
-                        "reference_id": None,
-                        "notes": f"Cycle Count Adjustment ({delta}) - Ref: {str(line_id)}",
-                        "user_id": user_id,
-                        "created_by": user_id
-                    }
-                    client.table('inventory_movements').insert(legacy_payload).execute()
-                    print("SUCCESS: Logged movement using LEGACY format.")
-                except Exception as e_legacy:
-                    print(f"ERROR: Failed to log movement in BOTH formats. Legacy error: {e_legacy}")
-                    # Non-blocking for the transaction, but history will be missing
+                     movement_payload['created_by'] = None
+                     client.table('inventory_movements').insert(movement_payload).execute()
+                     CycleCountService.log_debug("Fallback Insert SUCCESS")
+                except Exception as e_final:
+                     CycleCountService.log_debug(f"CRITICAL: Failed to log movement even with fallback: {e_final}")
+                     # Now we pass, but we logged critical error
+                     pass
+
         except Exception as e:
             # Catch outer errors
-            print(f"WARNING: Failed to log movement logic: {e}")
+            CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
+        except Exception as e:
+            # Catch outer errors
+            CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
         
         # 5. Update Material (Stock + timestamp)
         import datetime

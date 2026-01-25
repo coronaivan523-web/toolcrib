@@ -2,8 +2,11 @@ import os
 import sys
 from supabase import create_client, Client
 
-url = "https://bykumuizmxsclsazeych.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a3VtdWl6bXhzY2xzYXpleWNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTM4NTg0NCwiZXhwIjoyMDgwOTYxODQ0fQ.981IQNWujW7dld8tWqaG-7J18o1BI4AWKuqi0banvDA"
+from dotenv import load_dotenv
+load_dotenv()
+
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_SERVICE_KEY")
 
 print(f"Connecting to {url}...")
 try:
@@ -15,11 +18,11 @@ except Exception as e:
 print("Attempting LEGACY INSERT into inventory_movements...")
 
 payload = {
-    # Assuming material_id=1 exists
-    "material_id": 1,
+    # Material ID 4 (Test Drill Bit)
+    "material_id": 4, 
     "quantity": 1,
-    "movement_type": "IN", # Valid Enum
-    "notes": "Test Insert from Script (Ref: TEST-001)",
+    "movement_type": "IN", 
+    "notes": "Test Insert from Script (Ref: TEST-SCRIPT-001)",
     "reference_type": "CYCLE_COUNT",
     "reference_id": None # Set to None if column is Integer and we have String
 }

@@ -30,7 +30,7 @@ def get_material_catalog(
     """
     # Select only necessary columns for the UI to reduce payload size
     res = supabase_admin.table('materials').select(
-        'id, part_number, name, plant, location, process, area, machine_asset, current_stock, min_stock'
+        'id, part_number, name, plant, location, process, area, machine_asset, current_stock, min_stock, image_url'
     ).limit(5000).order('part_number').execute()
     return res.data
 

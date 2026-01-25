@@ -2,11 +2,11 @@ import os
 import sys
 from supabase import create_client, Client
 
-# Hardcoded credentials from .env (for debugging purpose)
-url = "https://bykumuizmxsclsazeych.supabase.co"
-# Using SERVICE_KEY to ensure we have permissions to see everything, 
-# although the error is likely schema cache, not permissions.
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5a3VtdWl6bXhzY2xzYXpleWNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTM4NTg0NCwiZXhwIjoyMDgwOTYxODQ0fQ.981IQNWujW7dld8tWqaG-7J18o1BI4AWKuqi0banvDA"
+from dotenv import load_dotenv
+load_dotenv()
+
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_SERVICE_KEY")
 
 print(f"Connecting to {url}...")
 try:
