@@ -185,18 +185,30 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
 
                 // Handle Initial Items (e.g. from Inventory Add)
                 if (initialItems && initialItems.length > 0) {
-                    const mappedItems = initialItems.map((item, index) => ({
-                        id: Date.now() + index,
-                        material_id: item.material_id,
-                        quantity: item.quantity || '',
-                        unit: item.unit || 'EA',
-                        notes: item.notes || '',
-                        supplier: '',
-                        cost_center: '',
-                        project_code: '',
-                        monthly_consumption: '',
-                        cause: ''
-                    }))
+                    const mappedItems = initialItems.map((item, index) => {
+                        const matId = item.material_id;
+                        const mat = materials[matId] || {};
+                        // Combine report note with material description if available
+                        const baseDesc = mat.description || mat.name || '';
+                        const reportNote = item.notes || '';
+                        const combinedVariable = baseDesc && reportNote && !baseDesc.includes(reportNote)
+                            ? `${baseDesc} \n(${reportNote})`
+                            : (baseDesc || reportNote);
+
+                        return {
+                            id: Date.now() + index,
+                            material_id: matId,
+                            quantity: item.quantity || '',
+                            unit: item.unit || mat.unit || mat.uom || 'EA',
+                            notes: combinedVariable,
+                            image_url: mat.image_url || null,
+                            supplier: '',
+                            cost_center: '',
+                            project_code: '',
+                            monthly_consumption: '',
+                            cause: ''
+                        }
+                    })
                     setItems(mappedItems)
                 } else {
                     setItems([{ id: Date.now(), material_id: null, quantity: '', unit: 'EA', notes: '', supplier: '', cost_center: '', project_code: '', monthly_consumption: '', cause: '' }])
@@ -642,7 +654,9 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                             </div>
                                             <div>
                                                 <label className="text-[10px] uppercase text-slate-400 font-bold">Date</label>
-                                                <div className="text-xs font-medium text-slate-700">{new Date().toLocaleDateString('en-GB')}</div>
+                                                <div className="text-xs font-medium text-slate-700">
+                                                    {new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -704,7 +718,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
                                                         {items.map((item, index) => {
-                                                            const selectedMat = materials.find(m => m.id === item.material_id);
+                                                            const selectedMat = materials[item.material_id];
                                                             return (
                                                                 <tr key={item.id} className="hover:bg-slate-50">
                                                                     <td className="px-3 py-2">
@@ -725,7 +739,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                                         {selectedMat?.category || '-'}
                                                                     </td>
                                                                     <td className="px-3 py-2 text-xs text-slate-600 font-medium">
-                                                                        {selectedMat?.group_name || '-'}
+                                                                        {selectedMat?.group_name || selectedMat?.material_type || '-'}
                                                                     </td>
 
                                                                     <td className="px-2 py-2 flex justify-center">

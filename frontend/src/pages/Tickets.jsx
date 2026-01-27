@@ -50,6 +50,7 @@ function TicketsContent() {
     const [error, setError] = useState(null)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [materials, setMaterials] = useState([]) // For selection
+    const [users, setUsers] = useState([]) // For requester selection
     const [currentUser, setCurrentUser] = useState(null)
     const [userProfile, setUserProfile] = useState(null)
     const [isAdmin, setIsAdmin] = useState(false)
@@ -154,6 +155,7 @@ function TicketsContent() {
     useEffect(() => {
         fetchUserAndTickets()
         fetchMaterials()
+        fetchProfiles()
     }, [adminViewMode]) // Reload when view mode changes
 
     // REALTIME SUBSCRIPTION
@@ -168,6 +170,7 @@ function TicketsContent() {
                     console.log('Realtime change received (tickets)!', payload)
                     fetchUserAndTickets(true)
                     fetchMaterials()
+                    // fetchProfiles() // usually static but good to have if new employees added
                 }
             )
             .on(
@@ -188,6 +191,24 @@ function TicketsContent() {
             supabase.removeChannel(channel)
         }
     }, [])
+
+    const fetchProfiles = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, role, department, job_title, position')
+                .order('full_name');
+
+            if (error) {
+                console.error('Error fetching profiles:', error);
+            } else {
+                setUsers(data || []);
+            }
+        } catch (err) {
+            console.error('Unexpected error fetching profiles:', err);
+        }
+    };
+
 
 
     const fetchUserAndTickets = async (isBackgroundRefresh = false) => {
@@ -400,7 +421,17 @@ function TicketsContent() {
             .eq('status', 'active')
             .order('name')
 
-        if (data) setMaterials(data)
+        if (data) {
+            // Process images to be full URLs
+            const processedData = data.map(m => {
+                let imageUrl = m.image_url
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    imageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${imageUrl}`
+                }
+                return { ...m, image_url: imageUrl }
+            })
+            setMaterials(processedData)
+        }
     }
 
     // Filter Logic
@@ -3162,6 +3193,7 @@ function TicketsContent() {
                 materials={materials.reduce((acc, m) => ({ ...acc, [m.id]: m }), {})} // Map array to object for modal
                 initialItems={initialRequisitionItems}
                 currentUser={userProfile}
+                users={users}
             />
 
             {/* Requisition Detail Modal (Read-Only Mode) */}
