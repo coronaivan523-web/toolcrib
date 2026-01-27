@@ -4,7 +4,7 @@ import { useParams, useNavigate, useOutletContext } from 'react-router-dom'
 import {
     ArrowLeft, Save, X, Search, Filter,
     Check, AlertTriangle, Calendar, User, Image as ImageIcon,
-    MoreHorizontal, Plus, Trash2, EyeOff, CheckCircle, Lock, Minus, Clock, AlertCircle
+    MoreHorizontal, Plus, Trash2, EyeOff, CheckCircle, Lock, Minus, Clock, AlertCircle, RotateCcw
 } from 'lucide-react'
 import { cycleCountService } from '../../services/cycleCounts'
 import { materialService } from '../../services/materials'
@@ -18,6 +18,7 @@ import { format } from 'date-fns'
 
 // Lazy Loads
 const CycleCountItemDetailModal = lazy(() => import('../../components/CycleCountItemDetailModal'))
+const ConfirmationModal = lazy(() => import('../../components/ConfirmationModal'))
 const MaterialHistoryView = lazy(() => import('../../components/MaterialHistoryView'))
 const CycleCountHistoryModal = lazy(() => import('../../components/CycleCountHistoryModal'))
 
@@ -64,6 +65,9 @@ export default function CycleCountDetail() {
     const [historySearchItem, setHistorySearchItem] = useState(null) // Selected item for search
     const [showHistoryModal, setShowHistoryModal] = useState(false) // Show full history view
     const historyTimerRef = React.useRef(null)
+
+    // Modal States
+    const [confirmResetModal, setConfirmResetModal] = useState({ isOpen: false, items: [] })
 
     // Item Detail Popup State
     const [itemDetail, setItemDetail] = useState(null)
@@ -177,6 +181,8 @@ export default function CycleCountDetail() {
             area: '',
             machine: '',
             user: '',
+            planned_date: '', // New Filter
+            real_date: '',     // New Filter
             adjustment: 'all',
             action: 'all'
         }))
@@ -204,29 +210,29 @@ export default function CycleCountDetail() {
     }
 
     const handleToggleItem = (material) => {
-        // PERMITIR SOLO SI NO ESTÁ YA EN LA SESIÓN (Evitar duplicados)
-        if (linesMap[material.id]) {
-            // Visual feedback is enough, but a toast helps explain why clicking does nothing
-            // toast.info("Este material ya está en la lista activa.")
-            return
-        }
+        // [MODIFIED] Allow selection even if already in linesMap (active), 
+        // to enable the "RE-COUNT" (Reset Status) workflow.
+        // Prevention of duplicates happens in handleSaveTicket.
 
-        // Auto-enable selection if user/date are set but isSelectionEnabled is false
+        /* 
+        if (linesMap[material.id]) {
+            // Original Block
+            return
+        } 
+        */
+
+        // REMOVED: Restriction that forced User/Date selection before toggling.
+        // We now allow "Selection Mode" freely to enable workflows like Reset Status.
+        // Validation for User/Date is moved to 'handleSaveTicket' (ACCEPT).
+
+        // Auto-enable selection visual state if not already (Optional, but keeps UI consistent)
+        // Actually, let's keep isSelectionEnabled as a "Locked Session Config" indicator.
+        // If we select items without locking config, that's fine.
+        /*
         if (!isSelectionEnabled) {
-            if (assignedUser && plannedDate) {
-                // Check date validity again just in case (optional, but good)
-                const minDate = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-                if (plannedDate < minDate) {
-                    toast.error("Invalid date selected (must be future).")
-                    return
-                }
-                setIsSelectionEnabled(true)
-                // Continue to toggle
-            } else {
-                toast.error("Please select a User and Planned Date first.")
-                return
-            }
+            // ... Logic removed ...
         }
+        */
 
         setTicketItems(prev => {
             const next = { ...prev }
@@ -239,36 +245,26 @@ export default function CycleCountDetail() {
         })
     }
 
-    const handleBulkAddFiltered = () => {
-        if (!isSelectionEnabled) return
-
-        // Add all filtered materials that aren't already added AND are not already assigned (Pending)
+    const handleSelectAll = (e) => {
+        // If checked, add all filtered, otherwise clear filtered
+        const checked = e.target.checked
         const newItems = { ...ticketItems }
-        let addedCount = 0
-        let skippedCount = 0
 
-        filteredMaterials.forEach(material => {
-            // CRITICAL FIX: Skip if already assigned globally (exists in linesMap)
-            if (linesMap[material.id]) {
-                skippedCount++
-                return
-            }
-
-            if (!newItems[material.id]) {
-                newItems[material.id] = material
-                addedCount++
-            }
-        })
-
-        setTicketItems(newItems)
-
-        if (addedCount > 0) {
-            toast.success(`Added ${addedCount} available items to ticket`)
-        } else if (skippedCount > 0) {
-            toast.info(`No new items added. ${skippedCount} items are already assigned.`)
+        if (checked) {
+            filteredMaterials.forEach(item => {
+                newItems[item.id] = item
+            })
+            // Toast summary
+            toast.success(`Selected ${filteredMaterials.length} items`)
         } else {
-            toast.info('All filtered items are already in the ticket')
+            // Toggle OFF: We only remove visible items (to respect other filters if active?) 
+            // OR just remove everything visible.
+            // Requirement says: "si hay un filtro aplicado que marque solo lo de lo de el filtro aplicado si se le da click cuando haya recuadros marcados que los desmarque"
+            filteredMaterials.forEach(item => {
+                delete newItems[item.id]
+            })
         }
+        setTicketItems(newItems)
     }
 
     const handleCancelTicket = () => {
@@ -415,6 +411,35 @@ export default function CycleCountDetail() {
             return
         }
 
+        // [New Validation] Ensure User and Date are selected before Saving
+        if (!assignedUser || !plannedDate) {
+            toast.error("Please select a User and Planned Date before accepting the ticket.")
+            return
+        }
+
+        // Validate Date Future
+        const minDate = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+        if (plannedDate < minDate) {
+            toast.error("Invalid date. Only future dates (tomorrow onwards) are allowed.")
+            return
+        }
+
+        // [MODIFIED] Filter: Only process items that are NOT already active/done
+        // We silently ignore items that are already in the session (linesMap)
+        // This replaces the previous "Block all if any invalid" logic.
+        const itemsToSave = items.filter(m => !linesMap[m.id])
+
+        if (itemsToSave.length === 0) {
+            toast.error("No valid items to add. All selected items are already active or done.")
+            return
+        }
+
+        if (items.length > itemsToSave.length) {
+            // Optional: Warn user that some items were skipped?
+            // "Added X items. Y items were skipped as they are already active."
+            toast.info(`Adding ${itemsToSave.length} items. Skipped ${items.length - itemsToSave.length} active items.`)
+        }
+
         setSaving(true)
         try {
             let activeId = idRef.current
@@ -442,7 +467,7 @@ export default function CycleCountDetail() {
             }
 
             // 2. Add Lines
-            const itemsToSave = Object.values(ticketItems)
+            // itemsToSave is already filtered above
             // Use sequential loop to prevent backend socket saturation (WinError 10035)
             // The backend uses synchronous sockets in threads, and too many parallel requests causes it to crash.
             for (const item of itemsToSave) {
@@ -483,6 +508,61 @@ export default function CycleCountDetail() {
         } catch (error) {
             console.error("Save error:", error)
             toast.error("Failed to save ticket. Please check your connection.")
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const handleResetStatus = async () => {
+        const items = Object.values(ticketItems)
+        if (items.length === 0) return
+
+        // Strict Validation: ALL selected items must be 'VALIDATED' (DONE)
+        // If even one item is not DONE, we block the action.
+        const allDone = items.every(m => {
+            const line = linesMap[m.id]
+            return line && line.status === 'VALIDATED'
+        })
+
+        if (!allDone) {
+            toast.error("Acción Inválida: Selección Mixta.", {
+                description: "Solo se puede utilizar RE-COUNT cuando TODOS los items seleccionados tienen estatus 'DONE'. Por favor deselecciona los items pendientes o libres."
+            })
+            return
+        }
+
+        // Proceed if valid
+        setConfirmResetModal({ isOpen: true, items: items }) // Pass original items since all are valid
+    }
+
+    const handleExecuteReset = async () => {
+        const itemsToReset = confirmResetModal.items
+        if (itemsToReset.length === 0) return
+
+        setSaving(true)
+        try {
+            const materialIds = itemsToReset.map(m => m.id)
+            await cycleCountService.archiveLines(materialIds)
+
+            toast.success("Status reset successfully. Items can now be counted.")
+
+            // Refresh catalog/active lines to update badges (remove DONE)
+            // We need to re-fetch session if 'new' (active lines) or just reload catalog?
+            // Actually fetchSession handles 'new' mode by fetching getActiveLines()
+            await fetchSession()
+
+            await fetchSession()
+
+            // [MODIFIED] Keep selection active to allow immediate re-assignment
+            // setTicketItems({}) <-- REMOVED
+
+            toast.info("Items reset and ready for new assignment. Select User/Date and click ACCEPT.")
+
+            setConfirmResetModal({ isOpen: false, items: [] })
+
+        } catch (error) {
+            console.error("Reset Error:", error)
+            toast.error("Failed to reset item status")
         } finally {
             setSaving(false)
         }
@@ -647,7 +727,28 @@ export default function CycleCountDetail() {
                 if (filters.action === 'unassigned' && line) return false // If line exists, it's assigned
             }
 
-            return matchPart && matchDesc && matchFactory && matchLoc && matchProcess && matchArea && matchMachine && matchUser
+            // Planned Date Filter
+            let matchPlannedDate = true
+            if (filters.planned_date) {
+                const line = linesMap[m.id]
+                const dateStr = line?.planned_date || line?.session?.planned_date || session?.planned_date || (id === 'new' && ticketItems[m.id] ? plannedDate : null)
+                // Convert to display format for filtering
+                const displayDate = dateStr ? new Date(dateStr).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }) : ''
+                matchPlannedDate = displayDate.includes(filters.planned_date)
+            }
+
+            // Real Date Filter
+            let matchRealDate = true
+            if (filters.real_date) {
+                const line = linesMap[m.id]
+                const dateStr = line?.count_date
+                const displayDate = dateStr && !isNaN(new Date(dateStr).getTime())
+                    ? new Date(dateStr).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : ''
+                matchRealDate = displayDate.includes(filters.real_date)
+            }
+
+            return matchPart && matchDesc && matchFactory && matchLoc && matchProcess && matchArea && matchMachine && matchUser && matchPlannedDate && matchRealDate
         })
     }, [materials, filters, id, linesMap, showCriticalStock])
 
@@ -983,31 +1084,53 @@ export default function CycleCountDetail() {
                                 </div>
                             </div>
 
-                            {/* Add All Filtered Button */}
-                            {hasActiveFilters && isSelectionEnabled && (
-                                <div className="ml-2">
-                                    <button
-                                        onClick={handleBulkAddFiltered}
-                                        className="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded shadow-sm transition-colors text-xs font-bold border border-primary-500"
-                                        title="Add all filtered items"
-                                    >
-                                        ADD ALL
-                                    </button>
-                                </div>
-                            )}
+
 
                             {/* Confirm/Cancel Actions Group 2 (Right side of bar in image) */}
                             <div className="flex gap-2 ml-2">
+                                {/* RESET STATUS BUTTON (New) */}
+                                {/* RESET STATUS BUTTON (New) */}
+                                {(() => {
+                                    // Strict Logic for UI Disable:
+                                    // 1. Must have items selected.
+                                    // 2. ALL selected items must be 'VALIDATED' (DONE).
+                                    const items = Object.values(ticketItems)
+                                    const allDone = items.length > 0 && items.every(m => {
+                                        const line = linesMap[m.id]
+                                        return line && line.status === 'VALIDATED'
+                                    })
+
+                                    return (
+                                        <button
+                                            onClick={handleResetStatus}
+                                            // Enable strictly only if ALL selected are DONE
+                                            disabled={!allDone || saving}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded shadow-sm transition-colors text-xs font-bold flex items-center gap-1",
+                                                (!allDone || saving)
+                                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-70" // Visually disabled style
+                                                    : "bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" // Active style
+                                            )}
+                                            title={allDone ? "Reset status of selected items" : "Select only DONE items to enable"}
+                                        >
+                                            <RotateCcw size={14} />
+                                            RE-COUNT
+                                        </button>
+                                    )
+                                })()}
+
                                 <button
                                     onClick={handleSaveTicket}
-                                    disabled={!isSelectionEnabled || itemsCount === 0 || saving}
+                                    // ENABLED if items selected. Validation inside handler.
+                                    disabled={itemsCount === 0 || saving}
                                     className="bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded shadow-sm transition-colors text-xs font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {saving ? 'SAVING...' : 'ACCEPT'}
                                 </button>
                                 <button
                                     onClick={handleCancelTicket}
-                                    disabled={!isSelectionEnabled || saving}
+                                    // Cancel clears selection, so enable if items exist OR config locked
+                                    disabled={(itemsCount === 0 && !isSelectionEnabled) || saving}
                                     className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded shadow-sm transition-colors text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     CANCEL
@@ -1044,7 +1167,13 @@ export default function CycleCountDetail() {
                             {/* [NEW] ID='new' (Creation Mode): Checkbox Column Header */}
                             {id === 'new' && (
                                 <th className="p-2 border-b border-gray-100 w-10 text-center">
-                                    <div className="w-4 h-4 rounded border border-gray-300 bg-gray-50 mx-auto"></div>
+                                    <input
+                                        type="checkbox"
+                                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer mx-auto block"
+                                        checked={filteredMaterials.length > 0 && filteredMaterials.every(m => ticketItems[m.id])}
+                                        onChange={handleSelectAll}
+                                        title="Select All Visible"
+                                    />
                                 </th>
                             )}
                             <th className="p-2 border-b border-gray-100 w-32">PART #</th>
@@ -1183,17 +1312,31 @@ export default function CycleCountDetail() {
                                     <AlertTriangle size={14} strokeWidth={2.5} className="mx-auto" />
                                 </button>
                             </th>
-                            <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100"></th>
-                            <th className="p-1 border-b border-gray-100 text-center">
+                            <th className="p-1 border-b border-gray-100 px-2">
                                 <input
                                     className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
                                     placeholder="Filter..."
-                                    value={filters.user || ''}
+                                    value={filters.planned_date}
+                                    onChange={(e) => setFilters({ ...filters, planned_date: e.target.value })}
+                                />
+                            </th>
+                            <th className="p-1 border-b border-gray-100 px-2">
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.real_date}
+                                    onChange={(e) => setFilters({ ...filters, real_date: e.target.value })}
+                                />
+                            </th>
+                            <th className="p-1 border-b border-gray-100 px-2">
+                                <input
+                                    className="w-full border border-gray-200 rounded px-2 py-1 font-normal text-center focus:ring-1 focus:ring-primary-300 outline-none"
+                                    placeholder="Filter..."
+                                    value={filters.user}
                                     onChange={(e) => setFilters({ ...filters, user: e.target.value })}
                                 />
                             </th>
-                            <th className="p-1 border-b border-gray-100 text-center w-28">
+                            <th className="p-1 border-b border-gray-100 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                     <button
                                         onClick={() => setFilters({ ...filters, action: filters.action === 'validated' ? 'all' : 'validated' })}
@@ -1438,12 +1581,20 @@ export default function CycleCountDetail() {
                                         {(() => {
                                             // Priority: 1. Line specific date, 2. Line's session date, 3. Global Session date, 4. Local selection (New mode)
                                             const dateStr = line?.planned_date || line?.session?.planned_date || session?.planned_date || (isSelected && plannedDate ? plannedDate : null)
-                                            return dateStr ? dateStr.split('T')[0].split('-').reverse().join('/') : '-'
+                                            return dateStr
+                                                ? new Date(dateStr).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' })
+                                                // Note: Planned Date usually comes as YYYY-MM-DD from backend (date type), so UTC avoids timezone shift. 
+                                                : '-'
                                         })()}
                                     </td>
 
                                     <td className="p-2 text-center text-xs text-gray-700 font-medium relative">
-                                        {line?.count_date ? line.count_date.split('-').reverse().join('/') : '-'}
+                                        {line?.count_date ? (
+                                            /* Handle potential bad formats by parsing timestamp securely */
+                                            !isNaN(new Date(line.count_date).getTime())
+                                                ? new Date(line.count_date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                                : line.count_date // Fallback if parsing fails
+                                        ) : '-'}
                                     </td>
 
                                     {/* User */}
@@ -1516,342 +1667,370 @@ export default function CycleCountDetail() {
                 )}
             </div>
 
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={confirmResetModal.isOpen}
+                onClose={() => setConfirmResetModal({ isOpen: false, items: [] })}
+                onConfirm={handleExecuteReset}
+                title="Confirm Status Reset"
+                message={(() => {
+                    const totalSelected = Object.values(ticketItems).length
+                    const resetting = confirmResetModal.items.length
+
+                    if (resetting < totalSelected) {
+                        return `Has seleccionado ${totalSelected} items, pero solo ${resetting} estan 'DONE'.\n\nSolo se reiniciaran los items 'DONE'. ¿Deseas continuar?`
+                    }
+                    return `Are you sure you want to reset the status for ${resetting} items? This will allow them to be counted again immediately.`
+                })()}
+                confirmText="Reset Status"
+                type="warning"
+                isLoading={saving}
+            />
+
             {/* Counting Detail Panel */}
-            {selectedMaterialForCount && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleCloseCountPanel}>
-                    <div className="bg-white rounded-lg shadow-2xl overflow-hidden w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            {
+                selectedMaterialForCount && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={handleCloseCountPanel}>
+                        <div className="bg-white rounded-lg shadow-2xl overflow-hidden w-full max-w-md" onClick={(e) => e.stopPropagation()}>
 
-                        {/* Header + Date Status Combined */}
-                        {(() => {
-                            const today = new Date()
-                            today.setHours(0, 0, 0, 0)
+                            {/* Header + Date Status Combined */}
+                            {(() => {
+                                const today = new Date()
+                                today.setHours(0, 0, 0, 0)
 
-                            // FIX: Parse date as LOCAL time to avoid UTC shift (e.g. 24th becoming 23rd in GMT-6)
-                            const pDateStr = (session?.planned_date || '').split('T')[0] // Ensure YYYY-MM-DD
-                            let plannedDate = new Date()
-                            if (pDateStr && pDateStr.includes('-')) {
-                                const [py, pm, pd] = pDateStr.split('-').map(Number)
-                                plannedDate = new Date(py, pm - 1, pd)
-                            }
-                            plannedDate.setHours(0, 0, 0, 0)
+                                // FIX: Parse date as LOCAL time to avoid UTC shift (e.g. 24th becoming 23rd in GMT-6)
+                                const pDateStr = (session?.planned_date || '').split('T')[0] // Ensure YYYY-MM-DD
+                                let plannedDate = new Date()
+                                if (pDateStr && pDateStr.includes('-')) {
+                                    const [py, pm, pd] = pDateStr.split('-').map(Number)
+                                    plannedDate = new Date(py, pm - 1, pd)
+                                }
+                                plannedDate.setHours(0, 0, 0, 0)
 
-                            const isOnTime = today <= plannedDate
-                            const daysLate = Math.floor((today - plannedDate) / (1000 * 60 * 60 * 24))
+                                const isOnTime = today <= plannedDate
+                                const daysLate = Math.floor((today - plannedDate) / (1000 * 60 * 60 * 24))
 
-                            return (
-                                <div className={clsx(
-                                    "px-6 py-4 flex flex-col items-center justify-center border-b",
-                                    isOnTime ? "bg-green-50" : "bg-orange-50"
-                                )}>
-                                    <h2 className="text-xl font-bold text-primary-900">Material Count</h2>
+                                return (
                                     <div className={clsx(
-                                        "text-sm font-bold mt-1 flex items-center gap-2",
-                                        isOnTime ? "text-green-700" : "text-orange-700"
+                                        "px-6 py-4 flex flex-col items-center justify-center border-b",
+                                        isOnTime ? "bg-green-50" : "bg-orange-50"
                                     )}>
-                                        {isOnTime ? (
-                                            <>
-                                                <CheckCircle size={16} />
-                                                <span>ON TIME ({new Date().toISOString().split('T')[0]})</span>
-                                            </>
+                                        <h2 className="text-xl font-bold text-primary-900">Material Count</h2>
+                                        <div className={clsx(
+                                            "text-sm font-bold mt-1 flex items-center gap-2",
+                                            isOnTime ? "text-green-700" : "text-orange-700"
+                                        )}>
+                                            {isOnTime ? (
+                                                <>
+                                                    <CheckCircle size={16} />
+                                                    <span>ON TIME ({new Date().toISOString().split('T')[0]})</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <AlertTriangle size={16} />
+                                                    <span>DELAYED ({daysLate} day{daysLate > 1 ? 's' : ''} late)</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                            Planned: {session?.planned_date}
+                                        </div>
+                                    </div>
+                                )
+                            })()}
+
+                            <div className="p-8">
+                                {/* Material Info - Grid Layout */}
+                                <div className="mb-8">
+                                    {/* Header Row: Part # & View Image */}
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Part Number</span>
+                                            <span className="text-2xl font-bold text-primary-900 leading-none">{selectedMaterialForCount.part_number}</span>
+                                        </div>
+
+                                        {/* Image Button - Always visible if image exists, styled prominently */}
+                                        {selectedMaterialForCount.image_url ? (
+                                            <button
+                                                onClick={() => {
+                                                    let url = selectedMaterialForCount.image_url
+                                                    if (url && !url.startsWith('http')) {
+                                                        url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${url}`
+                                                    }
+                                                    setPreviewImage(url)
+                                                }}
+                                                className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
+                                                title="View Image"
+                                            >
+                                                <ImageIcon size={18} />
+                                                <span className="text-xs font-bold uppercase">View Photo</span>
+                                            </button>
                                         ) : (
-                                            <>
-                                                <AlertTriangle size={16} />
-                                                <span>DELAYED ({daysLate} day{daysLate > 1 ? 's' : ''} late)</span>
-                                            </>
+                                            <div className="text-gray-300 flex items-center gap-1 opacity-50 select-none">
+                                                <ImageIcon size={18} />
+                                                <span className="text-xs font-bold uppercase">No Photo</span>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Planned: {session?.planned_date}
+
+                                    {/* Description Row */}
+                                    <div className="mb-6">
+                                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1 block">Description</span>
+                                        <p className="text-gray-800 font-medium text-sm leading-relaxed border-l-4 border-primary-200 pl-3">
+                                            {selectedMaterialForCount.name}
+                                        </p>
+                                    </div>
+
+                                    {/* Details Box (Grey) - 3 Column Grid */}
+                                    <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                        <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
+                                            <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Plant</span>
+                                            <span className="font-semibold text-gray-900 text-sm text-center">{selectedMaterialForCount.plant || '-'}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
+                                            <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Location</span>
+                                            <span className="font-semibold text-gray-900 text-sm text-center font-mono">{selectedMaterialForCount.location || '-'}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center px-2">
+                                            <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">System Stock</span>
+                                            <span className="font-bold text-blue-600 text-xl leading-none">{selectedMaterialForCount.current_stock}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            )
-                        })()}
 
-                        <div className="p-8">
-                            {/* Material Info - Grid Layout */}
-                            <div className="mb-8">
-                                {/* Header Row: Part # & View Image */}
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Part Number</span>
-                                        <span className="text-2xl font-bold text-primary-900 leading-none">{selectedMaterialForCount.part_number}</span>
+                                {/* Real Qty Input Section */}
+                                <div className="mb-8 p-4 bg-primary-50/50 rounded-xl border border-primary-100">
+                                    <label className="block text-xs font-bold text-primary-800 uppercase tracking-wide mb-3 text-center">Enter Physical Count</label>
+                                    <div className="flex items-center justify-center">
+                                        <input
+                                            type="number"
+                                            value={countingQty}
+                                            onChange={(e) => setCountingQty(e.target.value)}
+                                            className="w-48 text-center bg-white border-2 border-primary-200 rounded-lg py-3 text-3xl font-bold text-primary-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all placeholder-gray-300 shadow-sm"
+                                            placeholder="0"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveCount()
+                                                if (e.key === 'Escape') handleCloseCountPanel()
+                                            }}
+                                        />
                                     </div>
 
-                                    {/* Image Button - Always visible if image exists, styled prominently */}
-                                    {selectedMaterialForCount.image_url ? (
-                                        <button
-                                            onClick={() => {
-                                                let url = selectedMaterialForCount.image_url
-                                                if (url && !url.startsWith('http')) {
-                                                    url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/material-images/${url}`
+                                    {/* Difference Indicator */}
+                                    {countingQty !== '' && (
+                                        <div className="flex justify-center mt-4 animate-in fade-in slide-in-from-top-1 duration-300">
+                                            {(() => {
+                                                const val = parseInt(countingQty) || 0
+                                                const diff = val - selectedMaterialForCount.current_stock
+                                                if (diff === 0) {
+                                                    return <span className="flex items-center gap-2 text-sm font-bold text-green-700 bg-green-100 px-4 py-1.5 rounded-full border border-green-200">
+                                                        <CheckCircle size={14} className="fill-green-700 text-green-100" />
+                                                        Exact Match
+                                                    </span>
                                                 }
-                                                setPreviewImage(url)
-                                            }}
-                                            className="flex items-center gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg transition-colors border border-blue-100"
-                                            title="View Image"
-                                        >
-                                            <ImageIcon size={18} />
-                                            <span className="text-xs font-bold uppercase">View Photo</span>
-                                        </button>
-                                    ) : (
-                                        <div className="text-gray-300 flex items-center gap-1 opacity-50 select-none">
-                                            <ImageIcon size={18} />
-                                            <span className="text-xs font-bold uppercase">No Photo</span>
+                                                return (
+                                                    <span className={clsx(
+                                                        "flex items-center gap-2 text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm",
+                                                        diff > 0
+                                                            ? "text-blue-700 bg-blue-50 border-blue-200"
+                                                            : "text-red-700 bg-red-50 border-red-200"
+                                                    )}>
+                                                        <AlertTriangle size={14} />
+                                                        {diff > 0 ? `+${diff} Surplus` : `${diff} Missing`}
+                                                    </span>
+                                                )
+                                            })()}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Description Row */}
-                                <div className="mb-6">
-                                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1 block">Description</span>
-                                    <p className="text-gray-800 font-medium text-sm leading-relaxed border-l-4 border-primary-200 pl-3">
-                                        {selectedMaterialForCount.name}
-                                    </p>
+                                {/* Actions */}
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleSaveCount}
+                                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm"
+                                    >
+                                        SAVE COUNT
+                                    </button>
+                                    <button
+                                        onClick={handleCloseCountPanel}
+                                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors"
+                                    >
+                                        CANCEL
+                                    </button>
                                 </div>
-
-                                {/* Details Box (Grey) - 3 Column Grid */}
-                                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                    <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
-                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Plant</span>
-                                        <span className="font-semibold text-gray-900 text-sm text-center">{selectedMaterialForCount.plant || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col items-center border-r border-gray-200 last:border-0 px-2">
-                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">Location</span>
-                                        <span className="font-semibold text-gray-900 text-sm text-center font-mono">{selectedMaterialForCount.location || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-col items-center px-2">
-                                        <span className="text-[9px] text-gray-400 uppercase font-bold tracking-wider mb-1">System Stock</span>
-                                        <span className="font-bold text-blue-600 text-xl leading-none">{selectedMaterialForCount.current_stock}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Real Qty Input Section */}
-                            <div className="mb-8 p-4 bg-primary-50/50 rounded-xl border border-primary-100">
-                                <label className="block text-xs font-bold text-primary-800 uppercase tracking-wide mb-3 text-center">Enter Physical Count</label>
-                                <div className="flex items-center justify-center">
-                                    <input
-                                        type="number"
-                                        value={countingQty}
-                                        onChange={(e) => setCountingQty(e.target.value)}
-                                        className="w-48 text-center bg-white border-2 border-primary-200 rounded-lg py-3 text-3xl font-bold text-primary-900 focus:ring-4 focus:ring-primary-100 focus:border-primary-500 outline-none transition-all placeholder-gray-300 shadow-sm"
-                                        placeholder="0"
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleSaveCount()
-                                            if (e.key === 'Escape') handleCloseCountPanel()
-                                        }}
-                                    />
-                                </div>
-
-                                {/* Difference Indicator */}
-                                {countingQty !== '' && (
-                                    <div className="flex justify-center mt-4 animate-in fade-in slide-in-from-top-1 duration-300">
-                                        {(() => {
-                                            const val = parseInt(countingQty) || 0
-                                            const diff = val - selectedMaterialForCount.current_stock
-                                            if (diff === 0) {
-                                                return <span className="flex items-center gap-2 text-sm font-bold text-green-700 bg-green-100 px-4 py-1.5 rounded-full border border-green-200">
-                                                    <CheckCircle size={14} className="fill-green-700 text-green-100" />
-                                                    Exact Match
-                                                </span>
-                                            }
-                                            return (
-                                                <span className={clsx(
-                                                    "flex items-center gap-2 text-sm font-bold px-4 py-1.5 rounded-full border shadow-sm",
-                                                    diff > 0
-                                                        ? "text-blue-700 bg-blue-50 border-blue-200"
-                                                        : "text-red-700 bg-red-50 border-red-200"
-                                                )}>
-                                                    <AlertTriangle size={14} />
-                                                    {diff > 0 ? `+${diff} Surplus` : `${diff} Missing`}
-                                                </span>
-                                            )
-                                        })()}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleSaveCount}
-                                    className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm"
-                                >
-                                    SAVE COUNT
-                                </button>
-                                <button
-                                    onClick={handleCloseCountPanel}
-                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors"
-                                >
-                                    CANCEL
-                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Image Preview Modal */}
-            {previewImage && (
-                <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-                    <div className="relative max-w-4xl max-h-[90vh]">
-                        <button
-                            onClick={() => setPreviewImage(null)}
-                            className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
-                        >
-                            <X size={32} />
-                        </button>
-                        <img
-                            src={previewImage}
-                            alt="Material Preview"
-                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-700"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                </div>
-            )}
-            {/* 6. ADJUSTMENT MODAL (Supervisor) */}
-            {adjustmentItem && !showConfirmModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl w-96 transform transition-all scale-100 p-6">
-                        <div className="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900">Validate Count</h3>
-                                <p className="text-sm text-gray-500">{adjustmentItem.part_number}</p>
-                            </div>
-                            <button onClick={handleCloseAdjustment} className="text-gray-400 hover:text-gray-600">
-                                <X size={20} />
+            {
+                previewImage && (
+                    <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+                        <div className="relative max-w-4xl max-h-[90vh]">
+                            <button
+                                onClick={() => setPreviewImage(null)}
+                                className="absolute -top-12 right-0 text-white hover:text-gray-300 p-2"
+                            >
+                                <X size={32} />
                             </button>
+                            <img
+                                src={previewImage}
+                                alt="Material Preview"
+                                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-gray-700"
+                                onClick={(e) => e.stopPropagation()}
+                            />
                         </div>
-
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
-                                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">System Stock</span>
-                                    <span className="text-2xl font-bold text-gray-700">{adjustmentItem.current_stock || 0}</span>
+                    </div>
+                )
+            }
+            {/* 6. ADJUSTMENT MODAL (Supervisor) */}
+            {
+                adjustmentItem && !showConfirmModal && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl shadow-2xl w-96 transform transition-all scale-100 p-6">
+                            <div className="flex justify-between items-start mb-6">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900">Validate Count</h3>
+                                    <p className="text-sm text-gray-500">{adjustmentItem.part_number}</p>
                                 </div>
-                                <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
-                                    <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">User Count</span>
-                                    <span className="text-2xl font-bold text-blue-600">{adjustmentItem.qty_physical}</span>
-                                </div>
+                                <button onClick={handleCloseAdjustment} className="text-gray-400 hover:text-gray-600">
+                                    <X size={20} />
+                                </button>
                             </div>
 
-                            <div className="pt-2">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Final Adjustment (Definitive)</label>
-                                <div className="flex items-center gap-2">
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
+                                        <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">System Stock</span>
+                                        <span className="text-2xl font-bold text-gray-700">{adjustmentItem.current_stock || 0}</span>
+                                    </div>
+                                    <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
+                                        <span className="text-[10px] uppercase font-bold text-blue-400 block mb-1">User Count</span>
+                                        <span className="text-2xl font-bold text-blue-600">{adjustmentItem.qty_physical}</span>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Final Adjustment (Definitive)</label>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setAdjustmentQty(prev => Math.max(0, parseInt(prev || 0) - 1))}
+                                            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                        >
+                                            <Minus size={18} />
+                                        </button>
+                                        <input
+                                            type="number"
+                                            value={adjustmentQty}
+                                            onChange={(e) => setAdjustmentQty(e.target.value)}
+                                            className="flex-1 h-10 text-center font-bold text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                        <button
+                                            onClick={() => setAdjustmentQty(prev => parseInt(prev || 0) + 1)}
+                                            className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                        >
+                                            <Plus size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 flex gap-3">
                                     <button
-                                        onClick={() => setAdjustmentQty(prev => Math.max(0, parseInt(prev || 0) - 1))}
-                                        className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                        onClick={handleCloseAdjustment}
+                                        className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg"
                                     >
-                                        <Minus size={18} />
+                                        CANCEL
                                     </button>
-                                    <input
-                                        type="number"
-                                        value={adjustmentQty}
-                                        onChange={(e) => setAdjustmentQty(e.target.value)}
-                                        className="flex-1 h-10 text-center font-bold text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    />
                                     <button
-                                        onClick={() => setAdjustmentQty(prev => parseInt(prev || 0) + 1)}
-                                        className="h-10 w-10 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50"
+                                        onClick={handleRequestConfirmation}
+                                        className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/30"
                                     >
-                                        <Plus size={18} />
+                                        ADJUST
                                     </button>
                                 </div>
-                            </div>
-
-                            <div className="pt-6 flex gap-3">
-                                <button
-                                    onClick={handleCloseAdjustment}
-                                    className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-lg"
-                                >
-                                    CANCEL
-                                </button>
-                                <button
-                                    onClick={handleRequestConfirmation}
-                                    className="flex-1 py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-lg shadow-blue-500/30"
-                                >
-                                    ADJUST
-                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* 7. DOUBLE CONFIRMATION MODAL */}
-            {showConfirmModal && adjustmentItem && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl shadow-2xl w-[500px] p-8 border-4 border-yellow-400/50 transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="h-20 w-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
-                                <AlertTriangle size={40} className="text-yellow-600" />
-                            </div>
-
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">ARE YOU SURE?</h2>
-                            <p className="text-gray-500 mb-8 max-w-sm">
-                                System inventory will be updated. This action is definitive and will be recorded.
-                            </p>
-
-                            <div className="w-full bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 flex items-center justify-around relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent w-full h-full transform -skew-x-12 translate-x-full animate-shimmer" />
-
-                                <div className="flex flex-col items-center">
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">CURRENT STOCK</span>
-                                    <span className="text-4xl font-black text-gray-400 strike-through decoration-red-500/50 decoration-4">{adjustmentItem.current_stock || 0}</span>
+            {
+                showConfirmModal && adjustmentItem && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl shadow-2xl w-[500px] p-8 border-4 border-yellow-400/50 transform transition-all scale-100 animate-in fade-in zoom-in duration-200">
+                            <div className="flex flex-col items-center text-center">
+                                <div className="h-20 w-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                    <AlertTriangle size={40} className="text-yellow-600" />
                                 </div>
 
-                                <ArrowLeft size={32} className="text-gray-300 transform rotate-180" />
+                                <h2 className="text-3xl font-black text-gray-900 mb-2">ARE YOU SURE?</h2>
+                                <p className="text-gray-500 mb-8 max-w-sm">
+                                    System inventory will be updated. This action is definitive and will be recorded.
+                                </p>
 
-                                <div className="flex flex-col items-center">
-                                    <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">NEW STOCK</span>
-                                    <span className="text-5xl font-black text-blue-600 drop-shadow-sm">{adjustmentQty}</span>
+                                <div className="w-full bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 flex items-center justify-around relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent w-full h-full transform -skew-x-12 translate-x-full animate-shimmer" />
+
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">CURRENT STOCK</span>
+                                        <span className="text-4xl font-black text-gray-400 strike-through decoration-red-500/50 decoration-4">{adjustmentItem.current_stock || 0}</span>
+                                    </div>
+
+                                    <ArrowLeft size={32} className="text-gray-300 transform rotate-180" />
+
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">NEW STOCK</span>
+                                        <span className="text-5xl font-black text-blue-600 drop-shadow-sm">{adjustmentQty}</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* DIFFERENCE INDICATOR */}
-                            <div className="flex justify-center mb-8 -mt-4">
-                                {(() => {
-                                    const diff = parseInt(adjustmentQty) - (adjustmentItem.current_stock || 0);
-                                    if (diff === 0) return null;
-                                    const isPositive = diff > 0;
-                                    return (
-                                        <div className={clsx(
-                                            "flex items-center gap-2 px-6 py-2 rounded-full font-black text-xl shadow-lg transform hover:scale-105 transition-transform",
-                                            isPositive ? "bg-blue-100 text-blue-700 border-2 border-blue-200" : "bg-red-100 text-red-700 border-2 border-red-200"
-                                        )}>
-                                            {isPositive ? <Plus size={24} strokeWidth={3} /> : <Minus size={24} strokeWidth={3} />}
-                                            <span>{Math.abs(diff)} UNITS</span>
-                                        </div>
-                                    )
-                                })()}
-                            </div>
+                                {/* DIFFERENCE INDICATOR */}
+                                <div className="flex justify-center mb-8 -mt-4">
+                                    {(() => {
+                                        const diff = parseInt(adjustmentQty) - (adjustmentItem.current_stock || 0);
+                                        if (diff === 0) return null;
+                                        const isPositive = diff > 0;
+                                        return (
+                                            <div className={clsx(
+                                                "flex items-center gap-2 px-6 py-2 rounded-full font-black text-xl shadow-lg transform hover:scale-105 transition-transform",
+                                                isPositive ? "bg-blue-100 text-blue-700 border-2 border-blue-200" : "bg-red-100 text-red-700 border-2 border-red-200"
+                                            )}>
+                                                {isPositive ? <Plus size={24} strokeWidth={3} /> : <Minus size={24} strokeWidth={3} />}
+                                                <span>{Math.abs(diff)} UNITS</span>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
 
-                            <div className="flex gap-4 w-full">
-                                <button
-                                    onClick={() => setShowConfirmModal(false)}
-                                    className="flex-1 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-colors uppercase tracking-wider text-sm"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleCommitAdjustment}
-                                    disabled={saving}
-                                    className="flex-1 py-4 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-transform active:scale-95 shadow-xl shadow-blue-500/30 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
-                                >
-                                    {saving ? 'Processing...' : (
-                                        <>
-                                            CONFIRM CHANGE
-                                            <CheckCircle size={18} strokeWidth={3} />
-                                        </>
-                                    )}
-                                </button>
+                                <div className="flex gap-4 w-full">
+                                    <button
+                                        onClick={() => setShowConfirmModal(false)}
+                                        className="flex-1 py-4 rounded-xl border-2 border-gray-200 text-gray-500 font-bold hover:bg-gray-50 transition-colors uppercase tracking-wider text-sm"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleCommitAdjustment}
+                                        disabled={saving}
+                                        className="flex-1 py-4 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700 transition-transform active:scale-95 shadow-xl shadow-blue-500/30 uppercase tracking-wider text-sm flex items-center justify-center gap-2"
+                                    >
+                                        {saving ? 'Processing...' : (
+                                            <>
+                                                CONFIRM CHANGE
+                                                <CheckCircle size={18} strokeWidth={3} />
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
             {/* 8. HISTORY MODAL */}
             {/* 8. HISTORY MODAL */}
             <Suspense fallback={<div className="fixed inset-0 z-[60] flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div></div>}>
@@ -1883,6 +2062,6 @@ export default function CycleCountDetail() {
                     />
                 )}
             </Suspense>
-        </div>
+        </div >
     )
 }

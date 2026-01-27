@@ -64,7 +64,12 @@ const apiFetch = async (endpoint, options = {}, retried = false) => {
 
             throw new Error(`Request failed (${response.status}): ${errorMsg}`)
         }
-        return await response.json()
+        if (response.status === 204) {
+            return null
+        }
+
+        const text = await response.text()
+        return text ? JSON.parse(text) : {}
     } catch (error) {
         console.error("API Fetch Error:", error);
         throw error

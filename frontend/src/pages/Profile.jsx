@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
-import { User, Upload, Save, AlertCircle, CheckCircle, Image as ImageIcon, Mail, MessageSquare, Send, Paperclip, X } from 'lucide-react'
+import { User, Upload, Save, AlertCircle, CheckCircle, Image as ImageIcon, Mail, MessageSquare, Send, Paperclip, X, Reply, CornerUpLeft, Trash2, MoreVertical, Search, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 
 // Message Service (inline for now)
@@ -14,6 +14,15 @@ const messageService = {
             }
         });
         if (!response.ok) throw new Error('Failed to fetch messages');
+        return response.json();
+    },
+    getSentMessages: async () => {
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/messages/sent`, {
+            headers: {
+                'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            }
+        });
+        if (!response.ok) throw new Error('Failed to fetch sent messages');
         return response.json();
     },
     sendMessage: async (data) => {
@@ -52,13 +61,19 @@ export default function Profile() {
 
     // Messaging State
     const [messages, setMessages] = useState([]);
+    const [threads, setThreads] = useState([]);
+    const [selectedThread, setSelectedThread] = useState(null);
+    const [replyBody, setReplyBody] = useState('');
+
+    // Reporting
     const [reportForm, setReportForm] = useState({ subject: '', body: '', image: null });
     const [reportImagePreview, setReportImagePreview] = useState(null);
 
     const [message, setMessage] = useState(null) // { type: 'success'|'error', text: '' }
 
     useEffect(() => {
-        loadProfile()
+        loadProfile();
+        loadMessages(); // Load messages immediately to show unread count
     }, [])
 
     useEffect(() => {
@@ -100,12 +115,103 @@ export default function Profile() {
 
     const loadMessages = async () => {
         try {
-            const data = await messageService.getMyMessages();
-            setMessages(data);
+            const [received, sent] = await Promise.all([
+                messageService.getMyMessages(),
+                messageService.getSentMessages()
+            ]);
+
+            // Merge and Sort
+            const allMsgs = [...received, ...sent].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            setMessages(allMsgs);
+
+            // Group by Thread (Star Topology: parent_id -> root)
+            const threadMap = {};
+
+            allMsgs.forEach(msg => {
+                const rootId = msg.parent_id || msg.id;
+                if (!threadMap[rootId]) {
+                    threadMap[rootId] = {
+                        rootId,
+                        subject: msg.parent_id ? (msg.subject.replace(/^(Re: )+/i, '')) : msg.subject, // Clean subject
+                        messages: [],
+                        lastMessage: null,
+                        participants: new Set()
+                    };
+                }
+                threadMap[rootId].messages.push(msg);
+
+                // Add name to particpants
+                const name = msg.sender_details?.full_name || 'Unknown';
+                threadMap[rootId].participants.add(name);
+
+                // Track last message for sorting threads
+                if (!threadMap[rootId].lastMessage || new Date(msg.created_at) > new Date(threadMap[rootId].lastMessage.created_at)) {
+                    threadMap[rootId].lastMessage = msg;
+                }
+            });
+
+            // Convert map to array and sort by last message date
+            const threadArray = Object.values(threadMap).sort((a, b) =>
+                new Date(b.lastMessage.created_at) - new Date(a.lastMessage.created_at)
+            );
+
+            // Re-sort messages within threads (Oldest first for conversation view)
+            threadArray.forEach(t => {
+                t.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            });
+
+            setThreads(threadArray);
+
+            // Re-select selected thread if open (to show new messages)
+            if (selectedThread) {
+                const updated = threadArray.find(t => t.rootId === selectedThread.rootId);
+                if (updated) setSelectedThread(updated);
+            }
+
         } catch (err) {
             console.error(err);
         }
     };
+
+    const handleReply = async (e) => {
+        e.preventDefault();
+        if (!replyBody.trim() || !selectedThread) return;
+
+        setSaving(true);
+        try {
+            const lastMsg = selectedThread.lastMessage;
+
+            const myId = profile.id;
+            // If I am sender of last message, I reply to recipient.
+            // If I am recipient of last message, I reply to sender.
+            let recipientId = lastMsg.sender_id === myId ? lastMsg.recipient_id : lastMsg.sender_id;
+
+            // Fallback: If system message or weird state, try to find the "other" person in the thread.
+            if (lastMsg.sender_id === myId && lastMsg.recipient_id === myId) {
+                // Talking to self?
+                recipientId = myId;
+            }
+
+            if (!recipientId) throw new Error('Cannot determine recipient');
+
+            await messageService.sendMessage({
+                recipient_id: recipientId,
+                subject: `Re: ${selectedThread.subject}`,
+                body: replyBody,
+                type: 'support', // Keep generic
+                parent_id: selectedThread.rootId
+            });
+
+            setReplyBody('');
+            await loadMessages(); // Refresh to show new message
+            setMessage({ type: 'success', text: 'Reply sent' });
+        } catch (err) {
+            console.error(err);
+            setMessage({ type: 'error', text: 'Failed to send reply' });
+        } finally {
+            setSaving(false);
+        }
+    }
 
     const handleFileChange = (e, type) => {
         const file = e.target.files[0]
@@ -178,6 +284,20 @@ export default function Profile() {
         }
     }
 
+    const handleDownloadAttachment = async (path) => {
+        try {
+            const { data, error } = await supabase.storage
+                .from('messages')
+                .createSignedUrl(path, 60); // Valid for 60 seconds
+
+            if (error) throw error;
+            window.open(data.signedUrl, '_blank');
+        } catch (err) {
+            console.error('Error downloading attachment:', err);
+            setMessage({ type: 'error', text: 'Failed to open attachment' });
+        }
+    }
+
     const handleSendReport = async (e) => {
         e.preventDefault();
         setSaving(true);
@@ -191,8 +311,8 @@ export default function Profile() {
                 const fileName = `${userId}/${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage.from('messages').upload(fileName, reportForm.image);
                 if (uploadError) throw uploadError;
-                const { data: { publicUrl } } = supabase.storage.from('messages').getPublicUrl(fileName);
-                imageUrl = publicUrl;
+                // Save the path, not the public URL, because bucket is private
+                imageUrl = fileName;
             }
 
             // Find Admin ID Logic (Simple assumption or fetch)
@@ -226,7 +346,7 @@ export default function Profile() {
             setMessage({ type: 'success', text: 'Report sent successfully!' });
             setReportForm({ subject: '', body: '', image: null });
             setReportImagePreview(null);
-            setActiveTab('info'); // or stay
+            // setActiveTab('info'); // Stay on report tab intentionally or switch? user said "ya me llego el mensaje" implying they checked inbox.
 
         } catch (err) {
             console.error(err)
@@ -275,9 +395,9 @@ export default function Profile() {
                             className={`py-4 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'inbox' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}
                         >
                             Inbox
-                            {messages.some(m => !m.is_read) && (
+                            {messages.some(m => !m.is_read && m.recipient_id === profile?.id) && (
                                 <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
-                                    {messages.filter(m => !m.is_read).length}
+                                    {messages.filter(m => !m.is_read && m.recipient_id === profile?.id).length}
                                 </span>
                             )}
                         </button>
@@ -428,56 +548,186 @@ export default function Profile() {
 
                     {/* INBOX TAB */}
                     {activeTab === 'inbox' && (
-                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[500px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Mail size={20} className="text-blue-400" /> Inbox
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+                            {/* LEFT SIDEBAR - LIST */}
+                            <div className={`w-full md:w-1/3 border-r border-slate-200 flex flex-col ${selectedThread ? 'hidden md:flex' : 'flex'}`}>
+                                <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                        <Mail size={18} /> Inbox
                                     </h3>
-                                    <p className="text-xs text-slate-400 mt-1">System messages and notifications.</p>
+                                    <button onClick={loadMessages} className="text-slate-400 hover:text-blue-600 transition-colors p-1" title="Refresh">
+                                        <Search size={16} />
+                                    </button>
                                 </div>
-                                <button onClick={loadMessages} className="text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-700">
-                                    Refresh
-                                </button>
+
+                                <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                                    {threads.length === 0 ? (
+                                        <div className="p-8 text-center text-slate-400 text-sm">No messages</div>
+                                    ) : (
+                                        threads.map(thread => {
+                                            const isSelected = selectedThread?.rootId === thread.rootId;
+                                            const lastMsg = thread.lastMessage;
+                                            // Check if thread has unread messages for me
+                                            const hasUnread = thread.messages.some(m => !m.is_read && m.recipient_id === profile?.id);
+
+                                            // Filter out my own name from participants to show only "others"
+                                            const otherParticipants = Array.from(thread.participants).filter(name => name !== profile?.full_name);
+                                            const displayNames = otherParticipants.length > 0 ? otherParticipants.join(', ') : 'Me';
+
+                                            // Status Logic
+                                            const isMeSender = lastMsg.sender_id === profile?.id;
+                                            // A thread is "Replied" if I sent the last message.
+                                            // A thread is "Read" if I didn't send the last message but I have no unread messages.
+                                            const isReplied = isMeSender;
+
+                                            // Determine Status Icon
+                                            let StatusIcon = Mail;
+                                            let iconColor = "text-slate-400";
+                                            let statusTooltip = "Read";
+
+                                            if (hasUnread) {
+                                                StatusIcon = Mail; // We will use a dot for unread, but keep logic cleanly separate
+                                            } else if (isReplied) {
+                                                StatusIcon = Reply;
+                                                iconColor = "text-emerald-500";
+                                                statusTooltip = "You replied";
+                                            } else {
+                                                StatusIcon = Mail; // Open mail styling or generic
+                                                iconColor = "text-slate-400"; // Lighter gray for read
+                                                statusTooltip = "Read";
+                                            }
+
+                                            // Format List Item
+                                            return (
+                                                <div
+                                                    key={thread.rootId}
+                                                    onClick={() => { setSelectedThread(thread); handleMarkRead(lastMsg.id); }}
+                                                    className={`p-4 cursor-pointer transition-all border-b border-slate-100 group relative
+                                                        ${isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'border-l-4 border-l-transparent hover:bg-slate-50'} 
+                                                        ${hasUnread && !isSelected ? 'bg-indigo-50/40' : ''}
+                                                    `}
+                                                >
+                                                    <div className="flex justify-between items-start mb-1 h-6">
+                                                        <div className={`text-sm truncate pr-2 flex-1 flex items-center gap-2 ${hasUnread ? 'font-black text-slate-900' : 'font-semibold text-slate-700'}`}>
+                                                            {/* Status Indicator */}
+                                                            <div className="shrink-0 flex items-center justify-center w-5" title={statusTooltip}>
+                                                                {hasUnread ? (
+                                                                    <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-pulse shadow-sm ring-2 ring-blue-100"></div>
+                                                                ) : isReplied ? (
+                                                                    <StatusIcon size={16} className={iconColor} />
+                                                                ) : (
+                                                                    <StatusIcon size={16} className={iconColor} strokeWidth={1.5} />
+                                                                )}
+                                                            </div>
+                                                            {displayNames}
+                                                        </div>
+                                                        <span className={`text-[10px] whitespace-nowrap ${hasUnread ? 'text-blue-600 font-bold' : 'text-slate-400'}`}>{format(new Date(lastMsg.created_at), 'MMM d')}</span>
+                                                    </div>
+                                                    <div className={`text-sm mb-1 truncate pl-7 ${hasUnread ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                                                        {thread.subject}
+                                                    </div>
+                                                    <div className={`text-xs truncate flex items-center gap-1 pl-7 ${hasUnread ? 'text-slate-800 font-semibold' : 'text-slate-500'}`}>
+                                                        {isReplied && <span className="text-emerald-600 font-medium text-[10px] bg-emerald-50 px-1 rounded uppercase tracking-wider">Replied</span>}
+                                                        {lastMsg.body}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="divide-y divide-slate-100">
-                                {messages.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center p-16 text-center">
-                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300">
-                                            <Mail size={32} />
-                                        </div>
-                                        <h4 className="text-slate-600 font-medium">No messages found</h4>
-                                        <p className="text-slate-400 text-sm mt-1">Your inbox is empty.</p>
+                            {/* RIGHT CONTENT - DETAIL */}
+                            <div className={`w-full md:w-2/3 flex flex-col bg-slate-50/30 ${!selectedThread ? 'hidden md:flex' : 'flex'}`}>
+                                {!selectedThread ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
+                                        <Mail size={48} className="mb-4 text-slate-200" />
+                                        <p>Select a message to read</p>
                                     </div>
                                 ) : (
-                                    messages.map(msg => (
-                                        <div
-                                            key={msg.id}
-                                            onClick={() => !msg.is_read && handleMarkRead(msg.id)}
-                                            className={`p-5 hover:bg-slate-50 transition-colors cursor-pointer group flex gap-4 ${!msg.is_read ? 'bg-blue-50/30' : ''}`}
-                                        >
-                                            <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${!msg.is_read ? 'bg-blue-500' : 'bg-transparent'}`}></div>
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className={`text-sm font-bold ${!msg.is_read ? 'text-slate-800' : 'text-slate-600'}`}>
-                                                        {msg.type === 'announcement' ? '📢 ' : ''}{msg.subject}
-                                                    </span>
-                                                    <span className="text-xs text-slate-400 font-mono">{format(new Date(msg.created_at), 'MMM d, h:mm a')}</span>
-                                                </div>
-                                                <p className={`text-sm leading-relaxed ${!msg.is_read ? 'text-slate-700' : 'text-slate-500'}`}>{msg.body}</p>
-
-                                                {msg.attachment_url && (
-                                                    <div className="mt-3 flex items-center gap-2">
-                                                        <a href={msg.attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded text-xs font-medium hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={(e) => e.stopPropagation()}>
-                                                            <Paperclip size={12} />
-                                                            View Attachment
-                                                        </a>
-                                                    </div>
-                                                )}
+                                    <div className="flex flex-col h-full">
+                                        {/* Header */}
+                                        <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between sticky top-0 md:justify-start gap-4">
+                                            <button onClick={() => setSelectedThread(null)} className="md:hidden text-slate-500 hover:text-slate-800">
+                                                <ChevronLeft size={24} />
+                                            </button>
+                                            <h2 className="text-lg font-bold text-slate-800 truncate flex-1 leading-tight">
+                                                {selectedThread.subject}
+                                            </h2>
+                                            <div className="flex gap-2">
+                                                <button className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors" title="Delete (Mock)">
+                                                    <Trash2 size={18} />
+                                                </button>
                                             </div>
                                         </div>
-                                    ))
+
+                                        {/* Thread Messages */}
+                                        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                                            {selectedThread.messages.map((msg, idx) => {
+                                                const isMe = msg.sender_id === profile?.id;
+                                                return (
+                                                    <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                        {/* Avatar */}
+                                                        <div className="shrink-0 flex flex-col items-center">
+                                                            {msg.sender_details?.avatar_url ? (
+                                                                <img src={msg.sender_details.avatar_url} className="w-10 h-10 rounded-full border border-slate-200 object-cover" />
+                                                            ) : (
+                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border ${isMe ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-slate-600 border-slate-200 shadow-sm'}`}>
+                                                                    {msg.sender_details?.full_name?.[0] || (isMe ? profile?.full_name?.[0] : '?')}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Content Bubble */}
+                                                        <div className={`flex-1 max-w-[85%] rounded-2xl p-5 shadow-sm border ${isMe ? 'bg-blue-600 text-white border-blue-700 rounded-tr-none' : 'bg-white text-slate-800 border-slate-200 rounded-tl-none'}`}>
+                                                            <div className="flex justify-between items-baseline mb-2">
+                                                                <span className={`text-sm font-bold ${isMe ? 'text-blue-100' : 'text-slate-900'}`}>
+                                                                    {msg.sender_details?.full_name || (isMe ? 'Me' : 'Unknown')}
+                                                                </span>
+                                                                <span className={`text-xs font-mono ${isMe ? 'text-blue-200' : 'text-slate-400'}`}>
+                                                                    {format(new Date(msg.created_at), 'MMM d, h:mm a')}
+                                                                </span>
+                                                            </div>
+                                                            <div className={`text-sm leading-relaxed whitespace-pre-wrap ${isMe ? 'text-blue-50' : 'text-slate-600'}`}>
+                                                                {msg.body}
+                                                            </div>
+                                                            {msg.attachment_url && (
+                                                                <div className="mt-4 pt-4 border-t border-white/20">
+                                                                    <button
+                                                                        onClick={() => handleDownloadAttachment(msg.attachment_url)}
+                                                                        className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${isMe ? 'bg-blue-700 hover:bg-blue-800 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`}
+                                                                    >
+                                                                        <Paperclip size={14} />
+                                                                        Attachment
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+
+                                        {/* Reply Box */}
+                                        <div className="p-4 bg-white border-t border-slate-200">
+                                            <form onSubmit={handleReply} className="relative">
+                                                <textarea
+                                                    value={replyBody}
+                                                    onChange={(e) => setReplyBody(e.target.value)}
+                                                    placeholder="Write a reply..."
+                                                    className="w-full text-sm p-4 pr-12 rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 min-h-[80px] resize-none bg-slate-50 focus:bg-white transition-colors"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={saving || !replyBody.trim()}
+                                                    className="absolute bottom-3 right-3 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-all shadow-sm"
+                                                >
+                                                    {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Send size={16} />}
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         </div>

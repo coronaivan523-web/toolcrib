@@ -373,7 +373,7 @@ export default function MaterialHistoryView({ materialId, materialName, material
                                                 {move.movement_type === 'OUT' ? '-' : '+'}{move.quantity}
                                             </td>
                                             <td className="px-4 py-3 text-slate-500">
-                                                {new Date(move.timestamp).toLocaleDateString()}
+                                                {new Date(move.timestamp).toLocaleDateString('en-GB')}
                                                 <div className="text-[10px] text-slate-400">
                                                     {new Date(move.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>

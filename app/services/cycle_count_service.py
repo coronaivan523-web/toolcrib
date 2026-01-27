@@ -56,7 +56,12 @@ class CycleCountService:
         # Order by created_at (counted_at) desc to show latest added first
         # Show ALL statuses (PENDING, VALIDATED) so users can see completed work in the grid
         # Limit to last 200 to enforce performance (Historical data should be in a separate report)
-        res = client.table('cycle_count_lines').select(query).order('counted_at', desc=True).limit(200).execute()
+        # FILTER: Exclude ARCHIVED lines (Reset status)
+        res = client.table('cycle_count_lines').select(query)\
+            .neq('status', 'ARCHIVED')\
+            .order('counted_at', desc=True)\
+            .limit(200)\
+            .execute()
         # We could enrich here too but active lines list usually doesn't show user name in same way
         return res.data
 
@@ -215,14 +220,29 @@ class CycleCountService:
         """
         Commit a single line adjustment (Supervisor Action).
         """
-        # 1. Fetch Line
-        line_res = client.table('cycle_count_lines').select('*').eq('id', str(line_id)).single().execute()
+        # 1. Fetch Line AND Session Info (to get assigned_to)
+        # We need to attribute the count to the ASSIGNED user (e.g. Laura), 
+        # not necessarily the current user (e.g. Admin Ivan) who clicks the button.
+        line_res = client.table('cycle_count_lines').select(
+            '*, session:cycle_count_sessions(assigned_to)'
+        ).eq('id', str(line_id)).single().execute()
+        
         if not line_res.data:
             raise HTTPException(status_code=404, detail="Line not found")
         
         line = line_res.data
         if line.get('qty_physical') is None:
              raise HTTPException(status_code=400, detail="Cannot commit line without physical quantity")
+
+        # Determine the "Performer" User
+        # Default to current logged-in user
+        performer_id = user_id
+        
+        # Override with Session Assigned User if available
+        # This ensures history shows "Laura" even if "Ivan" enters data
+        if line.get('session') and line['session'].get('assigned_to'):
+            performer_id = line['session']['assigned_to']
+            CycleCountService.log_debug(f"Override User: Current={user_id} -> Assigned={performer_id}")
 
         material_id = line['material_id']
         qty_physical = line['qty_physical']
@@ -249,7 +269,7 @@ class CycleCountService:
                 "reference_type": "CYCLE_COUNT",
                 "reference_id": None, # Cannot store UUID in Int column. Storing in notes.
                 "notes": f"Cycle Count Adjustment ({delta}) [RefLine:{line_id}]", 
-                "created_by": user_id
+                "created_by": performer_id  # USE PERFORMER ID
             }
             
             try:
@@ -271,9 +291,6 @@ class CycleCountService:
         except Exception as e:
             # Catch outer errors
             CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
-        except Exception as e:
-            # Catch outer errors
-            CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
         
         # 5. Update Material (Stock + timestamp)
         import datetime
@@ -284,9 +301,11 @@ class CycleCountService:
             'last_counted_at': now
         }).eq('id', material_id).execute()
         
-        # 6. Update Line Status
+        # 6. Update Line Status AND Correct Counted By
+        # We also enforce that the line record reflects the assigned user
         client.table('cycle_count_lines').update({
-            'status': 'VALIDATED'
+            'status': 'VALIDATED',
+            'counted_by': performer_id
         }).eq('id', str(line_id)).execute()
         
         return {"status": "success", "message": "Item adjusted and validated", "delta": delta}
@@ -295,3 +314,21 @@ class CycleCountService:
     def commit_session(session_id: UUID, user_id: str, client: Client):
         # DEPRECATED: Kept for legacy compatibility if needed, but Workflow moved to commit_line
         pass
+
+    @staticmethod
+    def archive_lines_by_material(material_ids: List[int], user_id: str, client: Client):
+        """
+        Archive existing active lines for specific materials.
+        This effectively "resets" their status so they can be counted again in a new session.
+        """
+        if not material_ids:
+            return {"count": 0}
+            
+        # Update status to ARCHIVED for any line matching material_ids that is NOT already archived
+        res = client.table('cycle_count_lines')\
+            .update({'status': 'ARCHIVED'})\
+            .in_('material_id', material_ids)\
+            .neq('status', 'ARCHIVED')\
+            .execute()
+            
+        return {"count": len(res.data) if res.data else 0}

@@ -14,6 +14,7 @@ from app.api.v1.endpoints.tickets import router as tickets_router
 from app.api.v1.endpoints.requisitions import router as requisitions_router
 from app.api.v1.endpoints.materials import router as materials_router
 from app.api.v1.endpoints.cycle_counts import router as cycle_counts_router
+from app.api.v1.endpoints.messages import router as messages_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -69,6 +70,7 @@ app.include_router(tickets_router, prefix=f"{settings.API_V1_STR}/tickets", tags
 app.include_router(requisitions_router, prefix=f"{settings.API_V1_STR}/requisitions", tags=["requisitions"])
 app.include_router(materials_router, prefix=f"{settings.API_V1_STR}/materials", tags=["materials"])
 app.include_router(cycle_counts_router, prefix=f"{settings.API_V1_STR}/cycle-counts", tags=["cycle-counts"])
+app.include_router(messages_router, prefix=f"{settings.API_V1_STR}/messages", tags=["messages"])
 
 @app.get("/")
 def root():

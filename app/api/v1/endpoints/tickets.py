@@ -83,7 +83,7 @@ def create_ticket(
     
     return ticket
 
-@router.post("/{ticket_id}/close", response_model=TicketResponse)
+@router.post("/{ticket_id}/close", response_model=Any)
 def close_ticket(
     ticket_id: str,
     current_user = Depends(get_current_active_user),
@@ -93,96 +93,30 @@ def close_ticket(
     TRIGGERS STOCK DEDUCTION.
     Only Admins or Tool Crib Managers should do this.
     """
-    role_name = getattr(current_user.role, 'name', 'user')
+    role_name = current_user.role.name if (current_user and current_user.role) else 'user'
     allowed_roles = ["admin", "toolroom_staff", "supervisor", "manager"]
     if role_name not in allowed_roles:
         raise HTTPException(status_code=403, detail=f"Role '{role_name}' not authorized to close tickets")
 
-    # 1. Fetch Ticket & Items
-    print(f"[DEBUG] Fetching ticket {ticket_id} with Admin Client")
-    res = supabase_admin.table('tickets').select('*, items:ticket_items(*)').eq('id', ticket_id).execute()
-    
-    if not res.data or len(res.data) == 0:
-        print(f"[ERROR] Ticket {ticket_id} not found in DB")
-        raise HTTPException(status_code=404, detail="Ticket not found in database")
-    
-    ticket = res.data[0]
-    if ticket['status'] in ['ENTREGADO', 'RECHAZADO', 'CLOSED']:
-        raise HTTPException(status_code=400, detail="Ticket already processed")
-        
-    items = ticket.get('items', [])
-    
-    # 2. Process Stock Deduction
-    for item in items:
-        wanted = item['quantity_requested']
-        mat_id = item['material_id']
-        
-        # Lock/Get material
-        mat_res = supabase_admin.table('materials').select('current_stock, name').eq('id', mat_id).single().execute()
-        if not mat_res.data:
-             continue # Skip if deleted?
-             
-        current = mat_res.data['current_stock'] or 0
-        new_stock = current - wanted
-        
-        # We allow negative stock? Requirements didn't specify. Assuming NO for strict control, 
-        # but often ToolCribs need to issue anyway. Let's allow it but warn? 
-        # For this iteration, let's allow it to go negative or 0.
-        
-        # Update Material
-        supabase_admin.table('materials').update({'current_stock': new_stock}).eq('id', mat_id).execute()
-        
-        # Update Item Fulfilled
-        supabase_admin.table('ticket_items').update({'quantity_fulfilled': wanted}).eq('id', item['id']).execute()
-        
-        # Log Event (Optional but recommended)
-        event_data = {
-            "material_id": mat_id,
-            "event_type": "TICKET_FULFILLMENT",
-            "performed_by": str(current_user.id),
-            "requested_by": ticket['requester_id'],
-            "notes": f"Ticket {ticket_id} fulfilled. Qty: {wanted}"
-        }
-        supabase_admin.table('material_events').insert(event_data).execute()
-
-        # 4. Record Inventory Movement (For History)
-        print(f"[DEBUG] Attempting to record movement for ticket {ticket_id}. Admin Client: {supabase_admin is not None}")
-        if supabase_admin:
-            try:
-                folio = ticket.get('folio', 0)
-                print(f"[DEBUG] Using Folio: {folio}, User: {current_user.id}")
-                movement_data = {
-                    "material_id": mat_id,
-                    "movement_type": "OUT",
-                    "quantity": wanted,
-                    "user_id": str(current_user.id),
-                    "reference_type": "TICKET",
-                    "reference_id": folio,
-                    "notes": f"Ticket #{folio or ticket_id} - Dispensed to {ticket.get('requester', {}).get('full_name') or 'User'}"
-                }
-                res = supabase_admin.table('inventory_movements').insert(movement_data).execute()
-                print(f"[DEBUG] Movement Insert Result: {res.data}")
-            except Exception as e:
-                print(f"[ERROR] Failed to insert movement: {e}")
-        else:
-            print("[ERROR] supabase_admin is None. Cannot record movement.")
-
-    # 3. Update Ticket Status
+    # 1. Optimistic RPC Call (Handles Status, Stock, Movement in DB Transaction)
+    # Use standard supabase client (Anon) - 'deliver_ticket' is security definer so permissions handled by DB
     try:
-        update_res = supabase_admin.table('tickets').update({
-            'status': 'ENTREGADO', 
-            'assigned_to': str(current_user.id),
-            'updated_at': 'now()'
-        }).eq('id', ticket_id).execute()
+        print(f"[DEBUG] Calling deliver_ticket RPC for {ticket_id}")
+        rpc_res = supabase.rpc('deliver_ticket', {
+            'p_ticket_id': int(ticket_id),
+            'p_user_id': str(current_user.id)
+        }).execute()
         
-        # Manually return a dict that matches TicketResponse schema roughly or just success
-        # The frontend refreshes so exact shape matches are less critical if we don't crash
-        if update_res.data:
-             return update_res.data[0]
-        return {"status": "success", "message": "Ticket closed"}
+        # Manually return success structure
+        return {"success": True, "message": "Ticket delivered successfully", "id": ticket_id, "status": "ENTREGADO"}
         
     except Exception as e:
-        print(f"[CRITICAL ERROR] Failed to update ticket status: {e}")
-        # We should probably rollback stock here? (Not easy without transactions)
-        # For now, just raise so user sees it
-        raise HTTPException(status_code=500, detail=f"Stock deducted but failed to close ticket: {str(e)}")
+        # LOGGING TO FILE FOR DEBUGGING
+        import traceback
+        with open("debug_rpc_error.log", "a") as f:
+             f.write(f"\n[ERROR] Ticket {ticket_id}: {str(e)}\n")
+             f.write(traceback.format_exc())
+             
+        print(f"[CRITICAL ERROR] RPC Failed: {e}")
+        # Return strict JSON error so frontend displays it
+        raise HTTPException(status_code=400, detail=str(e))

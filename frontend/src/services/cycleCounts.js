@@ -45,5 +45,15 @@ export const cycleCountService = {
     commitLine: async (lineId) => {
         const response = await api.post(`/cycle-counts/lines/${lineId}/commit`)
         return response
+    },
+
+    archiveLines: async (materialIds) => {
+        const response = await api.post('/cycle-counts/archive-lines', { material_ids: materialIds })
+        return response
+    },
+
+    archiveLines: async (materialIds) => {
+        const response = await api.post('/cycle-counts/archive-lines', { material_ids: materialIds })
+        return response
     }
 }

@@ -97,10 +97,18 @@ export default function CycleCountHistoryModal({ materialId, materialName, onClo
                                         // Fallback: If new_stock_level missing, assuming it's current running total? No, that's hard.
                                         // We will try to use the direct fields first.
 
-                                        const adj = Number(move.quantity) || 0
-                                        const prev = move.previous_stock_level ?? '-'
-                                        const curr = move.new_stock_level ?? '-'
-                                        const real = move.new_stock_level ?? '-' // Real Qty usually matches ending stock for cycle counts
+                                        const prev = move.previous_stock_level !== undefined ? Number(move.previous_stock_level) : '-'
+                                        const curr = move.new_stock_level !== undefined ? Number(move.new_stock_level) : '-'
+
+                                        // CRITICAL FIX: Derive adjustment from stock levels if available. 
+                                        // The raw 'quantity' might be inverted or absolute in some backend versions.
+                                        // Verification: 50 (New) - 95 (Prev) = -45.
+                                        let adj = Number(move.quantity) || 0
+                                        if (prev !== '-' && curr !== '-') {
+                                            adj = curr - prev
+                                        }
+
+                                        const real = curr // Real Qty matches New Stock Level for this snapshot
 
                                         return (
                                             <tr key={move.id} className="hover:bg-slate-50 transition-colors">

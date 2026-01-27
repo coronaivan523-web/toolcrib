@@ -135,14 +135,14 @@ def get_material_history(
         
         # 3. Manually fetch user details if movements exist
         if movements:
-            user_ids = list(set([m.get('user_id') for m in movements if m.get('user_id')]))
+            user_ids = list(set([m.get('created_by') for m in movements if m.get('created_by')]))
             if user_ids:
                 users_response = supabase_admin.table("profiles").select("id, full_name").in_("id", user_ids).execute()
                 users_map = {u['id']: u for u in users_response.data} if users_response.data else {}
                 
                 # Attach user info
                 for move in movements:
-                    uid = move.get('user_id')
+                    uid = move.get('created_by')
                     if uid in users_map:
                         move['created_by_user'] = users_map[uid]
                     else:

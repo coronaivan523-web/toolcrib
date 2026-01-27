@@ -121,6 +121,8 @@ function TicketsContent() {
     // Filter States
     const [statusFilter, setStatusFilter] = useState('active') // 'active', 'closed', 'all'
     const [folioSearch, setFolioSearch] = useState('')
+    const [filterCategory, setFilterCategory] = useState('all')
+    const [filterType, setFilterType] = useState('all')
 
     // Report Notifications State
     const [reports, setReports] = useState([])
@@ -403,21 +405,28 @@ function TicketsContent() {
 
     // Filter Logic
     // Filter Logic
-    const hasActiveFilters = searchDesc || searchPart || filterProcess !== 'all' || filterArea !== 'all' || filterMachine !== 'all'
+    // Filter Logic
+    const hasActiveFilters = searchDesc || searchPart || filterCategory !== 'all' || filterType !== 'all' || filterProcess !== 'all' || filterArea !== 'all' || filterMachine !== 'all'
 
     const filteredMaterials = hasActiveFilters ? materials.filter(m => {
         const descMatch = !searchDesc || m.name?.toLowerCase().includes(searchDesc.toLowerCase())
         const partMatch = !searchPart || m.part_number?.toLowerCase().includes(searchPart.toLowerCase())
         // Handle Area/area ambiguity
         const mArea = m.area || m.Area || ''
+
+        const categoryMatch = filterCategory === 'all' || (m.category || '') === filterCategory
+        const typeMatch = filterType === 'all' || (m.material_type || '') === filterType
         const processMatch = filterProcess === 'all' || (m.process || '') === filterProcess
         const areaMatch = filterArea === 'all' || mArea === filterArea
         const machineMatch = filterMachine === 'all' || (m.machine_asset || '') === filterMachine
-        return descMatch && partMatch && processMatch && areaMatch && machineMatch
+
+        return descMatch && partMatch && categoryMatch && typeMatch && processMatch && areaMatch && machineMatch
     }) : []
 
     // Unique options for Selects
     // Unique options for Selects (Independent to prevent "elimination" perception)
+    const uniqueCategories = [...new Set(materials.map(m => m.category).filter(Boolean))].sort()
+    const uniqueTypes = [...new Set(materials.map(m => m.material_type).filter(Boolean))].sort()
     const uniqueProcesses = [...new Set(materials.map(m => m.process).filter(Boolean))].sort()
     const uniqueAreas = [...new Set(materials.map(m => m.area || m.Area).filter(Boolean))].sort()
     const uniqueMachines = [...new Set(materials.map(m => m.machine_asset).filter(Boolean))].sort()
@@ -653,7 +662,6 @@ function TicketsContent() {
             setNotification(null) // Clear any persistent errors
 
             fetchUserAndTickets()
-            fetchUserAndTickets()
             fetchMaterials() // Refresh stock to update pending counts
             // Optional: User toast for success on main screen, but simpler here just to close
 
@@ -781,21 +789,29 @@ function TicketsContent() {
         setActionProcessingId(ticketId)
 
         try {
+            // Verify service availability
+            if (!ticketService || !ticketService.closeTicket) {
+                throw new Error('Ticket Service not initialized or missing closeTicket method')
+            }
+
             // Use Backend API to close ticket (handles stock deduction + history logging)
+            console.log('Calling ticketService.closeTicket...')
             await ticketService.closeTicket(ticketId)
+            console.log('ticketService.closeTicket completed successfully')
 
             // Legacy Client-Side Logic Removed to prevent duplication/errors
             // Backend now handles: Stock Deduction, Status Update, History Logging
 
             setSelectedTicket(null) // Clear selection
-            fetchUserAndTickets(true)
+            await fetchUserAndTickets(true) // Ensure this waits
             showNotification('Ticket delivered and stock updated', 'success')
         } catch (error) {
             console.error('Error closing ticket:', error)
-            showNotification('Error closing ticket: ' + error.message, 'error', true)
+            showNotification('Error closing ticket: ' + (error.message || error), 'error', true)
         } finally {
             // Force reset to ensure UI unlocks
-            setTimeout(() => setActionProcessingId(null), 100)
+            console.log('Fulfilling handleDeliverTicket action')
+            setActionProcessingId(null)
         }
     }
 
@@ -1131,6 +1147,8 @@ function TicketsContent() {
         setCartItems([])
         setSearchDesc('')
         setSearchPart('')
+        setFilterCategory('all')
+        setFilterType('all')
         setFilterProcess('all')
         setFilterArea('all')
         setFilterMachine('all')
@@ -1295,32 +1313,20 @@ function TicketsContent() {
                 </button>
             )}
             {/* Requisition Detail Modal (Read-Only Mode) */}
-            <RequisitionDetailModal
-                isOpen={isRequisitionDetailOpen}
-                onClose={() => {
-                    setIsRequisitionDetailOpen(false)
-                    setViewingRequisition(null)
-                }}
-                requisition={viewingRequisition}
-                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
-                usersMap={{}} // Optional: for mapping user IDs to names if needed
-                currentUser={currentUser}
-                onActionSuccess={() => { }} // No actions expected in read-only mostly
-            />
-
-            {/* Requisition Detail Modal (Read-Only Mode) */}
-            <RequisitionDetailModal
-                isOpen={isRequisitionDetailOpen}
-                onClose={() => {
-                    setIsRequisitionDetailOpen(false)
-                    setViewingRequisition(null)
-                }}
-                requisition={viewingRequisition}
-                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
-                usersMap={{}} // Optional: for mapping user IDs to names if needed
-                currentUser={currentUser}
-                onActionSuccess={() => { }} // No actions expected in read-only mostly
-            />
+            {isRequisitionDetailOpen && (
+                <RequisitionDetailModal
+                    isOpen={isRequisitionDetailOpen}
+                    onClose={() => {
+                        setIsRequisitionDetailOpen(false)
+                        setViewingRequisition(null)
+                    }}
+                    requisition={viewingRequisition}
+                    materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})}
+                    usersMap={undefined}
+                    currentUser={currentUser}
+                    onActionSuccess={() => { }}
+                />
+            )}
 
         </div>
     )
@@ -2105,8 +2111,8 @@ function TicketsContent() {
             {/* NEW Redesigned Modal - Full Screen / Large */}
             {
                 isCreateModalOpen && (
-                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={handleCloseModal}>
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[85vh] flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
+                    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 backdrop-blur-sm" onClick={handleCloseModal}>
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
 
                             {/* Confirmation Modal Overlay */}
                             {showExitConfirm && (
@@ -2178,7 +2184,7 @@ function TicketsContent() {
 
                             <div className="flex-1 flex overflow-hidden">
                                 {/* Left Side: Product Selection & Search */}
-                                <div className="w-2/3 flex flex-col border-r border-slate-200 bg-slate-50/50">
+                                <div className="w-[78%] flex flex-col border-r border-slate-200 bg-slate-50/50">
                                     {/* Visual Verification Block - NEW */}
                                     <div className="p-2 bg-blue-50/50 border-b border-blue-100 shadow-sm z-10">
                                         <h4 className="font-bold text-blue-800 text-xs flex items-center gap-2 mb-1 tracking-tight uppercase">
@@ -2199,7 +2205,7 @@ function TicketsContent() {
                                                         onClick={handleSearchPreview}
                                                         className="bg-blue-600 text-white px-3 py-1 rounded-md font-bold text-[10px] shadow-sm hover:bg-blue-700 transition-all flex items-center gap-1 uppercase tracking-wide"
                                                     >
-                                                        <Search size={12} /> Verify
+                                                        <Search size={12} /> VERIFY
                                                     </button>
                                                 </div>
                                             </div>
@@ -2241,6 +2247,34 @@ function TicketsContent() {
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Category:</label>
+                                                    <select
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
+                                                        value={filterCategory}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setFilterCategory(e.target.value)
+                                                        }}
+                                                    >
+                                                        <option value="all">- Select -</option>
+                                                        {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="flex-1 flex items-center gap-2">
+                                                    <label className="font-normal text-slate-600 text-xs w-20 text-right">Type:</label>
+                                                    <select
+                                                        className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500 outline-none text-slate-600 font-light bg-white"
+                                                        value={filterType}
+                                                        onChange={e => {
+                                                            if (checkPendingAction()) return
+                                                            setFilterType(e.target.value)
+                                                        }}
+                                                    >
+                                                        <option value="all">- Select -</option>
+                                                        {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
                                                 <div className="flex-1 flex items-center gap-2">
                                                     <label className="font-normal text-slate-600 text-xs w-20 text-right">Process:</label>
                                                     <select
@@ -2291,6 +2325,8 @@ function TicketsContent() {
                                                     if (checkPendingAction()) return
                                                     setSearchDesc('')
                                                     setSearchPart('')
+                                                    setFilterCategory('all')
+                                                    setFilterType('all')
                                                     setFilterProcess('all')
                                                     setFilterArea('all')
                                                     setFilterMachine('all')
@@ -2303,18 +2339,20 @@ function TicketsContent() {
                                     </div>
 
                                     {/* Table Results */}
-                                    <div className="flex-1 overflow-auto p-4 custom-scrollbar">
-                                        <table className="w-full border-separate border-spacing-0">
+                                    <div className="flex-1 overflow-auto custom-scrollbar">
+                                        <table className="w-full border-separate border-spacing-0 min-w-[1200px]">
                                             <thead>
                                                 <tr>
-                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tl-lg">Part #</th>
-                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Description</th>
-                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Process</th>
-                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Area</th>
-                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-left text-xs font-bold text-primary-800 uppercase tracking-wider">Machine</th>
-                                                    <th className="p-3 border-b border-primary-200 text-center sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-xs font-bold text-primary-800 uppercase tracking-wider">Stock</th>
-                                                    <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider">Qty</th>
-                                                    <th className="p-3 border-b border-primary-200 w-24 sticky top-0 z-20 bg-primary-100/90 backdrop-blur-sm text-center text-xs font-bold text-primary-800 uppercase tracking-wider rounded-tr-lg">Action</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[12%]">Part #</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[20%]">Description</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[10%]">Category</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[10%]">Type</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[12%]">Process</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[8%]">Area</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-left text-xs font-bold text-primary-800 uppercase tracking-wider w-[8%]">Machine</th>
+                                                    <th className="p-3 border-b border-primary-200 text-center sticky top-0 z-50 bg-primary-100 text-xs font-bold text-primary-800 uppercase tracking-wider w-[5%]">Stock</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-center text-xs font-bold text-primary-800 uppercase tracking-wider w-[8%]">Qty</th>
+                                                    <th className="p-3 border-b border-primary-200 sticky top-0 z-50 bg-primary-100 text-center text-xs font-bold text-primary-800 uppercase tracking-wider w-[7%]">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -2334,6 +2372,10 @@ function TicketsContent() {
                                                                     {material.part_number}
                                                                 </td>
                                                                 <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.name}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.category || '-'}</td>
+                                                                <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg} capitalize`}>
+                                                                    {material.material_type?.replace('_', ' ') || '-'}
+                                                                </td>
                                                                 <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.process}</td>
                                                                 <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.area || material.Area}</td>
                                                                 <td className={`p-3 border-b ${isLowStock ? 'border-red-100' : 'border-slate-100'} text-sm text-slate-500 ${cellBg}`}>{material.machine_asset}</td>
@@ -2392,7 +2434,7 @@ function TicketsContent() {
                                 </div>
 
                                 {/* Right Side: Cart & Details */}
-                                <div className="w-1/3 flex flex-col bg-slate-50 border-l border-slate-200">
+                                <div className="w-[22%] flex flex-col bg-slate-50 border-l border-slate-200">
                                     <div className="p-4 bg-white shadow-sm z-10 flex justify-between items-center">
                                         <h4 className="font-medium text-slate-800 text-lg flex items-center gap-2 tracking-tight">
                                             <FileText size={18} className="text-primary-600" />
@@ -3123,18 +3165,20 @@ function TicketsContent() {
             />
 
             {/* Requisition Detail Modal (Read-Only Mode) */}
-            <RequisitionDetailModal
-                isOpen={isRequisitionDetailOpen}
-                onClose={() => {
-                    setIsRequisitionDetailOpen(false)
-                    setViewingRequisition(null)
-                }}
-                requisition={viewingRequisition}
-                materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})} // Provide material map for images
-                usersMap={{}} // Optional: for mapping user IDs to names if needed
-                currentUser={currentUser}
-                onActionSuccess={() => { }} // No actions expected in read-only mostly
-            />
+            {isRequisitionDetailOpen && (
+                <RequisitionDetailModal
+                    isOpen={isRequisitionDetailOpen}
+                    onClose={() => {
+                        setIsRequisitionDetailOpen(false)
+                        setViewingRequisition(null)
+                    }}
+                    requisition={viewingRequisition}
+                    materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})}
+                    usersMap={undefined}
+                    currentUser={currentUser}
+                    onActionSuccess={() => { }}
+                />
+            )}
         </div >
     )
 }

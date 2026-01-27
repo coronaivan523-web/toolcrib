@@ -77,10 +77,10 @@ export default function Inventory() {
         material_type: 'spare_part',
         abc_class: 'B',
         origin_country: 'MX',
-        unit_of_measure: 'unit',
-        min_stock: 5,
-        max_stock: 100,
-        current_stock: 0,
+        unit_of_measure: '',
+        min_stock: '',
+        max_stock: '',
+        current_stock: '',
         location: '',
         process: '',
         area: '',
@@ -546,9 +546,9 @@ export default function Inventory() {
                 abc_class: newMaterial.abc_class,
                 origin_country: newMaterial.origin_country,
                 unit_of_measure: newMaterial.unit_of_measure,
-                min_stock: newMaterial.min_stock,
-                max_stock: newMaterial.max_stock,
-                current_stock: newMaterial.current_stock,
+                min_stock: newMaterial.min_stock === '' ? 0 : newMaterial.min_stock,
+                max_stock: newMaterial.max_stock === '' ? 0 : newMaterial.max_stock,
+                current_stock: newMaterial.current_stock === '' ? 0 : newMaterial.current_stock,
                 location: newMaterial.location,
                 process: newMaterial.process,
                 area: newMaterial.area,
@@ -598,10 +598,10 @@ export default function Inventory() {
                 material_type: 'spare_part',
                 abc_class: 'B',
                 origin_country: 'MX',
-                unit_of_measure: 'unit',
-                min_stock: 5,
-                max_stock: 100,
-                current_stock: 0,
+                unit_of_measure: '',
+                min_stock: '',
+                max_stock: '',
+                current_stock: '',
                 location: '',
                 process: '',
                 area: '',
@@ -1146,7 +1146,7 @@ export default function Inventory() {
                                                 {isArchiveView ? (
                                                     <div className="flex flex-col">
                                                         <span className="text-[10px] font-bold text-slate-700">
-                                                            {new Date(item.archived_at).toLocaleDateString()}
+                                                            {new Date(item.archived_at).toLocaleDateString('en-GB')}
                                                         </span>
                                                         <span className="text-[9px] text-slate-400">
                                                             {new Date(item.archived_at).toLocaleTimeString()}
@@ -1406,18 +1406,18 @@ export default function Inventory() {
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-1">Initial Stock</label>
-                                                        <input type="number" required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" value={newMaterial.current_stock} onChange={e => setNewMaterial({ ...newMaterial, current_stock: parseInt(e.target.value) })} />
+                                                        <input type="number" required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all" value={newMaterial.current_stock} onChange={e => setNewMaterial({ ...newMaterial, current_stock: e.target.value === '' ? '' : parseInt(e.target.value) })} />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <label className="block text-[10px] font-bold text-amber-600/80 uppercase tracking-wider ml-1 flex items-center gap-1">Min (Reorder)</label>
                                                         <div className="relative">
-                                                            <input type="number" required className="w-full p-2.5 bg-amber-50/50 border border-amber-200 rounded-lg text-sm text-center text-amber-800 font-bold focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 outline-none transition-all" value={newMaterial.min_stock} onChange={e => setNewMaterial({ ...newMaterial, min_stock: parseInt(e.target.value) })} />
+                                                            <input type="number" required className="w-full p-2.5 bg-amber-50/50 border border-amber-200 rounded-lg text-sm text-center text-amber-800 font-bold focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 outline-none transition-all" value={newMaterial.min_stock} onChange={e => setNewMaterial({ ...newMaterial, min_stock: e.target.value === '' ? '' : parseInt(e.target.value) })} />
                                                         </div>
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <label className="block text-[10px] font-bold text-blue-600/80 uppercase tracking-wider ml-1">Max (Limit)</label>
                                                         <div className="relative">
-                                                            <input type="number" required className="w-full p-2.5 bg-blue-50/50 border border-blue-200 rounded-lg text-sm text-center text-blue-800 font-bold focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all" value={newMaterial.max_stock} onChange={e => setNewMaterial({ ...newMaterial, max_stock: parseInt(e.target.value) })} />
+                                                            <input type="number" required className="w-full p-2.5 bg-blue-50/50 border border-blue-200 rounded-lg text-sm text-center text-blue-800 font-bold focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all" value={newMaterial.max_stock} onChange={e => setNewMaterial({ ...newMaterial, max_stock: e.target.value === '' ? '' : parseInt(e.target.value) })} />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -2009,7 +2009,7 @@ export default function Inventory() {
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Date</label>
-                                                        <div className="text-sm font-semibold text-slate-700">{selectedItemAction.created_at ? new Date(selectedItemAction.created_at).toLocaleDateString() : '-'}</div>
+                                                        <div className="text-sm font-semibold text-slate-700">{selectedItemAction.created_at ? new Date(selectedItemAction.created_at).toLocaleDateString('en-GB') : '-'}</div>
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Requestor</label>
@@ -2065,7 +2065,7 @@ export default function Inventory() {
                                                             return (
                                                                 <tr key={event.id || Math.random()} className="hover:bg-purple-50/30 transition-colors group">
                                                                     <td className="px-4 py-4 text-[10px] text-slate-600 font-mono whitespace-nowrap align-top">
-                                                                        <div className="font-bold text-slate-700">{new Date(event.created_at).toLocaleDateString()}</div>
+                                                                        <div className="font-bold text-slate-700">{new Date(event.created_at).toLocaleDateString('en-GB')}</div>
                                                                         <div className="text-[10px] text-slate-400 mt-0.5">{new Date(event.created_at).toLocaleTimeString()}</div>
                                                                     </td>
                                                                     <td className="px-4 py-4 align-top">

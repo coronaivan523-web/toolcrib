@@ -13,6 +13,7 @@ export default function CycleCountsIndex() {
     const [sessions, setSessions] = useState([])
     const [loading, setLoading] = useState(true)
     const [creating, setCreating] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
     const navigate = useNavigate()
 
     // Determinar rol efectivo (respetando simulación de admin)
@@ -68,6 +69,35 @@ export default function CycleCountsIndex() {
         }
     }
 
+    // Filter Logic
+    const filteredDisplaySessions = sessions.filter(session => {
+        if (!searchTerm) return true
+        const term = searchTerm.toLowerCase()
+
+        // Calculate dynamic status for search match (Replicating render logic)
+        let displayStatus = session.status || ''
+        const totalLines = session.lines?.length || 0
+        const countedLines = session.lines?.filter(l => l.qty_physical !== null && l.qty_physical !== undefined).length || 0
+
+        if (session.status === 'PENDING' || session.status === 'assigned') {
+            if (totalLines > 0 && countedLines === totalLines) {
+                displayStatus = 'CLOSED'
+            } else if (countedLines > 0) {
+                displayStatus = 'IN PROCESS'
+            }
+        }
+
+        // Fields to search
+        const id = (session.ticket_id || session.id || '').toLowerCase()
+        const statusRaw = (session.status || '').toLowerCase()
+        const statusDisplay = displayStatus.toLowerCase()
+        // Also search user names
+        const assigned = (session.assigned_to_profile?.full_name || session.assigned_to_profile?.email || '').toLowerCase()
+        const created = (session.created_by_profile?.full_name || session.created_by_profile?.email || '').toLowerCase()
+
+        return id.includes(term) || statusRaw.includes(term) || statusDisplay.includes(term) || assigned.includes(term) || created.includes(term)
+    })
+
     const handleCreateSession = () => {
         navigate('/cycle-counts/new')
     }
@@ -92,6 +122,8 @@ export default function CycleCountsIndex() {
                             type="text"
                             placeholder="Search sessions..."
                             className="pl-9 pr-4 py-2 w-full rounded-lg border border-sky-200 text-sm focus:ring-sky-500 focus:border-sky-500 bg-white"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
@@ -140,7 +172,7 @@ export default function CycleCountsIndex() {
                         <tbody className="divide-y divide-slate-100">
                             {loading ? (
                                 <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-400">Loading...</td></tr>
-                            ) : sessions.length === 0 ? (
+                            ) : filteredDisplaySessions.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="px-6 py-12 text-center text-slate-500">
                                         <div className="flex flex-col items-center gap-2">
@@ -150,7 +182,7 @@ export default function CycleCountsIndex() {
                                     </td>
                                 </tr>
                             ) : (
-                                sessions.map((session) => {
+                                filteredDisplaySessions.map((session) => {
                                     // 1. Calculate Dynamic Status
                                     let displayStatus = session.status
                                     let statusColor = "bg-slate-50 text-slate-700 border-slate-200"

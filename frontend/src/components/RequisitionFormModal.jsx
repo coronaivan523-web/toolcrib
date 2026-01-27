@@ -642,7 +642,7 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                             </div>
                                             <div>
                                                 <label className="text-[10px] uppercase text-slate-400 font-bold">Date</label>
-                                                <div className="text-xs font-medium text-slate-700">{new Date().toLocaleDateString()}</div>
+                                                <div className="text-xs font-medium text-slate-700">{new Date().toLocaleDateString('en-GB')}</div>
                                             </div>
                                         </div>
 
@@ -688,197 +688,210 @@ export default function RequisitionFormModal({ isOpen, onClose, onSuccess, mater
                                                 <table className="w-full text-xs min-w-[600px] relative border-collapse">
                                                     <thead className="bg-primary-50 border-b border-primary-100 text-primary-800 font-semibold sticky top-0 z-20 shadow-sm">
                                                         <tr className="uppercase text-[10px] tracking-wider">
-                                                            <th className="px-3 py-2 text-left w-[20%]">Material</th>
-                                                            <th className="px-3 py-2 w-[33%]">Description</th>
-                                                            <th className="px-2 py-2 w-[8%] text-center">Image</th>
+                                                            <th className="px-3 py-2 text-left w-[15%]">Part #</th>
+                                                            <th className="px-3 py-2 w-[25%]">Description</th>
+                                                            <th className="px-3 py-2 w-[10%]">Category</th>
+                                                            <th className="px-3 py-2 w-[10%]">Type</th>
+                                                            <th className="px-2 py-2 w-[5%] text-center">Image</th>
                                                             <th className="px-2 py-2 w-[5%] text-center">Qty</th>
                                                             <th className="px-2 py-2 w-[5%] text-center">Unit</th>
                                                             <th className="px-3 py-2 w-[8%]">Supplier</th>
                                                             <th className="px-3 py-2 w-[5%]">Cause</th>
                                                             <th className="px-3 py-2 w-[8%]">Cost Center</th>
-                                                            <th className="px-3 py-2 w-[12%]">Project</th>
+                                                            <th className="px-3 py-2 w-[10%]">Project</th>
                                                             <th className="px-2 py-2 w-[4%]"></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100">
-                                                        {items.map((item, index) => (
-                                                            <tr key={item.id} className="hover:bg-slate-50">
-                                                                <td className="px-3 py-2">
-                                                                    <MaterialAutocomplete
-                                                                        key={`mat-${item.id}-${isOpen}`}
-                                                                        materials={materials}
-                                                                        selectedMaterialId={item.material_id}
-                                                                        onSelect={(id) => handleMaterialSelect(item.id, id)}
-                                                                        error={!item.material_id}
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
-                                                                        placeholder="Specs, Color, Brand..." value={item.notes} onChange={e => handleItemChange(item.id, 'notes', e.target.value)} />
-                                                                </td>
-                                                                <td className="px-2 py-2 flex justify-center">
-                                                                    {item.image_url ? (
-                                                                        <div
-                                                                            className="h-8 w-8 shrink-0 rounded border border-slate-200 bg-white cursor-pointer hover:border-primary-400 overflow-hidden"
-                                                                            onClick={() => setExpandedImage(item.image_url)}
-                                                                            title="View Image"
-                                                                        >
-                                                                            <img src={item.image_url} alt="mat" className="h-full w-full object-contain" />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div
-                                                                            className="h-8 w-8 shrink-0 rounded border border-slate-100 bg-slate-50 flex items-center justify-center text-slate-300 cursor-pointer hover:bg-slate-100 hover:text-primary-500 hover:border-primary-300 transition-colors"
-                                                                            title="Click to upload image for this material"
-                                                                            onClick={() => handleUploadClick(item.id)}
-                                                                        >
-                                                                            <ImageIcon size={14} />
-                                                                        </div>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input type="number" min="1" className="w-full text-center border-slate-300 rounded px-1 py-1"
-                                                                        value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', e.target.value)} />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        className="w-full text-center border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
-                                                                        value={item.unit}
-                                                                        onChange={e => handleItemChange(item.id, 'unit', e.target.value)}
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2 relative">
-                                                                    <div className="flex">
+                                                        {items.map((item, index) => {
+                                                            const selectedMat = materials.find(m => m.id === item.material_id);
+                                                            return (
+                                                                <tr key={item.id} className="hover:bg-slate-50">
+                                                                    <td className="px-3 py-2">
+                                                                        <MaterialAutocomplete
+                                                                            key={`mat-${item.id}-${isOpen}`}
+                                                                            materials={materials}
+                                                                            selectedMaterialId={item.material_id}
+                                                                            onSelect={(id) => handleMaterialSelect(item.id, id)}
+                                                                            error={!item.material_id}
+                                                                        />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input type="text" className="w-full border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
+                                                                            placeholder="Specs, Color, Brand..." value={item.notes} onChange={e => handleItemChange(item.id, 'notes', e.target.value)} />
+                                                                    </td>
+                                                                    {/* NEW COLUMNS */}
+                                                                    <td className="px-3 py-2 text-xs text-slate-600 font-medium">
+                                                                        {selectedMat?.category || '-'}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-xs text-slate-600 font-medium">
+                                                                        {selectedMat?.group_name || '-'}
+                                                                    </td>
+
+                                                                    <td className="px-2 py-2 flex justify-center">
+                                                                        {item.image_url ? (
+                                                                            <div
+                                                                                className="h-8 w-8 shrink-0 rounded border border-slate-200 bg-white cursor-pointer hover:border-primary-400 overflow-hidden"
+                                                                                onClick={() => setExpandedImage(item.image_url)}
+                                                                                title="View Image"
+                                                                            >
+                                                                                <img src={item.image_url} alt="mat" className="h-full w-full object-contain" />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div
+                                                                                className="h-8 w-8 shrink-0 rounded border border-slate-100 bg-slate-50 flex items-center justify-center text-slate-300 cursor-pointer hover:bg-slate-100 hover:text-primary-500 hover:border-primary-300 transition-colors"
+                                                                                title="Click to upload image for this material"
+                                                                                onClick={() => handleUploadClick(item.id)}
+                                                                            >
+                                                                                <ImageIcon size={14} />
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
+                                                                        <input type="number" min="1" className="w-full text-center border-slate-300 rounded px-1 py-1"
+                                                                            value={item.quantity} onChange={e => handleItemChange(item.id, 'quantity', e.target.value)} />
+                                                                    </td>
+                                                                    <td className="px-2 py-2">
                                                                         <input
                                                                             type="text"
-                                                                            className="w-full border-slate-200 rounded-l px-1 py-1 text-slate-600 focus:border-primary-500 focus:z-10"
-                                                                            placeholder="Optional"
-                                                                            value={item.supplier}
-                                                                            onChange={e => handleItemChange(item.id, 'supplier', e.target.value)}
+                                                                            className="w-full text-center border-slate-200 rounded px-1 py-1 text-slate-600 focus:border-primary-500"
+                                                                            value={item.unit}
+                                                                            onChange={e => handleItemChange(item.id, 'unit', e.target.value)}
                                                                         />
+                                                                    </td>
+                                                                    <td className="px-2 py-2 relative">
+                                                                        <div className="flex">
+                                                                            <input
+                                                                                type="text"
+                                                                                className="w-full border-slate-200 rounded-l px-1 py-1 text-slate-600 focus:border-primary-500 focus:z-10"
+                                                                                placeholder="Optional"
+                                                                                value={item.supplier}
+                                                                                onChange={e => handleItemChange(item.id, 'supplier', e.target.value)}
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setOpenSupplierDropdownId(openSupplierDropdownId === item.id ? null : item.id)}
+                                                                                className="border border-l-0 border-slate-200 rounded-r px-1 bg-slate-50 hover:bg-slate-100 text-slate-400"
+                                                                            >
+                                                                                <ChevronDown size={14} />
+                                                                            </button>
+                                                                        </div>
+                                                                        {openSupplierDropdownId === item.id && (
+                                                                            <>
+                                                                                <div className="fixed inset-0 z-10" onClick={() => setOpenSupplierDropdownId(null)}></div>
+                                                                                <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                    {SUPPLIER_OPTIONS.map(opt => (
+                                                                                        <div
+                                                                                            key={opt.value}
+                                                                                            className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                            onClick={() => {
+                                                                                                handleItemChange(item.id, 'supplier', opt.value)
+                                                                                                setOpenSupplierDropdownId(null)
+                                                                                            }}
+                                                                                        >
+                                                                                            {opt.label}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2 relative">
                                                                         <button
                                                                             type="button"
-                                                                            onClick={() => setOpenSupplierDropdownId(openSupplierDropdownId === item.id ? null : item.id)}
-                                                                            className="border border-l-0 border-slate-200 rounded-r px-1 bg-slate-50 hover:bg-slate-100 text-slate-400"
+                                                                            onClick={() => setOpenCauseDropdownId(openCauseDropdownId === item.id ? null : item.id)}
+                                                                            className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
                                                                         >
-                                                                            <ChevronDown size={14} />
+                                                                            <span className="truncate">{item.cause || "Select"}</span>
+                                                                            <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
                                                                         </button>
-                                                                    </div>
-                                                                    {openSupplierDropdownId === item.id && (
-                                                                        <>
-                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenSupplierDropdownId(null)}></div>
-                                                                            <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
-                                                                                {SUPPLIER_OPTIONS.map(opt => (
-                                                                                    <div
-                                                                                        key={opt.value}
-                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
-                                                                                        onClick={() => {
-                                                                                            handleItemChange(item.id, 'supplier', opt.value)
-                                                                                            setOpenSupplierDropdownId(null)
-                                                                                        }}
-                                                                                    >
-                                                                                        {opt.label}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 relative">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setOpenCauseDropdownId(openCauseDropdownId === item.id ? null : item.id)}
-                                                                        className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
-                                                                    >
-                                                                        <span className="truncate">{item.cause || "Select"}</span>
-                                                                        <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
-                                                                    </button>
 
-                                                                    {openCauseDropdownId === item.id && (
-                                                                        <>
-                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenCauseDropdownId(null)}></div>
-                                                                            <div className="absolute z-20 top-full left-0 w-48 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
-                                                                                {CAUSE_OPTIONS.map(opt => (
-                                                                                    <div
-                                                                                        key={opt.value}
-                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
-                                                                                        onClick={() => {
-                                                                                            handleItemChange(item.id, 'cause', opt.value)
-                                                                                            setOpenCauseDropdownId(null)
-                                                                                        }}
-                                                                                    >
-                                                                                        {opt.label}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 relative">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setOpenCostCenterDropdownId(openCostCenterDropdownId === item.id ? null : item.id)}
-                                                                        className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
-                                                                    >
-                                                                        <span className="truncate">{item.cost_center || "Select"}</span>
-                                                                        <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
-                                                                    </button>
+                                                                        {openCauseDropdownId === item.id && (
+                                                                            <>
+                                                                                <div className="fixed inset-0 z-10" onClick={() => setOpenCauseDropdownId(null)}></div>
+                                                                                <div className="absolute z-20 top-full left-0 w-48 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                    {CAUSE_OPTIONS.map(opt => (
+                                                                                        <div
+                                                                                            key={opt.value}
+                                                                                            className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                            onClick={() => {
+                                                                                                handleItemChange(item.id, 'cause', opt.value)
+                                                                                                setOpenCauseDropdownId(null)
+                                                                                            }}
+                                                                                        >
+                                                                                            {opt.label}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2 relative">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setOpenCostCenterDropdownId(openCostCenterDropdownId === item.id ? null : item.id)}
+                                                                            className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
+                                                                        >
+                                                                            <span className="truncate">{item.cost_center || "Select"}</span>
+                                                                            <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
+                                                                        </button>
 
-                                                                    {openCostCenterDropdownId === item.id && (
-                                                                        <>
-                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenCostCenterDropdownId(null)}></div>
-                                                                            <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
-                                                                                {COST_CENTER_OPTIONS.map(opt => (
-                                                                                    <div
-                                                                                        key={opt.value}
-                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
-                                                                                        onClick={() => {
-                                                                                            handleItemChange(item.id, 'cost_center', opt.value)
-                                                                                            setOpenCostCenterDropdownId(null)
-                                                                                        }}
-                                                                                    >
-                                                                                        {opt.label}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 relative">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setOpenProjectDropdownId(openProjectDropdownId === item.id ? null : item.id)}
-                                                                        className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
-                                                                    >
-                                                                        <span className="truncate">{item.project_code || "Select"}</span>
-                                                                        <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
-                                                                    </button>
+                                                                        {openCostCenterDropdownId === item.id && (
+                                                                            <>
+                                                                                <div className="fixed inset-0 z-10" onClick={() => setOpenCostCenterDropdownId(null)}></div>
+                                                                                <div className="absolute z-20 top-full left-0 w-32 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                    {COST_CENTER_OPTIONS.map(opt => (
+                                                                                        <div
+                                                                                            key={opt.value}
+                                                                                            className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                            onClick={() => {
+                                                                                                handleItemChange(item.id, 'cost_center', opt.value)
+                                                                                                setOpenCostCenterDropdownId(null)
+                                                                                            }}
+                                                                                        >
+                                                                                            {opt.label}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2 relative">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setOpenProjectDropdownId(openProjectDropdownId === item.id ? null : item.id)}
+                                                                            className="w-full text-left rounded px-1 py-1 text-xs border border-slate-200 text-slate-600 bg-white focus:border-primary-500 flex items-center justify-between"
+                                                                        >
+                                                                            <span className="truncate">{item.project_code || "Select"}</span>
+                                                                            <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
+                                                                        </button>
 
-                                                                    {openProjectDropdownId === item.id && (
-                                                                        <>
-                                                                            <div className="fixed inset-0 z-10" onClick={() => setOpenProjectDropdownId(null)}></div>
-                                                                            <div className="absolute z-20 top-full right-0 w-64 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
-                                                                                {PROJECT_OPTIONS.map(opt => (
-                                                                                    <div
-                                                                                        key={opt.value}
-                                                                                        className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
-                                                                                        onClick={() => {
-                                                                                            handleItemChange(item.id, 'project_code', opt.value)
-                                                                                            setOpenProjectDropdownId(null)
-                                                                                        }}
-                                                                                    >
-                                                                                        {opt.label}
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-2 text-center">
-                                                                    <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                                        {openProjectDropdownId === item.id && (
+                                                                            <>
+                                                                                <div className="fixed inset-0 z-10" onClick={() => setOpenProjectDropdownId(null)}></div>
+                                                                                <div className="absolute z-20 top-full right-0 w-64 mt-1 bg-white border border-slate-200 rounded shadow-xl max-h-40 overflow-y-auto">
+                                                                                    {PROJECT_OPTIONS.map(opt => (
+                                                                                        <div
+                                                                                            key={opt.value}
+                                                                                            className="px-2 py-1.5 text-xs hover:bg-primary-50 hover:text-primary-700 cursor-pointer text-slate-600 transition-colors border-b border-slate-50 last:border-0"
+                                                                                            onClick={() => {
+                                                                                                handleItemChange(item.id, 'project_code', opt.value)
+                                                                                                setOpenProjectDropdownId(null)
+                                                                                            }}
+                                                                                        >
+                                                                                            {opt.label}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-2 py-2 text-center">
+                                                                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={14} /></button>
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        })}
                                                     </tbody>
                                                 </table>
                                                 <div className="p-2 border-t border-slate-100 bg-slate-50">

@@ -100,3 +100,24 @@ def commit_session(
         return CycleCountService.commit_session(id, user_id, current_client)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/archive-lines", response_model=dict)
+def archive_lines(
+    payload: dict,
+    current_user: Any = Depends(get_current_user),
+    current_client: Client = Depends(deps.get_supabase_client)
+):
+    """
+    Archive lines for specific materials (Reset Status).
+    Payload: { "material_ids": [1, 2, 3] }
+    """
+    material_ids = payload.get('material_ids', [])
+    if not material_ids:
+        return {"count": 0}
+        
+    try:
+        user_id = current_user.id
+        return CycleCountService.archive_lines_by_material(material_ids, user_id, current_client)
+    except Exception as e:
+        print(f"Archive Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
