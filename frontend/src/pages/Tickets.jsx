@@ -450,9 +450,12 @@ function TicketsContent() {
     }
 
     // Filter Logic
-    // Filter Logic
-    // Filter Logic
     const hasActiveFilters = searchDesc || searchPart || filterCategory !== 'all' || filterType !== 'all' || filterProcess !== 'all' || filterArea !== 'all' || filterMachine !== 'all'
+
+    // PPE Authorization Check
+    // "only can leave request PPE (epp) to the role of administrator and security (seguridad)"
+    const authorizedPPERoles = ['admin', 'administrator', 'security', 'supervisor'] // Added supervisor as safe default for privileged roles
+    const canRequestPPE = userProfile && authorizedPPERoles.includes(userProfile.role)
 
     const filteredMaterials = hasActiveFilters ? materials.filter(m => {
         const descMatch = !searchDesc || m.name?.toLowerCase().includes(searchDesc.toLowerCase())
@@ -466,12 +469,21 @@ function TicketsContent() {
         const areaMatch = filterArea === 'all' || mArea === filterArea
         const machineMatch = filterMachine === 'all' || (m.machine_asset || '') === filterMachine
 
-        return descMatch && partMatch && categoryMatch && typeMatch && processMatch && areaMatch && machineMatch
+        // PPE Restriction: Filter out EPP items if not authorized
+        let ppeMatch = true
+        if (!canRequestPPE) {
+            const isEPP = (m.category && m.category.toUpperCase() === 'EPP') || m.is_ppe
+            if (isEPP) ppeMatch = false
+        }
+
+        return descMatch && partMatch && categoryMatch && typeMatch && processMatch && areaMatch && machineMatch && ppeMatch
     }) : []
 
     // Unique options for Selects
     // Unique options for Selects (Independent to prevent "elimination" perception)
-    const uniqueCategories = [...new Set(materials.map(m => m.category).filter(Boolean))].sort()
+    const uniqueCategories = [...new Set(materials.map(m => m.category).filter(Boolean))]
+        .filter(c => canRequestPPE || c.toUpperCase() !== 'EPP') // Hide EPP from category list
+        .sort()
     const uniqueTypes = [...new Set(materials.map(m => m.material_type).filter(Boolean))].sort()
     const uniqueProcesses = [...new Set(materials.map(m => m.process).filter(Boolean))].sort()
     const uniqueAreas = [...new Set(materials.map(m => m.area || m.Area).filter(Boolean))].sort()
@@ -833,6 +845,12 @@ function TicketsContent() {
         );
 
         if (eppItemsInCart.length > 0) {
+            // STRICT AUTHORIZATION CHECK
+            if (!canRequestPPE) {
+                showNotification("Unauthorized: You do not have permission to request PPE (EPP) items. Only Security and Admin can request these.", 'error')
+                return
+            }
+
             setPPEItems(eppItemsInCart);
             setIsPPEModalOpen(true);
             return;

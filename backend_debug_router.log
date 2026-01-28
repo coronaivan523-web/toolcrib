@@ -4611,3 +4611,15 @@ API Evaluated Role: admin
 Privileged user detected. No ID filter passed to service.
 API Evaluated Role: admin
 Privileged user detected. No ID filter passed to service.
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
+API Evaluated Role: staff_level_2
+Standard user detected. Filtering by requester_id=2215af38-4a26-4b6c-8793-8e9b92935375
