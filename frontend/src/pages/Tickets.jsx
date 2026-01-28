@@ -7,6 +7,8 @@ import clsx from 'clsx'
 import PageHeader from '../components/PageHeader'
 import RequisitionFormModal from '../components/RequisitionFormModal' // Import Modal
 import RequisitionDetailModal from '../components/RequisitionDetailModal'
+import PPEValidationModal from '../components/PPEValidationModal'
+import PPEBlockModal from '../components/PPEBlockModal'
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -141,6 +143,19 @@ function TicketsContent() {
     const [cancelledFilterRequester, setCancelledFilterRequester] = useState('');
     const [cancelledFilterCancelledBy, setCancelledFilterCancelledBy] = useState('');
     const [cancelledFilterDate, setCancelledFilterDate] = useState('');
+
+    // PPE Validation State
+    const [isPPEModalOpen, setIsPPEModalOpen] = useState(false)
+    const [ppeItems, setPPEItems] = useState([])
+
+    // PPE Blocking Logic (Modal)
+    const [blockModalData, setBlockModalData] = useState({
+        isOpen: false,
+        blockedItems: [],
+        employeeNumber: '',
+        operatorName: '',
+        history: []
+    })
 
     // Get adminViewMode from Layout context
     const context = useOutletContext() || {}
@@ -650,22 +665,70 @@ function TicketsContent() {
         }
     }
 
-    const handleCreateTicket = async () => {
-        if (cartItems.length === 0) {
-            showNotification("Please add items to your request.", 'error')
-            return
-        }
-
-        if (checkPendingAction()) return
-
-
-
+    const processTicketSubmission = async (extraData = {}) => {
         try {
             // Create Ticket Container (Header)
-            const { data: ticket, error: ticketError } = await supabase.from('tickets').insert([{
+            const ticketPayload = {
                 requester_id: currentUser.id,
                 status: 'pending'
-            }]).select().single()
+            };
+
+            // Add operator details if present
+            if (extraData.operatorName) {
+                ticketPayload.operator_name = extraData.operatorName;
+            }
+            // Add employee number if present
+            if (extraData.employeeNumber) {
+                ticketPayload.employee_number = extraData.employeeNumber;
+
+                // VALIDITY CHECK using EMPLOYEE NUMBER
+                // Gather potential PPE items to check
+                const ppeMaterialIds = cartItems
+                    .filter(item => (item.material.category && item.material.category.toUpperCase() === 'EPP') || item.material.is_ppe)
+                    .map(item => item.material_id);
+
+                if (ppeMaterialIds.length > 0) {
+                    const { data: blockedItems, error: checkError } = await supabase
+                        .rpc('check_ppe_eligibility', {
+                            p_employee_number: extraData.employeeNumber,
+                            p_material_ids: ppeMaterialIds
+                        });
+
+                    if (checkError) throw checkError;
+
+                    if (blockedItems && blockedItems.length > 0) {
+                        // Found valid items! Fetch history and open Block Modal.
+
+                        // 1. Fetch Request History for this Employee using RPC to bypass RLS
+                        const { data: requestHistory, error: historyError } = await supabase
+                            .rpc('get_employee_ppe_history', {
+                                p_employee_number: extraData.employeeNumber
+                            });
+
+                        if (historyError) {
+                            // Fallback to simple toast if history fails
+                            const conflictList = blockedItems.map(b =>
+                                `• ${b.material_name} (Expires: ${b.renewal_date}, Ref: #${b.ticket_folio})`
+                            ).join('\n');
+                            showNotification(`Cannot issue items. Employee #${extraData.employeeNumber} has active deliveries.\n${conflictList}`, 'error');
+                            return;
+                        }
+
+                        // 2. Open Block Modal
+                        setBlockModalData({
+                            isOpen: true,
+                            blockedItems: blockedItems,
+                            employeeNumber: extraData.employeeNumber,
+                            operatorName: extraData.operatorName,
+                            history: requestHistory || []
+                        });
+
+                        return; // STOP EXECUTION
+                    }
+                }
+            }
+
+            const { data: ticket, error: ticketError } = await supabase.from('tickets').insert([ticketPayload]).select().single()
 
             if (ticketError) throw ticketError
 
@@ -677,29 +740,106 @@ function TicketsContent() {
                 plant: item.details.plant,
                 area: item.details.area,
                 line_machine: item.details.machine,
-                process: item.details.process
+                process: item.details.process,
+                // Add renewal date if present for this specific item
+                renewal_date: extraData.renewalDates?.[item.material_id] || null
             }))
 
             const { error: itemsError } = await supabase.from('ticket_items').insert(items)
             if (itemsError) throw itemsError
 
             setIsCreateModalOpen(false)
+            setIsPPEModalOpen(false) // Close PPE modal if open
             setCartItems([])
             // Clear Job Details
             setJobPlant('')
             setJobArea('')
             setJobMachine('')
             setJobProcess('')
+
+            // Clear Filters
+            setSearchDesc('')
+            setSearchPart('')
+            setFilterCategory('all')
+            setFilterType('all')
+            setFilterProcess('all')
+            setFilterArea('all')
+            setFilterMachine('all')
+
             setNotification(null) // Clear any persistent errors
 
             fetchUserAndTickets()
             fetchMaterials() // Refresh stock to update pending counts
-            // Optional: User toast for success on main screen, but simpler here just to close
+            showNotification("Ticket created successfully!", 'success')
 
         } catch (error) {
             console.error(error)
             showNotification("Error creating ticket: " + error.message, 'error')
         }
+    }
+
+    const handleRestock = async (item, empNum, opName) => {
+        try {
+            // Create Single Item Ticket for Restock
+            const ticketPayload = {
+                requester_id: currentUser.id,
+                status: 'pending',
+                employee_number: empNum,
+                operator_name: opName
+            };
+
+            const { data: ticket, error: ticketError } = await supabase.from('tickets').insert([ticketPayload]).select().single();
+            if (ticketError) throw ticketError;
+
+            // Find full material details from cart or materials list
+            // blocked items come from RPC: { material_id, material_name ... } 
+
+            const itemPayload = {
+                ticket_id: ticket.id,
+                material_id: item.material_id, // Ensure RPC returns material_id
+                quantity_requested: 1, // Restock is usually 1 unit replacement
+                is_restock: true, // FLAG AS RESTOCK
+                renewal_date: null // Reset renewal date
+            };
+
+            const { error: itemError } = await supabase.from('ticket_items').insert([itemPayload]);
+            if (itemError) throw itemError;
+
+            showNotification(`Restock ticket #${ticket.folio} created successfully.`, 'success');
+
+            // Close modal to force refresh
+            setBlockModalData(prev => ({ ...prev, isOpen: false }));
+            setCartItems([]);
+
+        } catch (error) {
+            console.error(error);
+            showNotification("Error creating restock ticket: " + error.message, 'error');
+        }
+    };
+
+    const handleCreateTicket = async () => {
+        if (cartItems.length === 0) {
+            showNotification("Please add items to your request.", 'error')
+            return
+        }
+
+        if (checkPendingAction()) return
+
+        // Check for PPE items in the cart
+        // We check 'Category' (text) or 'is_ppe' (boolean) to be safe
+        const eppItemsInCart = cartItems.filter(item =>
+            (item.material.category && item.material.category.toUpperCase() === 'EPP') ||
+            item.material.is_ppe === true
+        );
+
+        if (eppItemsInCart.length > 0) {
+            setPPEItems(eppItemsInCart);
+            setIsPPEModalOpen(true);
+            return;
+        }
+
+        // If no PPE items, proceed with standard submission
+        await processTicketSubmission();
     }
 
 
@@ -3211,6 +3351,24 @@ function TicketsContent() {
                     onActionSuccess={() => { }}
                 />
             )}
+
+            {/* PPE Validation Modal */}
+            <PPEValidationModal
+                isOpen={isPPEModalOpen}
+                onClose={() => setIsPPEModalOpen(false)}
+                onConfirm={(employeeNumber, operatorName, renewalDates) => processTicketSubmission({ employeeNumber, operatorName, renewalDates })}
+                eppItems={ppeItems}
+            />
+            {/* PPE Block/History Modal */}
+            <PPEBlockModal
+                isOpen={blockModalData.isOpen}
+                onClose={() => setBlockModalData(prev => ({ ...prev, isOpen: false }))}
+                blockedItems={blockModalData.blockedItems}
+                employeeNumber={blockModalData.employeeNumber}
+                operatorName={blockModalData.operatorName}
+                history={blockModalData.history}
+                onRestock={handleRestock}
+            />
         </div >
     )
 }

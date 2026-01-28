@@ -894,6 +894,8 @@ export default function Users() {
                                         <option value="staff_level_2">Staff Level 2</option>
                                         <option value="toolroom_staff">Auxiliar Tool Room</option>
                                         <option value="supervisor">Supervisor Tool Room</option>
+                                        <option value="seguridad">Seguridad</option>
+                                        <option value="gerente">Gerente</option>
                                     </select>
                                 </div>
                                 <div>

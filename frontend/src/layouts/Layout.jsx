@@ -11,8 +11,8 @@ const ALL_NAVIGATION = [
     { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
     { name: 'Cycle Counts', href: '/cycle-counts', icon: Recycle, roles: ['admin', 'supervisor', 'toolroom_staff'] },
 
-    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2'] },
-    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2'] },
+    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2', 'seguridad'] },
+    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2', 'seguridad'] },
     { name: 'Users', href: '/users', icon: User, roles: ['admin'] },
 ]
 
