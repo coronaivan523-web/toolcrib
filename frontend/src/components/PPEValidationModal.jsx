@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, User, AlertTriangle } from 'lucide-react';
 
+// Helper for DD/MM/YYYY format display
+const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    // Handle YYYY-MM-DD
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    }
+    return dateString;
+};
+
 export default function PPEValidationModal({ isOpen, onClose, onConfirm, eppItems }) {
     const [employeeNumber, setEmployeeNumber] = useState('');
     const [operatorName, setOperatorName] = useState('');
@@ -134,7 +145,7 @@ export default function PPEValidationModal({ isOpen, onClose, onConfirm, eppItem
                                             <div className="relative">
                                                 <input
                                                     type="date"
-                                                    className={`w-full px-3 py-2 rounded-md border ${errors[item.material_id] ? 'border-red-500' : 'border-slate-300'} focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm`}
+                                                    className={`w-full px-3 py-2 rounded-md border ${errors[item.material_id] ? 'border-red-500' : 'border-slate-300'} focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white`}
                                                     value={renewalDates[item.material_id] || ''}
                                                     onChange={(e) => setRenewalDates({ ...renewalDates, [item.material_id]: e.target.value })}
                                                 />

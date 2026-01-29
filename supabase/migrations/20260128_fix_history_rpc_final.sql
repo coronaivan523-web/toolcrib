@@ -1,9 +1,10 @@
--- RPC to fetch PPE history with requester names
--- UPDATE: Added is_restock column support
--- - Quantity is INTEGER
--- - ID is BIGINT
+-- Final Fix for History RPC
+-- Drops all variations of the function to avoid ambiguity
+-- Recreates it with correct signature and robust search logic
 
+-- Drop both potential signatures to ensure clean slate
 DROP FUNCTION IF EXISTS public.get_employee_ppe_history(text);
+DROP FUNCTION IF EXISTS public.get_employee_ppe_history(text, text);
 
 CREATE OR REPLACE FUNCTION public.get_employee_ppe_history(
     p_employee_number text,
@@ -40,6 +41,7 @@ BEGIN
     FROM public.ticket_items ti
     JOIN public.tickets t ON ti.ticket_id = t.id
     JOIN public.materials m ON ti.material_id = m.id
+    LEFT JOIN public.profiles p ON t.requester_id = p.id
     WHERE 
         (p_employee_number IS NOT NULL AND TRIM(t.employee_number) = TRIM(p_employee_number))
         OR 

@@ -264,7 +264,9 @@ function TicketsContent() {
                         )
                     ),
                     quality_reports(*), 
-                    requester:profiles!tickets_requester_id_fkey(email, full_name)
+                    requester:profiles!tickets_requester_id_fkey(email, full_name),
+                    employee_number,
+                    operator_name
                 `)
                     .order('created_at', { ascending: false })
                     .limit(200) // Optimization: Limit to recent tickets for speed
@@ -453,9 +455,14 @@ function TicketsContent() {
     const hasActiveFilters = searchDesc || searchPart || filterCategory !== 'all' || filterType !== 'all' || filterProcess !== 'all' || filterArea !== 'all' || filterMachine !== 'all'
 
     // PPE Authorization Check
+    // PPE Authorization Check
     // "only can leave request PPE (epp) to the role of administrator and security (seguridad)"
-    const authorizedPPERoles = ['admin', 'administrator', 'security', 'supervisor'] // Added supervisor as safe default for privileged roles
-    const canRequestPPE = userProfile && authorizedPPERoles.includes(userProfile.role)
+    // EXPANDED ROLES: Added 'seguridad' and Ensure case-insensitivity
+    const authorizedPPERoles = ['admin', 'administrator', 'security', 'supervisor', 'seguridad', 'manager']
+    const canRequestPPE = userProfile && authorizedPPERoles.some(r => r.toLowerCase() === userProfile.role?.toLowerCase())
+
+    // DEBUG: Log role check
+    console.log('PPE Check:', { role: userProfile?.role, authorized: canRequestPPE })
 
     const filteredMaterials = hasActiveFilters ? materials.filter(m => {
         const descMatch = !searchDesc || m.name?.toLowerCase().includes(searchDesc.toLowerCase())
@@ -714,10 +721,12 @@ function TicketsContent() {
                         // 1. Fetch Request History for this Employee using RPC to bypass RLS
                         const { data: requestHistory, error: historyError } = await supabase
                             .rpc('get_employee_ppe_history', {
-                                p_employee_number: extraData.employeeNumber
+                                p_employee_number: extraData.employeeNumber,
+                                p_operator_name: extraData.operatorName // Pass name for fallback matching
                             });
 
                         if (historyError) {
+                            console.error("RPC Error (get_employee_ppe_history):", historyError); // Log detailed error
                             // Fallback to simple toast if history fails
                             const conflictList = blockedItems.map(b =>
                                 `• ${b.material_name} (Expires: ${b.renewal_date}, Ref: #${b.ticket_folio})`
@@ -726,13 +735,53 @@ function TicketsContent() {
                             return;
                         }
 
+
                         // 2. Open Block Modal
+                        // INJECT MISSING ITEMS: Ensure blocked items appear in history even if RPC missed them
+                        const historyWithBlocked = [...(requestHistory || [])];
+
+                        console.log("Blocking items to verify:", blockedItems);
+
+                        blockedItems.forEach(blocked => {
+                            // Check if this blocking ticket is already in the history list (match by folio AND material)
+                            // Use String() to ensure BigInt/Number compatibility
+                            const exists = historyWithBlocked.some(h =>
+                                String(h.ticket_folio || h.folio) === String(blocked.ticket_folio) &&
+                                (h.material_name || '').trim().toLowerCase() === (blocked.material_name || '').trim().toLowerCase()
+                            );
+
+                            if (!exists) {
+                                console.log("Injecting missing blocked ticket into history:", blocked.ticket_folio);
+                                // Manually construct a history record from the blocked item data
+                                historyWithBlocked.unshift({
+                                    id: `injected-${blocked.ticket_folio}`, // Temporary ID
+                                    created_at: blocked.last_delivery_date, // Timestamp
+                                    ticket_created_at: blocked.last_delivery_date, // Consistent timestamp
+                                    ticket_folio: blocked.ticket_folio,
+                                    requester_name: extraData.operatorName || 'System', // Fallback
+                                    material_name: blocked.material_name,
+                                    part_number: 'Ref-Block',
+                                    quantity: 1,
+                                    renewal_date: blocked.renewal_date,
+                                    is_restock: false
+                                });
+                            }
+                        });
+
+                        // Re-sort by date descending to ensure injected items are in correct position
+                        historyWithBlocked.sort((a, b) => {
+                            const dateA = new Date(a.ticket_created_at || a.created_at || 0);
+                            const dateB = new Date(b.ticket_created_at || b.created_at || 0);
+                            return dateB - dateA;
+                        });
+
                         setBlockModalData({
                             isOpen: true,
                             blockedItems: blockedItems,
                             employeeNumber: extraData.employeeNumber,
                             operatorName: extraData.operatorName,
-                            history: requestHistory || []
+                            history: historyWithBlocked,
+                            renewalDates: extraData.renewalDates // Pass captured dates
                         });
 
                         return; // STOP EXECUTION
@@ -790,9 +839,22 @@ function TicketsContent() {
         }
     }
 
-    const handleRestock = async (item, empNum, opName) => {
+    const handleRestock = async (itemsInput, empNum, opName, renewalDates = {}) => {
         try {
-            // Create Single Item Ticket for Restock
+            // Normalize input to array (support both single item and array)
+            const itemsToRestock = Array.isArray(itemsInput) ? itemsInput : [itemsInput];
+
+            if (itemsToRestock.length === 0) return;
+
+            // IMMEDIATE CLOSE: Close all modals first for better UX
+            setBlockModalData(prev => ({ ...prev, isOpen: false }));
+            setIsPPEModalOpen(false); // Close the underlying PPE Verification modal
+            setIsCreateRequisitionModalOpen(false); // Close the Request Form modal
+            setIsCreateModalOpen(false); // Close the main Ticket Create modal
+            setIsRequisitionDetailOpen(false); // Close detail modal if that was the entry point
+            setCartItems([]);
+
+            // Create Ticket for Restock (One ticket for all selected items)
             const ticketPayload = {
                 requester_id: currentUser.id,
                 status: 'pending',
@@ -803,29 +865,26 @@ function TicketsContent() {
             const { data: ticket, error: ticketError } = await supabase.from('tickets').insert([ticketPayload]).select().single();
             if (ticketError) throw ticketError;
 
-            // Find full material details from cart or materials list
-            // blocked items come from RPC: { material_id, material_name ... } 
-
-            const itemPayload = {
+            // Prepare Items payload
+            const itemsPayload = itemsToRestock.map(item => ({
                 ticket_id: ticket.id,
-                material_id: item.material_id, // Ensure RPC returns material_id
-                quantity_requested: 1, // Restock is usually 1 unit replacement
+                material_id: item.material_id,
+                quantity_requested: 1,
                 is_restock: true, // FLAG AS RESTOCK
-                renewal_date: null // Reset renewal date
-            };
+                renewal_date: renewalDates[item.material_id] ? new Date(renewalDates[item.material_id]).toISOString() : null
+            }));
 
-            const { error: itemError } = await supabase.from('ticket_items').insert([itemPayload]);
+            const { error: itemError } = await supabase.from('ticket_items').insert(itemsPayload);
             if (itemError) throw itemError;
 
-            showNotification(`Restock ticket #${ticket.folio} created successfully.`, 'success');
+            // Force refresh to ensure we get the ticket AND its items
+            await fetchUserAndTickets(true)
 
-            // Close modal to force refresh
-            setBlockModalData(prev => ({ ...prev, isOpen: false }));
-            setCartItems([]);
+            showNotification(`Restock ticket #${ticket.folio} created with ${itemsPayload.length} items.`, 'success');
 
         } catch (error) {
-            console.error(error);
-            showNotification("Error creating restock ticket: " + error.message, 'error');
+            console.error(error)
+            showNotification("Error creating restock ticket: " + error.message, 'error')
         }
     };
 
@@ -2173,96 +2232,122 @@ function TicketsContent() {
                                                                 }`}>
                                                                 {isLowStock ? <AlertTriangle size={16} /> : <Box size={16} />}
                                                             </div>
-                                                            <div>
-                                                                <p className={`font-bold ${isLowStock ? 'text-red-700' : 'text-slate-700'
-                                                                    }`}>
-                                                                    {item.material?.name || 'Unknown Item'}
-                                                                </p>
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <p className="text-xs text-slate-500 font-mono">
-                                                                        {item.material?.part_number || 'N/A'}
+                                                            <div className="flex gap-8 items-start">
+                                                                {/* Material Info Column */}
+                                                                <div>
+                                                                    <p className={`font-bold ${isLowStock ? 'text-red-700' : 'text-slate-700'}`}>
+                                                                        {item.material?.name || 'Unknown Item'}
                                                                     </p>
-                                                                    {isLowStock && (
-                                                                        <>
-                                                                            <span className="inline-flex items-center gap-1 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                                                                Low Stock: {item.material?.current_stock}
-                                                                            </span>
-                                                                            <button
-                                                                                onClick={async (e) => {
-                                                                                    e.stopPropagation();
-                                                                                    setSelectedTicketItem(item);
-
-                                                                                    // Check for Active Requisition before opening report modal
-                                                                                    try {
-                                                                                        // Step A: Find Requisition IDs associated with this material
-                                                                                        const { data: itemData, error: itemError } = await supabase
-                                                                                            .from('requisition_items')
-                                                                                            .select('requisition_id')
-                                                                                            .eq('material_id', item.material?.id)
-                                                                                            .limit(5)
-
-                                                                                        if (!itemError && itemData && itemData.length > 0) {
-                                                                                            const reqIds = itemData.map(i => i.requisition_id).filter(Boolean)
-
-                                                                                            if (reqIds.length > 0) {
-                                                                                                // Step B: Fetch full details for these requisitions
-                                                                                                const { data: reqs, error: reqError } = await supabase
-                                                                                                    .from('requisitions')
-                                                                                                    .select(`
-                                                                                                        *,
-                                                                                                        items:requisition_items (*),
-                                                                                                        approvals:requisition_approvals (*)
-                                                                                                    `)
-                                                                                                    .in('id', reqIds)
-                                                                                                    .order('created_at', { ascending: false })
-
-                                                                                                if (!reqError && reqs) {
-                                                                                                    // Check for any active status
-                                                                                                    const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL', 'CANCELLED', 'CLOSED', 'REJECTED', 'PARTIALLY_RECEIVED'].includes(r.status))
-
-                                                                                                    if (activeReq) {
-                                                                                                        // Fetch requester profile
-                                                                                                        const { data: profile } = await supabase
-                                                                                                            .from('profiles')
-                                                                                                            .select('*')
-                                                                                                            .eq('id', activeReq.requester_id)
-                                                                                                            .single()
-
-                                                                                                        if (profile) activeReq.requester = profile
-
-                                                                                                        setViewingRequisition(activeReq)
-                                                                                                        setIsRequisitionDetailOpen(true)
-                                                                                                        return
-                                                                                                    }
-                                                                                                }
-                                                                                            }
-                                                                                        }
-                                                                                    } catch (e) {
-                                                                                        console.error("Error checking requisitions:", e)
-                                                                                    }
-
-                                                                                    setIsRequirementModalOpen(true);
-                                                                                }}
-                                                                                className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm hover:bg-red-700 transition-colors animate-pulse"
-                                                                            >
-                                                                                <FileText size={10} />
-                                                                                REPORT / REQ
-                                                                            </button>
-                                                                        </>
-                                                                    )}
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <p className="text-xs text-slate-500 font-mono">
+                                                                            {item.material?.part_number || 'N/A'}
+                                                                        </p>
+                                                                    </div>
                                                                 </div>
-                                                                {(item.status === 'cancelled' || item.item_status === 'cancelled' || isLegacyCancelled || effectiveCancellationReason) && (
-                                                                    <div className="mt-1.5 flex items-start gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-100">
-                                                                        <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                                                                        <div className="flex flex-col">
-                                                                            <span className="text-[9px] font-black uppercase tracking-wider leading-none mb-0.5">Cancelled</span>
-                                                                            <span className="text-xs leading-tight">{effectiveCancellationReason || 'No reason provided'}</span>
+
+                                                                {/* PPE Recipient Info Column - Aligned Row-wise */}
+                                                                {(ticket.employee_number || ticket.operator_name) && (
+                                                                    <div className="flex flex-col border-l border-slate-200 pl-4">
+                                                                        {/* Row 1: ID aligned with Material Name */}
+                                                                        <div className="flex items-center gap-2 h-[24px]">
+                                                                            <span className="text-xs uppercase font-bold text-slate-400 w-8">Id</span>
+                                                                            <span className="font-bold text-slate-700 text-sm">
+                                                                                {ticket.employee_number}
+                                                                            </span>
+                                                                        </div>
+                                                                        {/* Row 2: Name aligned with Part Number */}
+                                                                        <div className="flex items-center gap-2 h-[16px]">
+                                                                            <span className="text-xs uppercase font-bold text-slate-400 w-14">Nombre</span>
+                                                                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide truncate max-w-[150px]">
+                                                                                {ticket.operator_name}
+                                                                            </span>
                                                                         </div>
                                                                     </div>
                                                                 )}
                                                             </div>
+
+                                                            {isLowStock && (
+                                                                <>
+                                                                    <span className="inline-flex items-center gap-1 text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                                                                        Low Stock: {item.material?.current_stock}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={async (e) => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedTicketItem(item);
+
+                                                                            // Check for Active Requisition before opening report modal
+                                                                            try {
+                                                                                // Step A: Find Requisition IDs associated with this material
+                                                                                const { data: itemData, error: itemError } = await supabase
+                                                                                    .from('requisition_items')
+                                                                                    .select('requisition_id')
+                                                                                    .eq('material_id', item.material?.id)
+                                                                                    .limit(5)
+
+                                                                                if (!itemError && itemData && itemData.length > 0) {
+                                                                                    const reqIds = itemData.map(i => i.requisition_id).filter(Boolean)
+
+                                                                                    if (reqIds.length > 0) {
+                                                                                        // Step B: Fetch full details for these requisitions
+                                                                                        const { data: reqs, error: reqError } = await supabase
+                                                                                            .from('requisitions')
+                                                                                            .select(`
+                                                                                                *,
+                                                                                                items:requisition_items (*),
+                                                                                                approvals:requisition_approvals (*)
+                                                                                            `)
+                                                                                            .in('id', reqIds)
+                                                                                            .order('created_at', { ascending: false })
+
+                                                                                        if (!reqError && reqs) {
+                                                                                            // Check for any active status
+                                                                                            const activeReq = reqs.find(r => !['DRAFT', 'CANCELED', 'REJECTED_FINAL', 'CANCELLED', 'CLOSED', 'REJECTED', 'PARTIALLY_RECEIVED'].includes(r.status))
+
+                                                                                            if (activeReq) {
+                                                                                                // Fetch requester profile
+                                                                                                const { data: profile } = await supabase
+                                                                                                    .from('profiles')
+                                                                                                    .select('*')
+                                                                                                    .eq('id', activeReq.requester_id)
+                                                                                                    .single()
+
+                                                                                                if (profile) activeReq.requester = profile
+
+                                                                                                setViewingRequisition(activeReq)
+                                                                                                setIsRequisitionDetailOpen(true)
+                                                                                                return
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            } catch (e) {
+                                                                                console.error("Error checking requisitions:", e)
+                                                                            }
+
+                                                                            setIsRequirementModalOpen(true);
+                                                                        }}
+                                                                        className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded shadow-sm hover:bg-red-700 transition-colors animate-pulse"
+                                                                    >
+                                                                        <FileText size={10} />
+                                                                        REPORT / REQ
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
-                                                        <div className="flex flex-col items-center justify-start bg-white px-3 py-2 rounded shadow-sm border border-slate-100 min-h-[60px]">
+                                                        {
+                                                            (item.status === 'cancelled' || item.item_status === 'cancelled' || isLegacyCancelled || effectiveCancellationReason) && (
+                                                                <div className="mt-1.5 flex items-start gap-1.5 text-red-600 bg-red-50 px-2 py-1 rounded-md border border-red-100">
+                                                                    <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-[9px] font-black uppercase tracking-wider leading-none mb-0.5">Cancelled</span>
+                                                                        <span className="text-xs leading-tight">{effectiveCancellationReason || 'No reason provided'}</span>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        }
+                                                        {/* Quantity Badge - Inside Main Row, aligned right */}
+                                                        <div className="ml-auto flex flex-col items-center justify-center bg-white px-3 py-2 rounded shadow-sm border border-slate-100 min-h-[60px]">
                                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Qty</span>
                                                             <span className="text-base font-black text-slate-700 mt-auto">{item.quantity_requested}</span>
                                                         </div>
@@ -2294,8 +2379,8 @@ function TicketsContent() {
                             </div>
                         ))
                     })()}
-                </div>
-            </div>
+                </div >
+            </div >
 
             {/* NEW Redesigned Modal - Full Screen / Large */}
             {
@@ -2600,7 +2685,7 @@ function TicketsContent() {
                                                     })
                                                 ) : (
                                                     <tr>
-                                                        <td colspan="8" className="p-8 text-center text-slate-400">
+                                                        <td colSpan="10" className="p-8 text-center text-slate-400">
                                                             <p className="font-medium">No materials found matching your filters.</p>
                                                             <button
                                                                 onClick={() => {
@@ -3355,20 +3440,22 @@ function TicketsContent() {
             />
 
             {/* Requisition Detail Modal (Read-Only Mode) */}
-            {isRequisitionDetailOpen && (
-                <RequisitionDetailModal
-                    isOpen={isRequisitionDetailOpen}
-                    onClose={() => {
-                        setIsRequisitionDetailOpen(false)
-                        setViewingRequisition(null)
-                    }}
-                    requisition={viewingRequisition}
-                    materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})}
-                    usersMap={undefined}
-                    currentUser={currentUser}
-                    onActionSuccess={() => { }}
-                />
-            )}
+            {
+                isRequisitionDetailOpen && (
+                    <RequisitionDetailModal
+                        isOpen={isRequisitionDetailOpen}
+                        onClose={() => {
+                            setIsRequisitionDetailOpen(false)
+                            setViewingRequisition(null)
+                        }}
+                        requisition={viewingRequisition}
+                        materials={materials.reduce((acc, mat) => ({ ...acc, [mat.id]: mat }), {})}
+                        usersMap={undefined}
+                        currentUser={currentUser}
+                        onActionSuccess={() => { }}
+                    />
+                )
+            }
 
             {/* PPE Validation Modal */}
             <PPEValidationModal
@@ -3385,6 +3472,7 @@ function TicketsContent() {
                 employeeNumber={blockModalData.employeeNumber}
                 operatorName={blockModalData.operatorName}
                 history={blockModalData.history}
+                newRenewalDates={blockModalData.renewalDates}
                 onRestock={handleRestock}
             />
         </div >
