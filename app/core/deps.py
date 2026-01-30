@@ -1,8 +1,25 @@
 from typing import Generator, Optional
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
+from supabase import create_client, Client
 from app.core.supabase import supabase
 from app.core.config import settings
+
+def get_supabase_client(authorization: str = Header(...)) -> Client:
+    """
+    Crea un cliente Supabase autenticado con el token del usuario.
+    Esto asegura que Supabase aplique las políticas RLS correspondientes al usuario.
+    """
+    token = authorization.replace("Bearer ", "")
+    
+    # Context Forwarding:
+    client = create_client(
+        settings.SUPABASE_URL, 
+        settings.SUPABASE_KEY, 
+        options={'headers': {'Authorization': f'Bearer {token}'}}
+    )
+    
+    return client
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
