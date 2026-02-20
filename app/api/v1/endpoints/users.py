@@ -67,15 +67,13 @@ def debug_check():
         client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
     
     try:
-        res = client.table('profiles').select('*').execute()
+        res = client.table('profiles').select('*').limit(1).execute()
         return {
             "has_service_key": has_key,
-            "count": len(res.data),
-            "data": res.data
+            "db_ok": True
         }
     except Exception as e:
         return {"error": str(e), "has_service_key": has_key}
-
 @router.get("/debug/users")
 def debug_users():
     """Debug endpoint to list users (bypass auth issues)"""
@@ -373,3 +371,4 @@ def impersonate_user(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
+

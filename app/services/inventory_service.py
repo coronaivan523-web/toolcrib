@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from app.core.supabase import supabase, supabase_admin
+from app.schemas.inventory import InventoryMovementCreate
 
 class InventoryService:
     @staticmethod

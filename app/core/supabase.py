@@ -1,16 +1,17 @@
 from supabase import create_client, Client
+from supabase.lib.client_options import ClientOptions
 from app.core.config import settings
 
 # Initialize Supabase Client (Anon)
 url: str = settings.SUPABASE_URL
 key: str = settings.SUPABASE_KEY
-supabase: Client = create_client(url, key)
+supabase: Client = create_client(url, key, options=ClientOptions())
 
 # Initialize Supabase Admin Client (Service Role)
 # Only use this for backend administrative tasks (creating users, bypassing RLS)
-supabase_admin: Client = None
+supabase_admin: Client | None = None
 if settings.SUPABASE_SERVICE_KEY:
-    supabase_admin = create_client(url, settings.SUPABASE_SERVICE_KEY)
+    supabase_admin = create_client(url, settings.SUPABASE_SERVICE_KEY, options=ClientOptions())
 
 def get_user_client(auth_token: str) -> Client:
     """
