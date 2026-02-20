@@ -90,7 +90,7 @@ export default function Requisitions() {
             // 2. Fetch Materials for Mapping (Lightweight)
             const { data: matData } = await supabase
                 .from('materials')
-                .select('id, name, part_number, description, image_url, unit, unit_of_measure')
+                .select('id, name, part_number, description, image_url, unit, unit_of_measure, category, material_type')
 
             if (matData) {
                 const matMap = {}
