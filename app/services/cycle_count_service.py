@@ -292,7 +292,27 @@ class CycleCountService:
             # Catch outer errors
             CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
         
-        # 5. Update Material (Stock + timestamp)
+        # [DUAL-WRITE INJECTION - SHADOW MODE]
+        idempotency_key = f"CYCLE:{line.get('session_id', 'unknown')}:{material_id}:{delta}:{line_id}"
+        
+        try:
+            if delta != 0:
+                client.rpc('process_ledger_movement', {
+                    'p_payload': {
+                        'material_id': material_id,
+                        'movement_type': "ADJUSTMENT",
+                        'quantity': delta,
+                        'reference_type': 'CYCLE_COUNT',
+                        'reference_id': str(line_id),
+                        'idempotency_key': idempotency_key,
+                        'created_by': performer_id,
+                        'metadata': {}
+                    }
+                }).execute()
+        except Exception as e:
+            CycleCountService.log_debug(f"[SHADOW MODE ERROR] ledger injection failed: {e}")
+
+        # 5. Update Material (Stock + timestamp) [LEGACY]
         import datetime
         now = datetime.datetime.now().isoformat()
         

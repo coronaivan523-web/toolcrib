@@ -59,7 +59,28 @@ class InventoryService:
         
         created_movement = move_res.data[0]
         
-        # 6. Update Material Stock
+        # 6. Update Material Stock [LEGACY]
         supabase_admin.table('materials').update({"current_stock": new_stock}).eq('id', movement_in.material_id).execute()
         
+        # [DUAL-WRITE INJECTION - SHADOW MODE]
+        movement_id = created_movement.get('id', 'unknown_id')
+        ref_type = movement_in.reference_type or 'MANUAL'
+        idempotency_key = f"{ref_type}:{movement_in.material_id}:{stock_change}:{movement_id}"
+        
+        try:
+            supabase_admin.rpc('process_ledger_movement', {
+                'p_payload': {
+                    'material_id': movement_in.material_id,
+                    'movement_type': m_type,
+                    'quantity': stock_change,
+                    'reference_type': ref_type,
+                    'reference_id': movement_in.reference_id or str(movement_id),
+                    'idempotency_key': idempotency_key,
+                    'created_by': user_id,
+                    'metadata': {}
+                }
+            }).execute()
+        except Exception as e:
+            print(f"[SHADOW MODE ERROR] process_ledger_movement failed: {e}")
+            
         return created_movement
