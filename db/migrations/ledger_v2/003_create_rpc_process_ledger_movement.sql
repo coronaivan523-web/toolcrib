@@ -40,12 +40,15 @@ BEGIN
     );
 
     -- 4. Validate Derived Stock (No Negatives Allowed)
-    SELECT current_stock INTO v_derived_stock 
-    FROM public.vw_material_stock 
-    WHERE material_id = v_material_id;
+    -- Skip validation if running in shadow mode (baseline not established yet)
+    IF COALESCE(p_payload->'metadata'->>'shadow_mode', 'false') != 'true' THEN
+        SELECT current_stock INTO v_derived_stock 
+        FROM public.vw_material_stock 
+        WHERE material_id = v_material_id;
 
-    IF COALESCE(v_derived_stock, 0) < 0 THEN
-        RAISE EXCEPTION 'Insufficient stock. Transaction would result in negative inventory.';
+        IF COALESCE(v_derived_stock, 0) < 0 THEN
+            RAISE EXCEPTION 'Insufficient stock. Transaction would result in negative inventory.';
+        END IF;
     END IF;
 
 END;

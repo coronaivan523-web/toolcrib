@@ -74,7 +74,7 @@ BEGIN
             'reference_id', v_ticket.folio::text,
             'idempotency_key', v_idempotency_key,
             'created_by', p_user_id,
-            'metadata', '{}'::jsonb
+            'metadata', '{"shadow_mode": true}'::jsonb
         )
     );
 

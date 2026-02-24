@@ -306,7 +306,7 @@ class CycleCountService:
                         'reference_id': str(line_id),
                         'idempotency_key': idempotency_key,
                         'created_by': performer_id,
-                        'metadata': {}
+                        'metadata': {"shadow_mode": True}
                     }
                 }).execute()
         except Exception as e:

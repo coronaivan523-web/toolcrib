@@ -77,7 +77,7 @@ class InventoryService:
                     'reference_id': movement_in.reference_id or str(movement_id),
                     'idempotency_key': idempotency_key,
                     'created_by': user_id,
-                    'metadata': {}
+                    'metadata': {"shadow_mode": True}
                 }
             }).execute()
         except Exception as e:
