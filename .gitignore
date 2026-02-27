@@ -4,3 +4,17 @@ __pycache__/
 *.pyc
 update_env.py
 *.log
+
+# Local and Temp Files
+postgres_local_check_report.txt
+preflight_summary.txt
+python_path.txt
+
+# Clone Scripts and Outputs
+docs/audit/phase3_shadow_mode_plan.md
+clone_*.ps1
+clone_*.sh
+clone_runner.ps1
+preflight_clone_check.ps1
+local_pg_check.ps1
+*.dump

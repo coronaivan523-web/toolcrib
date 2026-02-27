@@ -5,6 +5,7 @@ Historial cronológico de cambios estructurales e intervenciones del agente.
 | Fecha/Hora | Tarea / Decisión | Descripción del Cambio | Evidencia / Commit | Autor |
 |---|---|---|---|---|
 | 2026-02-27 | Setup Inicial | Se inicializa la carpeta `docs/_control` con las reglas doradas del sistema y el Roadmap P0-P2. | `docs/_control/*` | Antigravity AI |
+| 2026-02-27 | Git Hygiene | Se agregaron logs, dependencias locales y scripts de clonación untracked al `.gitignore`. Se limpiaron archivos innecesarios del tracking con `git rm --cached` conservándolos locales. | `.gitignore` | Antigravity AI |
 | | | | | |
 | | | | | |
 | | | | | |
