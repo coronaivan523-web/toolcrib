@@ -18,5 +18,6 @@ Registro de PRUEBAS fehacientes (Archivos extraídos, Logs de Crash, Outputs de 
 | EVI-002 | 2026-02-27 | Auth_Dependencies_Map | `docs/_control/evidence/EVIDENCE_AUTH_DEPENDENCIES.md` | HIGH COUPLING / NO-GO FOR CLONING |
 | EVI-003 | 2026-02-27 | Migration_DryRun_Staging | `docs/_control/evidence/EVIDENCE_P0_MIGRATION_DRYRUN.md` | NO-GO (FAIL-CLOSED NO CREDS) |
 | EVI-004 | 2026-02-27 | App_Smoke_Test | `docs/_control/evidence/EVIDENCE_P0_SMOKE_TEST.md` | PASS |
+| EVI-005 | 2026-02-27 | Staging_Migration_Real | `docs/_control/evidence/EVIDENCE_P0_MIGRATION_STAGING_EXECUTION.md` | FAIL-CLOSED (NO CREDS STAGING) |
 | | | | | |
 | | | | | |
