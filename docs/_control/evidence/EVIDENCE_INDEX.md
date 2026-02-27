@@ -15,6 +15,8 @@ Registro de PRUEBAS fehacientes (Archivos extraídos, Logs de Crash, Outputs de 
 | ID EVI | Fecha | Tópico | Ruta / Output | Veredicto |
 |---|---|---|---|---|
 | EVI-001 | 2026-02-27 | Peritaje_Fase1 | `C:\Users\Ivan.Corona\.gemini\antigravity\scratch\toolcrib_peritaje_fase1.txt` | FAIL-CLOSED CLONE DETECTED |
-| | | | | |
+| EVI-002 | 2026-02-27 | Auth_Dependencies_Map | `docs/_control/evidence/EVIDENCE_AUTH_DEPENDENCIES.md` | HIGH COUPLING / NO-GO FOR CLONING |
+| EVI-003 | 2026-02-27 | Migration_DryRun_Staging | `docs/_control/evidence/EVIDENCE_P0_MIGRATION_DRYRUN.md` | NO-GO (FAIL-CLOSED NO CREDS) |
+| EVI-004 | 2026-02-27 | App_Smoke_Test | `docs/_control/evidence/EVIDENCE_P0_SMOKE_TEST.md` | PASS |
 | | | | | |
 | | | | | |
