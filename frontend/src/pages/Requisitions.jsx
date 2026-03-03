@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { Search, RotateCw, Filter, Eye, AlertCircle, Plus, ClipboardList, X } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { requisitionService } from '../services/requisitions'
 import { supabase } from '../lib/supabase'
 import RequisitionDetailModal from '../components/RequisitionDetailModal'
 import RequisitionFormModal from '../components/RequisitionFormModal'
 import PageHeader from '../components/PageHeader'
+import { formatDate, formatTime } from '../utils/datetime'
 
 export default function Requisitions() {
+    const { t } = useTranslation()
     const { userProfile } = useOutletContext()
     const canCreate = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician', 'staff_level_1', 'staff_level_2', 'seguridad'].includes(userProfile?.role?.trim().toLowerCase())
 
@@ -183,7 +186,7 @@ export default function Requisitions() {
         <div className="flex flex-col h-full bg-slate-50 relative overflow-hidden">
             {/* Header */}
             <PageHeader
-                title="REQUISITIONS"
+                title={t('nav.requisitions')}
                 subtitle="Manage and approval material requests"
                 profile={userProfile}
                 bgColor="#0d9488"
@@ -377,9 +380,9 @@ export default function Requisitions() {
                                             {req.requester_name || req.requester?.full_name || req.requester?.email || 'Unknown'}
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 text-xs">
-                                            {new Date(req.submitted_at || req.created_at).toLocaleDateString()}
+                                            {formatDate(req.submitted_at || req.created_at)}
                                             <div className="text-[10px] text-slate-400">
-                                                {new Date(req.submitted_at || req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {formatTime(req.submitted_at || req.created_at)}
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">

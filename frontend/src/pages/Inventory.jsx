@@ -2,11 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { Plus, Search, Package, AlertCircle, Loader2, UploadCloud, Box, ClipboardList, MapPin, User, Check, X, Tag, Minus, History, Info } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import { requisitionService } from '../services/requisitions'
 import MaterialHistoryModal from '../components/MaterialHistoryModal'
 import MaterialHistoryView from '../components/MaterialHistoryView'
+import { formatDate, formatTime } from '../utils/datetime'
 
 export default function Inventory() {
+    const { t } = useTranslation()
     const [materials, setMaterials] = useState([])
     const [locations, setLocations] = useState([])
     const [profiles, setProfiles] = useState([])
@@ -802,7 +805,7 @@ export default function Inventory() {
                     )}
                     <div className="text-center">
                         <h1 className="text-2xl font-extrabold text-white tracking-widest leading-tight uppercase">
-                            Material Master
+                            {t('nav.materialMaster')}
                         </h1>
                         <p className="text-primary-200 mt-0 text-sm font-medium tracking-wide">Track items, stock levels, and locations.</p>
                     </div>
@@ -1146,10 +1149,10 @@ export default function Inventory() {
                                                 {isArchiveView ? (
                                                     <div className="flex flex-col">
                                                         <span className="text-[10px] font-bold text-slate-700">
-                                                            {new Date(item.archived_at).toLocaleDateString('en-GB')}
+                                                            {formatDate(item.archived_at)}
                                                         </span>
                                                         <span className="text-[9px] text-slate-400">
-                                                            {new Date(item.archived_at).toLocaleTimeString()}
+                                                            {formatTime(item.archived_at)}
                                                         </span>
                                                     </div>
                                                 ) : !canManage ? (
@@ -2009,7 +2012,7 @@ export default function Inventory() {
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Date</label>
-                                                        <div className="text-sm font-semibold text-slate-700">{selectedItemAction.created_at ? new Date(selectedItemAction.created_at).toLocaleDateString('en-GB') : '-'}</div>
+                                                        <div className="text-sm font-semibold text-slate-700">{selectedItemAction.created_at ? formatDate(selectedItemAction.created_at) : '-'}</div>
                                                     </div>
                                                     <div>
                                                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Requestor</label>
@@ -2065,8 +2068,8 @@ export default function Inventory() {
                                                             return (
                                                                 <tr key={event.id || Math.random()} className="hover:bg-purple-50/30 transition-colors group">
                                                                     <td className="px-4 py-4 text-[10px] text-slate-600 font-mono whitespace-nowrap align-top">
-                                                                        <div className="font-bold text-slate-700">{new Date(event.created_at).toLocaleDateString('en-GB')}</div>
-                                                                        <div className="text-[10px] text-slate-400 mt-0.5">{new Date(event.created_at).toLocaleTimeString()}</div>
+                                                                        <div className="font-bold text-slate-700">{formatDate(event.created_at)}</div>
+                                                                        <div className="text-[10px] text-slate-400 mt-0.5">{formatTime(event.created_at)}</div>
                                                                     </td>
                                                                     <td className="px-4 py-4 align-top">
                                                                         <div className="flex flex-col gap-1">

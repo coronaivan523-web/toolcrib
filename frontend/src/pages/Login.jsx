@@ -1,14 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { User, Lock, Loader2, AlertCircle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [selectedLang, setSelectedLang] = useState(() => localStorage.getItem('toolcrib_lang') || '')
     const navigate = useNavigate()
+    const { t, i18n } = useTranslation()
+
+    const handleLangSelect = (lang) => {
+        localStorage.setItem('toolcrib_lang', lang)
+        i18n.changeLanguage(lang)
+        setSelectedLang(lang)
+    }
 
     const handleLogin = async (e) => {
         e.preventDefault()
@@ -60,7 +69,7 @@ export default function Login() {
                     <form className="space-y-5" onSubmit={handleLogin}>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-primary-600 uppercase tracking-wider mb-1.5 ml-1">Email Address</label>
+                                <label className="block text-xs font-bold text-primary-600 uppercase tracking-wider mb-1.5 ml-1">{t('login.username')}</label>
                                 <div className="relative group">
                                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <User className="h-5 w-5 text-primary-300 group-focus-within:text-primary-600 transition-colors" />
@@ -77,7 +86,7 @@ export default function Login() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-primary-600 uppercase tracking-wider mb-1.5 ml-1">Password</label>
+                                <label className="block text-xs font-bold text-primary-600 uppercase tracking-wider mb-1.5 ml-1">{t('login.password')}</label>
                                 <div className="relative group">
                                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <Lock className="h-5 w-5 text-primary-300 group-focus-within:text-primary-600 transition-colors" />
@@ -94,6 +103,39 @@ export default function Login() {
                             </div>
                         </div>
 
+                        {/* Language Selector */}
+                        <div className="pt-2">
+                            <label className="block text-xs font-bold text-primary-600 uppercase tracking-wider mb-2 ml-1">
+                                {t('login.selectLanguage')}
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => handleLangSelect('es')}
+                                    className={`py-2 px-1 text-xs font-bold rounded-lg border transition-all ${selectedLang === 'es' ? 'bg-primary-600 text-white border-primary-600' : 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100'}`}
+                                >
+                                    {t('language.spanish')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleLangSelect('en')}
+                                    className={`py-2 px-1 text-xs font-bold rounded-lg border transition-all ${selectedLang === 'en' ? 'bg-primary-600 text-white border-primary-600' : 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100'}`}
+                                >
+                                    {t('language.english')}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleLangSelect('zh')}
+                                    className={`py-2 px-1 text-xs font-bold rounded-lg border transition-all ${selectedLang === 'zh' ? 'bg-primary-600 text-white border-primary-600' : 'bg-primary-50 text-primary-700 border-primary-200 hover:bg-primary-100'}`}
+                                >
+                                    {t('language.chinese')}
+                                </button>
+                            </div>
+                            {!selectedLang && (
+                                <p className="text-[10px] text-red-500 mt-1 ml-1">{t('login.errorNoLanguage')}</p>
+                            )}
+                        </div>
+
                         {error && (
                             <div className="flex items-center space-x-2 rounded-lg bg-red-50 p-3 text-sm text-red-600 border border-red-100">
                                 <AlertCircle size={16} />
@@ -103,10 +145,11 @@ export default function Login() {
 
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || !selectedLang}
+                            title={!selectedLang ? t('login.errorNoLanguage') : ''}
                             className="flex w-full justify-center rounded-lg bg-primary-700 hover:bg-primary-800 px-4 py-3.5 text-sm font-bold text-white transition-all transform active:scale-[0.98] shadow-lg shadow-primary-900/20 disabled:opacity-70 disabled:cursor-not-allowed uppercase tracking-wide"
                         >
-                            {loading ? <Loader2 className="animate-spin" /> : 'Sign In'}
+                            {loading ? <Loader2 className="animate-spin" /> : t('login.signIn')}
                         </button>
                     </form>
                 </div>

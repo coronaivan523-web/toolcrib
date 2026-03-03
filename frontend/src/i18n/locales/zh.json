@@ -1,0 +1,30 @@
+{
+    "language": {
+        "spanish": "Español",
+        "english": "English",
+        "chinese": "中文"
+    },
+    "login": {
+        "title": "Welcome to Tool Crib",
+        "username": "Username",
+        "password": "Password",
+        "signIn": "SIGN IN",
+        "selectLanguage": "Select Language",
+        "errorNoLanguage": "请先选择一种语言。"
+    },
+    "nav": {
+        "dashboard": "仪表板",
+        "materialMaster": "物料主数据",
+        "inventory": "库存",
+        "cycleCounts": "盘点",
+        "requisitions": "领料申请",
+        "tickets": "工单",
+        "users": "用户",
+        "editProfile": "编辑个人资料",
+        "adminView": "管理员视图",
+        "toolroomView": "库房人员视图",
+        "userView": "普通用户视图",
+        "logout": "登出",
+        "loading": "加载中..."
+    }
+}

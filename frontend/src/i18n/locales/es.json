@@ -1,0 +1,30 @@
+{
+    "language": {
+        "spanish": "Español",
+        "english": "English",
+        "chinese": "中文"
+    },
+    "login": {
+        "title": "Welcome to Tool Crib",
+        "username": "Username",
+        "password": "Password",
+        "signIn": "SIGN IN",
+        "selectLanguage": "Select Language",
+        "errorNoLanguage": "Por favor, seleccione un idioma primero."
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "materialMaster": "Maestro de Materiales",
+        "inventory": "Inventario",
+        "cycleCounts": "Conteos Cíclicos",
+        "requisitions": "Requisiciones",
+        "tickets": "Tickets",
+        "users": "Usuarios",
+        "editProfile": "EDITAR PERFIL",
+        "adminView": "Vista Admin",
+        "toolroomView": "Vista Almacén",
+        "userView": "Vista Usuario",
+        "logout": "Cerrar Sesión",
+        "loading": "Cargando..."
+    }
+}

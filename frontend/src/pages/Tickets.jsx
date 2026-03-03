@@ -4,11 +4,13 @@ import { Plus, Check, X, Clock, User, Package, FileText, Search, Eye, AlertCircl
 import { useOutletContext } from 'react-router-dom'
 import { ticketService } from '../services/tickets'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/PageHeader'
 import RequisitionFormModal from '../components/RequisitionFormModal' // Import Modal
 import RequisitionDetailModal from '../components/RequisitionDetailModal'
 import PPEValidationModal from '../components/PPEValidationModal'
 import PPEBlockModal from '../components/PPEBlockModal'
+import { formatDate, formatDateTime, formatTime } from '../utils/datetime'
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -44,6 +46,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function TicketsContent() {
+    const { t } = useTranslation()
     // Define privileged roles that can see ALL tickets
     const privilegedRoles = ['admin', 'administrator', 'supervisor', 'supervisor_tool', 'toolroom_staff', 'toolroom_technician']
 
@@ -1599,7 +1602,7 @@ function TicketsContent() {
             )}
 
             <PageHeader
-                title="Tickets"
+                title={t('nav.tickets')}
                 subtitle="Manage material requests and approvals."
                 user={currentUser}
                 profile={userProfile}
@@ -1746,7 +1749,7 @@ function TicketsContent() {
                                                     <h4 className="text-green-800 font-bold text-lg">Message Sent</h4>
                                                     <p className="text-green-700 text-sm mb-1">Tool Room & Supervisors notified.</p>
                                                     <p className="text-green-600 text-xs font-mono">
-                                                        {new Date(existingNotification.created_at).toLocaleString()}
+                                                        {formatDateTime(existingNotification.created_at)}
                                                     </p>
                                                 </div>
                                             ) : (
@@ -1910,7 +1913,7 @@ function TicketsContent() {
                                     if (!cancName.includes(cancSearch) && !cancEmail.includes(cancSearch)) return false;
                                 }
                                 if (cancelledFilterDate) {
-                                    const dateStr = new Date(item.ticketDate).toLocaleDateString().toLowerCase();
+                                    const dateStr = formatDate(item.ticketDate).toLowerCase();
                                     if (!dateStr.includes(cancelledFilterDate.toLowerCase())) return false;
                                 }
                                 return true;
@@ -2073,7 +2076,7 @@ function TicketsContent() {
                                                             )}
                                                         </td>
                                                         <td className="p-4 text-sm text-slate-500 font-mono">
-                                                            {new Date(item.ticketDate).toLocaleDateString()}
+                                                            {formatDate(item.ticketDate)}
                                                         </td>
                                                         <td className="p-4 text-center font-bold text-slate-700">{item.quantity_requested}</td>
                                                         <td className="p-4">
@@ -2182,10 +2185,10 @@ function TicketsContent() {
                                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date:</span>
                                             <div className="flex items-center gap-1 text-slate-600">
                                                 <span className="text-[10px] font-bold font-mono">
-                                                    {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : '---'}
+                                                    {ticket.created_at ? formatDate(ticket.created_at) : '---'}
                                                 </span>
                                                 <span className="text-[9px] text-slate-400 font-medium">
-                                                    {ticket.created_at ? new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                    {ticket.created_at ? formatTime(ticket.created_at) : ''}
                                                 </span>
                                             </div>
                                         </div>
@@ -3357,9 +3360,9 @@ function TicketsContent() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 font-mono text-xs whitespace-nowrap text-slate-500">
-                                                            {new Date(report.created_at).toLocaleDateString('en-US')}
+                                                            {formatDate(report.created_at)}
                                                             <br />
-                                                            {new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            {formatTime(report.created_at)}
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <div className="font-bold text-slate-700">{report.material?.name}</div>

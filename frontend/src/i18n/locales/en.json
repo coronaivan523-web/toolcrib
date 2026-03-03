@@ -1,0 +1,30 @@
+{
+    "language": {
+        "spanish": "Español",
+        "english": "English",
+        "chinese": "中文"
+    },
+    "login": {
+        "title": "Welcome to Tool Crib",
+        "username": "Username",
+        "password": "Password",
+        "signIn": "SIGN IN",
+        "selectLanguage": "Select Language",
+        "errorNoLanguage": "Please select a language first."
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "materialMaster": "Material Master",
+        "inventory": "Inventory",
+        "cycleCounts": "Cycle Counts",
+        "requisitions": "Requisitions",
+        "tickets": "Tickets",
+        "users": "Users",
+        "editProfile": "EDIT PROFILE",
+        "adminView": "Admin View",
+        "toolroomView": "Toolroom Staff View",
+        "userView": "Regular User View",
+        "logout": "Logout",
+        "loading": "Loading..."
+    }
+}

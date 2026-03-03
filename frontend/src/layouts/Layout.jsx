@@ -4,19 +4,21 @@ import { useNavigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { useToast } from '../context/ToastContext'
 import { LayoutDashboard, Package, Ticket, LogOut, Menu, Box, ClipboardList, User, Recycle } from 'lucide-react'
 import clsx from 'clsx'
+import { useTranslation } from 'react-i18next'
 
 const ALL_NAVIGATION = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'staff_level_1'] },
-    { name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-    { name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
-    { name: 'Cycle Counts', href: '/cycle-counts', icon: Recycle, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { i18nKey: 'nav.dashboard', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'staff_level_1'] },
+    { i18nKey: 'nav.materialMaster', name: 'Material Master', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { i18nKey: 'nav.inventory', name: 'Inventory', href: '/stock', icon: Box, roles: ['admin', 'supervisor', 'toolroom_staff'] },
+    { i18nKey: 'nav.cycleCounts', name: 'Cycle Counts', href: '/cycle-counts', icon: Recycle, roles: ['admin', 'supervisor', 'toolroom_staff'] },
 
-    { name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2', 'seguridad'] },
-    { name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2', 'seguridad'] },
-    { name: 'Users', href: '/users', icon: User, roles: ['admin'] },
+    { i18nKey: 'nav.requisitions', name: 'Requisitions', href: '/requisitions', icon: ClipboardList, roles: ['admin', 'supervisor', 'toolroom_staff', 'staff_level_1', 'staff_level_2', 'seguridad'] },
+    { i18nKey: 'nav.tickets', name: 'Tickets', href: '/tickets', icon: Ticket, roles: ['admin', 'supervisor', 'toolroom_staff', 'user', 'staff_level_1', 'staff_level_2', 'seguridad'] },
+    { i18nKey: 'nav.users', name: 'Users', href: '/users', icon: User, roles: ['admin'] },
 ]
 
 export default function Layout() {
+    const { t } = useTranslation()
     const { showToast } = useToast()
     const [session, setSession] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -118,7 +120,7 @@ export default function Layout() {
         }
     }
 
-    if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50">Loading...</div>
+    if (loading) return <div className="flex h-screen items-center justify-center bg-slate-50">{t('nav.loading')}</div>
 
     if (!session) return null
 
@@ -166,7 +168,7 @@ export default function Layout() {
                                 </div>
                                 <div className="flex flex-col items-center text-center w-full min-w-0 px-1">
                                     <span className="text-sm font-bold text-white break-words w-full leading-tight group-hover:text-primary-100 transition-colors">{session.user.email}</span>
-                                    <span className="text-xs text-primary-400 mt-1.5 group-hover:text-primary-300 font-medium tracking-wide">EDIT PROFILE</span>
+                                    <span className="text-xs text-primary-400 mt-1.5 group-hover:text-primary-300 font-medium tracking-wide">{t('nav.editProfile')}</span>
                                 </div>
                             </Link>
                             {/* Admin View Selector Dropdown */}
@@ -181,7 +183,7 @@ export default function Layout() {
                                                 {adminViewMode === 'admin' ? '👑' : adminViewMode === 'toolroom' ? '🔧' : '👤'}
                                             </span>
                                             <span className="text-sm font-medium">
-                                                {adminViewMode === 'admin' ? 'Admin View' : adminViewMode === 'toolroom' ? 'Toolroom View' : 'User View'}
+                                                {adminViewMode === 'admin' ? t('nav.adminView') : adminViewMode === 'toolroom' ? t('nav.toolroomView') : t('nav.userView')}
                                             </span>
                                         </div>
                                         <svg className={`w-4 h-4 transition-transform ${viewDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +201,7 @@ export default function Layout() {
                                                 className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-primary-700 transition-colors ${adminViewMode === 'admin' ? 'bg-primary-700' : ''}`}
                                             >
                                                 <span className="text-lg">👑</span>
-                                                <span className="text-sm text-white">Admin View</span>
+                                                <span className="text-sm text-white">{t('nav.adminView')}</span>
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -209,7 +211,7 @@ export default function Layout() {
                                                 className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-primary-700 transition-colors ${adminViewMode === 'toolroom' ? 'bg-primary-700' : ''}`}
                                             >
                                                 <span className="text-lg">🔧</span>
-                                                <span className="text-sm text-white">Toolroom Staff View</span>
+                                                <span className="text-sm text-white">{t('nav.toolroomView')}</span>
                                             </button>
                                             <button
                                                 onClick={() => {
@@ -219,7 +221,7 @@ export default function Layout() {
                                                 className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-primary-700 transition-colors ${adminViewMode === 'user' ? 'bg-primary-700' : ''}`}
                                             >
                                                 <span className="text-lg">👤</span>
-                                                <span className="text-sm text-white">Regular User View</span>
+                                                <span className="text-sm text-white">{t('nav.userView')}</span>
                                             </button>
                                         </div>
                                     )}
@@ -246,10 +248,10 @@ export default function Layout() {
                             >
                                 <Icon size={24} />
                                 {sidebarOpen ? (
-                                    <span className="text-lg">{item.name}</span>
+                                    <span className="text-lg">{t(item.i18nKey)}</span>
                                 ) : (
                                     <div className="absolute left-full top-1/2 ml-4 -translate-y-1/2 px-2 py-1 bg-primary-600 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                        {item.name}
+                                        {t(item.i18nKey)}
                                     </div>
                                 )}
                             </Link>
@@ -264,10 +266,10 @@ export default function Layout() {
                     >
                         <LogOut size={24} />
                         {sidebarOpen ? (
-                            <span className="text-lg">Logout</span>
+                            <span className="text-lg">{t('nav.logout')}</span>
                         ) : (
                             <div className="absolute left-full top-1/2 ml-4 -translate-y-1/2 px-2 py-1 bg-primary-600 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                                Logout
+                                {t('nav.logout')}
                             </div>
                         )}
                     </button>
