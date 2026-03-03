@@ -2,20 +2,20 @@
 
 ## Metadata
 - Fecha ejecución:
-- Entorno: 
-- Responsable: 
+- Entorno:
+- Responsable:
 - Método: Supabase Managed Snapshot
-- Tipo (Automatic / Manual): 
-- Timestamp snapshot: 
-- Estado snapshot: 
-- Tamaño (si disponible): 
-- Ubicación lógica: 
-- Control de acceso: 
+- Tipo (Automatic / Manual):
+- Timestamp snapshot:
+- Estado snapshot:
+- Tamaño (si disponible):
+- Ubicación lógica:
+- Control de acceso:
 
 ## Verificación
-- Snapshot visible en consola: 
-- Restore option visible: 
-- Snapshot estado válido (Available/Completed): 
+- Snapshot visible en consola:
+- Restore option visible:
+- Snapshot estado válido (Available/Completed):
 
 ## Resultado
 - Backup Baseline: PASS / FAIL (NO COMPLETAR)

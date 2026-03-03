@@ -1,7 +1,7 @@
 from typing import List, Any, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.deps import get_current_user
-from app.core.supabase import supabase_admin as supabase
+from app.core.supabase import supabase
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -92,7 +92,6 @@ def create_message(
     }
 
     try:
-        # Using supabase_admin to bypass RLS policies
         res = supabase.table('messages').insert(data).execute()
         if not res.data:
             raise HTTPException(status_code=400, detail="Failed to create message")

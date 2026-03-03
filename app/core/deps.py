@@ -34,10 +34,6 @@ class SupabaseUser:
         self.full_name = user_data.user_metadata.get('full_name', '')
         role_name = user_data.user_metadata.get('role', 'user')
         
-        email_lower = str(self.email).lower().strip() if self.email else ""
-        if email_lower.startswith('debug') or email_lower in ['ivan.corona@wasion.cn', 'ivan.corona@wasion.com']:
-            role_name = 'admin'
-            
         self.role = type('Role', (), {'name': role_name})()
         self.is_active = True 
         self.token = token
@@ -66,7 +62,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         print(f"[DEPS] Validating token (Network): {token[:10]}...")
         user_response = supabase.auth.get_user(token)
         end_t = time.time()
-        print(f"[DEPS] User Response: {user_response}")
         print(f"[DEPS] Validation took: {end_t - start_t:.4f}s")
         
         if not user_response or not user_response.user:

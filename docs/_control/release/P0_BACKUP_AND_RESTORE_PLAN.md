@@ -11,7 +11,7 @@ Checklist:
 - [ ] Confirmar estado Available/Completed
 - [ ] Registrar metadata
 - [ ] Confirmar opción Restore visible
-- [ ] Registrar evidencia en `EVIDENCE_P0_BASELINE_BACKUP.md`
+- [ ] Registrar evidencia en EVIDENCE_P0_BASELINE_BACKUP.md
 
 Criterio FAIL-CLOSED:
 Si no existe snapshot verificable → DETENER PROCESO.
@@ -27,7 +27,7 @@ Checklist:
 - [ ] Ejecutar restore desde snapshot
 - [ ] Confirmar restore sin error
 - [ ] Ejecutar validaciones SQL
-- [ ] Registrar resultados en `EVIDENCE_P0_RESTORE_DRY_RUN.md`
+- [ ] Registrar resultados en EVIDENCE_P0_RESTORE_DRY_RUN.md
 
 Criterio FAIL-CLOSED:
 - Error de dependencia a auth.users

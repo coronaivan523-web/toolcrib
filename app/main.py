@@ -30,9 +30,16 @@ async def startup_event():
         f.write(msg)
 
 # 1. CORS Middleware (Inner)
+if settings.ENVIRONMENT == "development":
+    origins = settings.BACKEND_CORS_ORIGINS
+    if settings.FRONTEND_ORIGIN and settings.FRONTEND_ORIGIN not in origins:
+        origins.append(settings.FRONTEND_ORIGIN)
+else:
+    origins = [settings.FRONTEND_ORIGIN] if settings.FRONTEND_ORIGIN else []
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow ALL for debugging
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,7 +67,8 @@ class DebugMiddleware(BaseHTTPMiddleware):
                 f.write(err_msg)
             raise e
 
-app.add_middleware(DebugMiddleware)
+if settings.ENVIRONMENT == "development":
+    app.add_middleware(DebugMiddleware)
 
 # Include Routers
 app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])

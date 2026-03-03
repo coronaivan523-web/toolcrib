@@ -1,10 +1,26 @@
 from typing import Any, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.deps import get_current_user, get_current_active_user
-from app.core.supabase import supabase_admin, supabase
+from app.core.config import settings
+from supabase import create_client, ClientOptions
+import base64, json
 from app.schemas.inventory import MaterialCreate, MaterialUpdate, MaterialResponse
 
 router = APIRouter()
+
+def get_user_client(token: str):
+    try:
+        payload = token.split('.')[1]
+        payload += '=' * (-len(payload) % 4)
+        claims = json.loads(base64.b64decode(payload).decode('utf-8'))
+        plant = claims.get('app_metadata', {}).get('plant') or claims.get('user_metadata', {}).get('plant') or claims.get('plant')
+        if not plant:
+             raise HTTPException(status_code=403, detail="Missing 'plant' claim in JWT")
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=403, detail="Missing 'plant' claim in JWT")
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY, options=ClientOptions(headers={'Authorization': f'Bearer {token}'}))
+
 
 # --- Standard CRUD ---
 
@@ -17,7 +33,8 @@ def read_materials(
     """
     Retrieve materials.
     """
-    res = supabase_admin.table('materials').select('*').range(skip, skip + limit - 1).execute()
+    client = get_user_client(current_user.token)
+    res = client.table('materials').select('*').range(skip, skip + limit - 1).execute()
     return res.data
 
 @router.get("/catalog", response_model=List[Any])
@@ -28,8 +45,9 @@ def get_material_catalog(
     Optimized fetch for Cycle Count Catalog.
     Returns lightweight list of all materials (limit 5000).
     """
+    client = get_user_client(current_user.token)
     # Select only necessary columns for the UI to reduce payload size
-    res = supabase_admin.table('materials').select(
+    res = client.table('materials').select(
         'id, part_number, name, plant, location, process, area, machine_asset, current_stock, min_stock, image_url'
     ).limit(5000).order('part_number').execute()
     return res.data
@@ -43,8 +61,9 @@ def create_material(
     """
     Create new material.
     """
+    client = get_user_client(current_user.token)
     # Check SKU
-    existing = supabase.table('materials').select('sku').eq('sku', material_in.sku).execute()
+    existing = client.table('materials').select('sku').eq('sku', material_in.sku).execute()
     if existing.data:
          raise HTTPException(
             status_code=400,
@@ -53,11 +72,11 @@ def create_material(
     
     # Verify location
     if material_in.location_id:
-        loc = supabase.table('locations').select('id').eq('id', material_in.location_id).execute()
+        loc = client.table('locations').select('id').eq('id', material_in.location_id).execute()
         if not loc.data:
             raise HTTPException(status_code=404, detail="Location not found")
             
-    res = supabase.table('materials').insert(material_in.dict()).execute()
+    res = client.table('materials').insert(material_in.dict()).execute()
     return res.data[0]
 
 @router.get("/{material_id}", response_model=MaterialResponse)
@@ -68,7 +87,8 @@ def read_material(
     """
     Get material by ID.
     """
-    res = supabase_admin.table('materials').select('*').eq('id', material_id).single().execute()
+    client = get_user_client(current_user.token)
+    res = client.table('materials').select('*').eq('id', material_id).single().execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Material not found")
     return res.data
@@ -87,7 +107,8 @@ def update_material(
     if not updates:
         return read_material(material_id, current_user)
         
-    res = supabase.table('materials').update(updates).eq('id', material_id).execute()
+    client = get_user_client(current_user.token)
+    res = client.table('materials').update(updates).eq('id', material_id).execute()
     if not res.data:
          raise HTTPException(status_code=404, detail="Material not found")
     return res.data[0]
@@ -108,13 +129,11 @@ def get_material_history(
     """
     try:
         print(f"[DEBUG] Fetching history for Material ID: {id} - RELOADED VERSION CHECK")
-        if not supabase_admin:
-            print("[CRITICAL] supabase_admin is None")
-            raise HTTPException(status_code=500, detail="Backend misconfiguration: Admin client missing.")
+        client = get_user_client(current_user.token)
 
         # 1. Get Material Info & Stock
         # Use limit(1) which is safer across library versions than maybe_single()
-        mat_response = supabase_admin.table("materials").select("*").eq("id", id).limit(1).execute()
+        mat_response = client.table("materials").select("*").eq("id", id).limit(1).execute()
         
         if not mat_response.data:
             print(f"[DEBUG] Material {id} not found in DB.")
@@ -124,7 +143,7 @@ def get_material_history(
         print(f"[DEBUG] Found Material: {material.get('name')}")
         
         # 2. Get Movements History (Fetch without join first to avoid FK errors)
-        moves_response = supabase_admin.table("inventory_movements")\
+        moves_response = client.table("inventory_movements")\
             .select("*")\
             .eq("material_id", id)\
             .order("timestamp", desc=True)\
@@ -137,7 +156,7 @@ def get_material_history(
         if movements:
             user_ids = list(set([m.get('created_by') for m in movements if m.get('created_by')]))
             if user_ids:
-                users_response = supabase_admin.table("profiles").select("id, full_name").in_("id", user_ids).execute()
+                users_response = client.table("profiles").select("id, full_name").in_("id", user_ids).execute()
                 users_map = {u['id']: u for u in users_response.data} if users_response.data else {}
                 
                 # Attach user info
@@ -154,7 +173,7 @@ def get_material_history(
                 # 4a. Fetch Tickets (to get Requester)
                 # Note: 'folio' column is confirmed existing
                 # Join with profiles to get requester name
-                tickets_res = supabase_admin.table('tickets')\
+                tickets_res = client.table('tickets')\
                     .select('id, folio, requester:profiles!requester_id(full_name)')\
                     .in_('folio', ticket_folios)\
                     .execute()
@@ -164,7 +183,7 @@ def get_material_history(
 
                 # 4b. Fetch Ticket Items (to get Job Details for THIS material)
                 if ticket_ids:
-                    items_res = supabase_admin.table('ticket_items')\
+                    items_res = client.table('ticket_items')\
                         .select('ticket_id, plant, area, line_machine, process')\
                         .in_('ticket_id', ticket_ids)\
                         .eq('material_id', id)\
@@ -217,7 +236,7 @@ def get_material_history(
             
             if req_folios:
                 # 5a. Fetch Requisitions
-                reqs_res = supabase_admin.table('requisitions')\
+                reqs_res = client.table('requisitions')\
                      .select('id, folio, requester:profiles!requester_id(full_name, department, job_title)')\
                      .in_('folio', req_folios)\
                      .execute()
@@ -228,7 +247,7 @@ def get_material_history(
 
                 # 5b. Fetch Items (for Cost Center)
                 if req_ids:
-                    items_res = supabase_admin.table('requisition_items')\
+                    items_res = client.table('requisition_items')\
                         .select('requisition_id, cost_center, project_code')\
                         .in_('requisition_id', req_ids)\
                         .eq('material_id', id)\

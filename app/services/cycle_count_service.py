@@ -251,47 +251,30 @@ class CycleCountService:
         mat_res = client.table('materials').select('current_stock').eq('id', material_id).single().execute()
         current_live_stock = mat_res.data['current_stock'] if mat_res.data and mat_res.data.get('current_stock') is not None else 0
         
-        # 3. Calculate Delta
-        delta = qty_physical - current_live_stock
+        # --- HC-2 ATOMIC UPDATE VIA RPC ---
+        reason_str = f"Cycle Count Adjustment ({delta}) [RefLine:{line_id}]"
         
         try:
-            # OPTIONAL: Log Movement
-            # We calculate proper types to avoid Enum errors (movement_type must be IN or OUT)
-            mov_type_enum = "IN" if delta >= 0 else "OUT"
-            
-            movement_payload = {
-                "material_id": material_id,
-                "quantity": abs(delta),             # Standard column (usually absolute)
-                "quantity_change": delta,           # New signed column
-                "new_stock_level": qty_physical,    # New column
-                "previous_stock_level": current_live_stock, # New column
-                "movement_type": mov_type_enum,     # Must be IN or OUT
-                "reference_type": "CYCLE_COUNT",
-                "reference_id": None, # Cannot store UUID in Int column. Storing in notes.
-                "notes": f"Cycle Count Adjustment ({delta}) [RefLine:{line_id}]", 
-                "created_by": performer_id  # USE PERFORMER ID
-            }
-            
-            try:
-                CycleCountService.log_debug(f"Attempting Primary Insert: {movement_payload}")
-                client.table('inventory_movements').insert(movement_payload).execute()
-                CycleCountService.log_debug("Primary Insert SUCCESS")
-            except Exception as e_new:
-                CycleCountService.log_debug(f"WARNING: Insert failed ({e_new}). Attempting fallback with NULL user...")
-                # Fallback: Try removing created_by (if FK issue)
-                try:
-                     movement_payload['created_by'] = None
-                     client.table('inventory_movements').insert(movement_payload).execute()
-                     CycleCountService.log_debug("Fallback Insert SUCCESS")
-                except Exception as e_final:
-                     CycleCountService.log_debug(f"CRITICAL: Failed to log movement even with fallback: {e_final}")
-                     # Now we pass, but we logged critical error
-                     pass
-
+            if delta != 0:
+                result = client.rpc(
+                    "atomic_inventory_movement_v1",
+                    {
+                        "p_material_id": material_id,
+                        "p_delta": delta,
+                        "p_user_id": performer_id,
+                        "p_reason": reason_str
+                    }
+                ).execute()
         except Exception as e:
-            # Catch outer errors
-            CycleCountService.log_debug(f"WARNING: Failed to log movement logic: {e}")
-        
+            err_msg = str(e)
+            if 'Insufficient stock' in err_msg:
+                 raise HTTPException(status_code=400, detail="Insufficient stock to satisfy this movement.")
+            elif 'Material not found' in err_msg:
+                 raise HTTPException(status_code=404, detail="Material not found")
+            else:
+                 CycleCountService.log_debug(f"[CRITICAL ERROR] RPC atomic_inventory_movement_v1 failed: {e}")
+                 raise HTTPException(status_code=400, detail=f"Database atomic transaction rejected: {e}")
+
         # [DUAL-WRITE INJECTION - SHADOW MODE]
         idempotency_key = f"CYCLE:{line.get('session_id', 'unknown')}:{material_id}:{delta}:{line_id}"
         
@@ -306,18 +289,17 @@ class CycleCountService:
                         'reference_id': str(line_id),
                         'idempotency_key': idempotency_key,
                         'created_by': performer_id,
-                        'metadata': {"shadow_mode": True}
+                        'metadata': {"shadow_mode": True, "atomic_v1": True}
                     }
                 }).execute()
         except Exception as e:
             CycleCountService.log_debug(f"[SHADOW MODE ERROR] ledger injection failed: {e}")
 
-        # 5. Update Material (Stock + timestamp) [LEGACY]
+        # 5. Update Material Last Counted Timestamp
         import datetime
         now = datetime.datetime.now().isoformat()
         
         client.table('materials').update({
-            'current_stock': qty_physical,
             'last_counted_at': now
         }).eq('id', material_id).execute()
         

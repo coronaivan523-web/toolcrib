@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import HTTPException
 
-from app.core.supabase import supabase, supabase_admin
+from app.core.supabase import supabase
 from app.core.config import settings
 from supabase import create_client
 from app.schemas.requisition import (
@@ -18,19 +18,8 @@ class RequisitionService:
 
     @classmethod
     def _get_admin_client(cls):
-        if cls._cached_admin_client:
-            return cls._cached_admin_client
-
-        # Prefer global admin client, fallback to manual creation, fallback to anon
-        if supabase_admin:
-            cls._cached_admin_client = supabase_admin
-            return supabase_admin
-            
-        if settings.SUPABASE_SERVICE_KEY:
-            print("[INFO] Creating new Supabase Admin Client (Cached)")
-            cls._cached_admin_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
-            return cls._cached_admin_client
-            
+        # SECURITY HARDENING HC-1: Forced to use ANON client to enforce RLS.
+        # No longer bypassing row level security for requisition operations.
         return supabase
     
     @staticmethod

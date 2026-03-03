@@ -19,6 +19,9 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://localhost:3000"
     ]
+    
+    ENVIRONMENT: str = "development"
+    FRONTEND_ORIGIN: Optional[str] = None
 
     class Config:
         case_sensitive = True

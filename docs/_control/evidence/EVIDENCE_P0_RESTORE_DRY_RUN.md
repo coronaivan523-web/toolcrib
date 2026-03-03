@@ -1,12 +1,12 @@
 # P0 Restore Seco — Dry Run Controlado
 
 ## Metadata
-- Fecha ejecución: 
-- Entorno destino: 
-- Responsable: 
-- Método restore: 
-- Tiempo ejecución: 
-- Resultado restore: 
+- Fecha ejecución:
+- Entorno destino:
+- Responsable:
+- Método restore:
+- Tiempo ejecución:
+- Resultado restore:
 
 ## Validaciones Ejecutadas
 
@@ -24,7 +24,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   AND ccu.table_schema = 'auth'
   AND ccu.table_name = 'users';
 ```
-Resultado: 
+
+Resultado:
 
 ### Validación 2 — FKs hacia public.profiles
 ```sql
@@ -45,7 +46,8 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
   AND ccu.table_name = 'profiles'
 ORDER BY tc.table_name;
 ```
-Resultado: 
+
+Resultado:
 
 ### Validación 3 — Existencia tablas críticas
 ```sql
@@ -62,16 +64,18 @@ AND table_name IN (
   'inventory_movements'
 );
 ```
-Resultado: 
+
+Resultado:
 
 ### Validación 4 — Conteos mínimos
 ```sql
-SELECT 'profiles' as tabla, COUNT(*) as conteo FROM public.profiles
+SELECT 'profiles', COUNT(*) FROM public.profiles
 UNION ALL SELECT 'materials', COUNT(*) FROM public.materials
 UNION ALL SELECT 'tickets', COUNT(*) FROM public.tickets
 UNION ALL SELECT 'requisitions', COUNT(*) FROM public.requisitions;
 ```
-Resultado: 
+
+Resultado:
 
 ## Resultado Global
 - Restore Seco: PASS / FAIL (NO COMPLETAR)
